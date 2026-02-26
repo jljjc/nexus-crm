@@ -47,6 +47,19 @@ const PRIORITY_STYLES = {
 
 const TEAM_COLORS = ['#38bdf8','#34d399','#f59e0b','#a78bfa','#fb923c','#f472b6','#4ade80','#60a5fa'];
 
+/* Document checklists per job type */
+const DOC_CHECKLISTS = {
+  'Student Visa': ['Offer Letter / CoE', 'Valid Passport (6+ months)', 'English Test Results (IELTS/PTE)', 'Financial Evidence', 'Health Insurance (OSHC)', 'Genuine Temporary Entrant (GTE) Statement', 'Academic Transcripts', 'Health & Character Checks'],
+  'Work Visa': ['Job Offer / Employment Contract', 'Skills Assessment (if required)', 'Passport', 'Labour Market Testing Evidence', 'English Language Evidence', 'Health & Character Checks', 'Sponsorship Approval Documents'],
+  'Partner Visa': ['Relationship Evidence (photos/messages)', 'Joint Financial Evidence', 'Statutory Declarations', 'Both Passports', 'Health Examination', 'Police Clearance', 'Birth Certificates'],
+  'Bridging Visa': ['Current Visa Copy', 'Application Reference Number', 'Passport', 'Substantive Visa Application Lodgement Receipt'],
+  'PR Application': ['Skills Assessment', 'English Test Results', 'Employment References (3+ years)', 'Passport', 'State Nomination (if applicable)', 'Health & Character Checks', 'EOI / SkillSelect Profile'],
+  'Visitor Visa': ['Passport', 'Travel Itinerary', 'Financial Evidence', 'Ties to Home Country Evidence', 'Travel Insurance (recommended)'],
+  'Enrollment Support': ['Offer Letter', 'Academic Transcripts', 'English Test Results', 'Passport Copy', 'Previous Visa (if applicable)'],
+  'Scholarship Application': ['Academic Transcripts', 'English Test Results', 'Research Proposal / Personal Statement', 'Referee Letters (2–3)', 'Passport', 'CV/Resume'],
+  'Other': ['Passport', 'Supporting Documents'],
+};
+
 const INIT_TEAM = [
   { id: 't1', name: 'Liang Jiang',  email: 'l.jiang@ozs.com.au',        role: 'Senior Consultant',   color: '#38bdf8' },
   { id: 't2', name: 'Mansi Mao',    email: 'm.mao@ozs.com.au',          role: 'Migration Agent',     color: '#34d399' },
@@ -275,6 +288,8 @@ function ClientSnapshot({ client, jobs, visible, anchorRef }) {
 
 /* ─── DASHBOARD ─────────────────────────────────────────────────────────────── */
 function Dashboard({ clients, jobs, team, onGoTo }) {
+  const [selectedJob, setSelectedJob] = useState(null);
+
   const active = clients.filter(c=>c.status==='Active').length;
   const inProgress = jobs.filter(j=>j.status==='In Progress').length;
   const urgent = jobs.filter(j=>j.priority==='Urgent' && j.status!=='Completed').length;
@@ -288,15 +303,33 @@ function Dashboard({ clients, jobs, team, onGoTo }) {
     count: jobs.filter(j=>j.assignedTo===m.id && j.status!=='Completed').length
   })).sort((a,b)=>b.count-a.count).slice(0,6);
 
+  // Upcoming deadlines in next 14 days
+  const now = new Date();
+  const in14 = new Date(now); in14.setDate(now.getDate()+14);
+  const upcoming = jobs
+    .filter(j => j.status!=='Completed' && j.dueDate)
+    .filter(j => { const d = new Date(j.dueDate); return d >= now && d <= in14; })
+    .sort((a,b) => a.dueDate.localeCompare(b.dueDate))
+    .slice(0,5);
+
+  // Pipeline counts
+  const pipeline = ['New','In Progress','Awaiting Docs','Under Review','On Hold'].map(s => ({
+    status: s,
+    count: jobs.filter(j=>j.status===s).length
+  }));
+
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
   const statCards = [
-    { label:'Active Clients',   value:active,     icon:'👥', color:'#38bdf8', sub:`of ${clients.length} total` },
-    { label:'Jobs In Progress', value:inProgress, icon:'⚡', color:'#f59e0b', sub:`${jobs.length} total jobs` },
-    { label:'Urgent Jobs',      value:urgent,     icon:'🔴', color:'#f87171', sub:'need immediate attention' },
-    { label:'Completed',        value:completed,  icon:'✅', color:'#34d399', sub:'jobs finished' },
+    { label:'Active Clients',   value:active,     icon:'👥', color:'#38bdf8', sub:`of ${clients.length} total`,   onClick:()=>onGoTo('clients') },
+    { label:'Jobs In Progress', value:inProgress, icon:'⚡', color:'#f59e0b', sub:`${jobs.length} total jobs`,     onClick:()=>onGoTo('jobs') },
+    { label:'Urgent Jobs',      value:urgent,     icon:'🔴', color:'#f87171', sub:'need immediate attention',       onClick:()=>onGoTo('jobs') },
+    { label:'Completed',        value:completed,  icon:'✅', color:'#34d399', sub:'jobs finished',                  onClick:()=>onGoTo('jobs') },
   ];
+
+  const selectedClient = selectedJob ? getClient(selectedJob.clientId) : null;
+  const selectedMember = selectedJob ? getMember(selectedJob.assignedTo) : null;
 
   return (
     <div className="animate-fade">
@@ -304,23 +337,50 @@ function Dashboard({ clients, jobs, team, onGoTo }) {
         <h1 style={{ fontSize:26, fontWeight:700, color:'#e2e8f0', marginBottom:4 }}>{greeting} 👋</h1>
         <p style={{ color:'#475569', fontSize:14 }}>{new Date().toLocaleDateString('en-AU',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}</p>
       </div>
+
+      {/* Stat cards – all clickable */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))', gap:16, marginBottom:28 }}>
         {statCards.map(s => (
-          <Card key={s.label} style={{ position:'relative', overflow:'hidden' }}>
+          <Card key={s.label} onClick={s.onClick} style={{ position:'relative', overflow:'hidden' }}>
             <div style={{ position:'absolute', top:-10, right:-10, fontSize:48, opacity:0.08 }}>{s.icon}</div>
             <div style={{ fontSize:13, color:'#475569', marginBottom:8 }}>{s.label}</div>
             <div style={{ fontSize:36, fontWeight:700, color:s.color, marginBottom:4, fontFamily:"'JetBrains Mono',monospace" }}>{s.value}</div>
             <div style={{ fontSize:12, color:'#334155' }}>{s.sub}</div>
+            <div style={{ position:'absolute', bottom:10, right:12, fontSize:11, color:s.color+'80' }}>click →</div>
           </Card>
         ))}
       </div>
+
       {overdue > 0 && (
         <div style={{ background:'#7f1d1d30', border:'1px solid #ef444440', borderRadius:10, padding:'12px 16px', marginBottom:24, display:'flex', alignItems:'center', gap:10 }}>
           <span style={{ fontSize:18 }}>⚠️</span>
           <span style={{ color:'#fca5a5', fontSize:14 }}><strong>{overdue} job{overdue>1?'s':''}</strong> {overdue>1?'are':'is'} overdue. <button onClick={()=>onGoTo('jobs')} style={{ background:'none', border:'none', color:'#f87171', textDecoration:'underline', fontSize:14, cursor:'pointer' }}>View jobs →</button></span>
         </div>
       )}
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20 }}>
+
+      {/* Pipeline summary bar */}
+      <Card style={{ marginBottom:20, padding:'16px 20px' }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
+          <h3 style={{ fontSize:15, fontWeight:600, color:'#e2e8f0' }}>Pipeline Overview</h3>
+          <button onClick={()=>onGoTo('jobs')} style={{ background:'none', border:'none', color:'#38bdf8', fontSize:13, cursor:'pointer' }}>View all →</button>
+        </div>
+        <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
+          {pipeline.map(p => {
+            const s = STATUS_STYLES[p.status];
+            return (
+              <div key={p.status} onClick={()=>onGoTo('jobs')} style={{ flex:1, minWidth:90, background:s.bg, borderRadius:10, padding:'10px 12px', cursor:'pointer', transition:'filter 0.15s' }}
+                onMouseEnter={e=>e.currentTarget.style.filter='brightness(1.2)'}
+                onMouseLeave={e=>e.currentTarget.style.filter='none'}>
+                <div style={{ fontSize:20, fontWeight:700, color:s.text, fontFamily:"'JetBrains Mono',monospace" }}>{p.count}</div>
+                <div style={{ fontSize:11, color:s.text+'99', marginTop:2 }}>{p.status}</div>
+              </div>
+            );
+          })}
+        </div>
+      </Card>
+
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20, marginBottom:20 }}>
+        {/* Recent Jobs – clickable rows */}
         <Card>
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
             <h3 style={{ fontSize:15, fontWeight:600, color:'#e2e8f0' }}>Recent Jobs</h3>
@@ -331,7 +391,9 @@ function Dashboard({ clients, jobs, team, onGoTo }) {
               const client = getClient(j.clientId);
               const member = getMember(j.assignedTo);
               return (
-                <div key={j.id} style={{ padding:'10px 12px', background:'#080c14', borderRadius:8, border:'1px solid #1e2d40' }}>
+                <div key={j.id} onClick={()=>setSelectedJob(j)} style={{ padding:'10px 12px', background:'#080c14', borderRadius:8, border:'1px solid #1e2d40', cursor:'pointer', transition:'border-color 0.15s' }}
+                  onMouseEnter={e=>e.currentTarget.style.borderColor='#38bdf860'}
+                  onMouseLeave={e=>e.currentTarget.style.borderColor='#1e2d40'}>
                   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:6 }}>
                     <div>
                       <div style={{ fontSize:13, fontWeight:600, color:'#e2e8f0', marginBottom:2 }}>{j.title}</div>
@@ -348,16 +410,20 @@ function Dashboard({ clients, jobs, team, onGoTo }) {
             })}
           </div>
         </Card>
+
+        {/* Team Workload – clickable */}
         <Card>
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
             <h3 style={{ fontSize:15, fontWeight:600, color:'#e2e8f0' }}>Team Workload</h3>
-            <button onClick={()=>onGoTo('team')} style={{ background:'none', border:'none', color:'#38bdf8', fontSize:13, cursor:'pointer' }}>View all →</button>
+            <button onClick={()=>onGoTo('team')} style={{ background:'none', border:'none', color:'#38bdf8', fontSize:13, cursor:'pointer' }}>View team →</button>
           </div>
           <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
             {memberLoad.map(m => {
               const pct = Math.min((m.count / 5) * 100, 100);
               return (
-                <div key={m.id} style={{ display:'flex', alignItems:'center', gap:12 }}>
+                <div key={m.id} onClick={()=>onGoTo('jobs')} style={{ display:'flex', alignItems:'center', gap:12, padding:'6px 8px', borderRadius:8, cursor:'pointer', transition:'background 0.15s' }}
+                  onMouseEnter={e=>e.currentTarget.style.background='#38bdf810'}
+                  onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
                   <Avatar name={m.name} color={m.color} size={30} />
                   <div style={{ flex:1 }}>
                     <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
@@ -374,6 +440,88 @@ function Dashboard({ clients, jobs, team, onGoTo }) {
           </div>
         </Card>
       </div>
+
+      {/* Upcoming Deadlines */}
+      {upcoming.length > 0 && (
+        <Card>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
+            <h3 style={{ fontSize:15, fontWeight:600, color:'#e2e8f0' }}>📅 Upcoming Deadlines <span style={{ fontSize:12, color:'#475569', fontWeight:400 }}>(next 14 days)</span></h3>
+            <button onClick={()=>onGoTo('jobs')} style={{ background:'none', border:'none', color:'#38bdf8', fontSize:13, cursor:'pointer' }}>View all →</button>
+          </div>
+          <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+            {upcoming.map(j => {
+              const client = getClient(j.clientId);
+              const daysLeft = Math.ceil((new Date(j.dueDate) - now) / 86400000);
+              const urgency = daysLeft <= 3 ? '#f87171' : daysLeft <= 7 ? '#f59e0b' : '#34d399';
+              return (
+                <div key={j.id} onClick={()=>setSelectedJob(j)} style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 14px', background:'#080c14', borderRadius:8, border:'1px solid #1e2d40', cursor:'pointer', transition:'border-color 0.15s' }}
+                  onMouseEnter={e=>e.currentTarget.style.borderColor='#38bdf860'}
+                  onMouseLeave={e=>e.currentTarget.style.borderColor='#1e2d40'}>
+                  <div style={{ minWidth:42, height:42, borderRadius:8, background:urgency+'20', border:`2px solid ${urgency}40`, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center' }}>
+                    <div style={{ fontSize:14, fontWeight:700, color:urgency, lineHeight:1 }}>{daysLeft}</div>
+                    <div style={{ fontSize:9, color:urgency+'99' }}>days</div>
+                  </div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:13, fontWeight:600, color:'#e2e8f0', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{j.title}</div>
+                    <div style={{ fontSize:12, color:'#475569' }}>{client?.name} · Due {fmtDate(j.dueDate)}</div>
+                  </div>
+                  <div style={{ display:'flex', gap:8, alignItems:'center', flexShrink:0 }}>
+                    <PriorityBadge priority={j.priority} />
+                    <StatusBadge status={j.status} small />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
+
+      {/* Job Quick-View Modal (from dashboard) */}
+      {selectedJob && (
+        <Modal title={`Job Details – ${selectedJob.title}`} onClose={()=>setSelectedJob(null)} wide>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20, marginBottom:20 }}>
+            <div>
+              <div style={{ fontSize:11, color:'#64748b', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:6 }}>Client</div>
+              <div style={{ fontSize:14, color:'#e2e8f0', fontWeight:600 }}>{selectedClient?.name || '—'}</div>
+              <div style={{ fontSize:12, color:'#475569' }}>{selectedClient?.email}</div>
+            </div>
+            <div>
+              <div style={{ fontSize:11, color:'#64748b', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:6 }}>Assigned To</div>
+              <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                {selectedMember && <Avatar name={selectedMember.name} color={selectedMember.color} size={28} />}
+                <div style={{ fontSize:14, color:'#e2e8f0' }}>{selectedMember?.name || '—'}</div>
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize:11, color:'#64748b', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:6 }}>Status / Priority</div>
+              <div style={{ display:'flex', gap:8 }}><StatusBadge status={selectedJob.status} /><PriorityBadge priority={selectedJob.priority} /></div>
+            </div>
+            <div>
+              <div style={{ fontSize:11, color:'#64748b', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:6 }}>Due Date</div>
+              <div style={{ fontSize:14, color: isOverdue(selectedJob.dueDate) && selectedJob.status!=='Completed' ? '#f87171':'#e2e8f0' }}>{fmtDate(selectedJob.dueDate)}</div>
+            </div>
+          </div>
+          <div style={{ marginBottom:16 }}>
+            <div style={{ fontSize:11, color:'#64748b', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:6 }}>Progress – {selectedJob.progress}%</div>
+            <ProgressBar value={selectedJob.progress} />
+          </div>
+          {normalizeNotes(selectedJob.notes).length > 0 && (
+            <div style={{ marginBottom:16 }}>
+              <div style={{ fontSize:11, color:'#64748b', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:10 }}>Notes ({normalizeNotes(selectedJob.notes).length})</div>
+              {[...normalizeNotes(selectedJob.notes)].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)).slice(0,3).map(n => (
+                <div key={n.id} style={{ background:'#080c14', border:'1px solid #1e2d40', borderRadius:8, padding:'10px 12px', marginBottom:8 }}>
+                  <div style={{ fontSize:13, color:'#cbd5e1' }}>{n.text}</div>
+                  <div style={{ fontSize:11, color:'#334155', marginTop:4 }}>{fmtDateTime(n.createdAt)}</div>
+                </div>
+              ))}
+            </div>
+          )}
+          <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:4, borderTop:'1px solid #1e2d40', paddingTop:16 }}>
+            <button onClick={()=>setSelectedJob(null)} style={{ background:'#1e2d40', border:'none', borderRadius:8, padding:'9px 18px', color:'#94a3b8', fontWeight:500 }}>Close</button>
+            <button onClick={()=>{ setSelectedJob(null); onGoTo('jobs'); }} style={{ background:'#38bdf8', border:'none', borderRadius:8, padding:'9px 20px', color:'#080c14', fontWeight:700 }}>Open in Jobs →</button>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
@@ -387,6 +535,7 @@ function Clients({ clients, jobs, setClients }) {
   const [form, setForm] = useState({});
   const [hoverId, setHoverId] = useState(null);
   const [tooltipPos, setTooltipPos] = useState({ x:0, y:0 });
+  const [viewClient, setViewClient] = useState(null);
   const hoverTimer = useRef(null);
 
   const filtered = clients.filter(c => {
@@ -487,7 +636,7 @@ function Clients({ clients, jobs, setClients }) {
                     <div style={{ display:'flex', alignItems:'center', gap:10 }}>
                       <div style={{ width:34, height:34, borderRadius:'50%', background:'#1e2d40', display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, fontWeight:600, color:'#94a3b8' }}>{initials(c.name)}</div>
                       <div>
-                        <div style={{ fontWeight:600, color:'#e2e8f0', fontSize:14 }}>{c.name}</div>
+                        <div onClick={()=>setViewClient(c)} style={{ fontWeight:600, color:'#38bdf8', fontSize:14, cursor:'pointer', textDecoration:'underline', textDecorationStyle:'dotted', textDecorationColor:'#38bdf840' }}>{c.name}</div>
                         <div style={{ fontSize:12, color:'#475569' }}>{c.email}</div>
                       </div>
                     </div>
@@ -544,6 +693,62 @@ function Clients({ clients, jobs, setClients }) {
           </div>
         </Modal>
       )}
+      {viewClient && (
+        <Modal title={`Client Profile – ${viewClient.name}`} onClose={()=>setViewClient(null)} wide>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20 }}>
+            <div>
+              <div style={{ display:'flex', alignItems:'center', gap:14, marginBottom:18 }}>
+                <div style={{ width:54, height:54, borderRadius:'50%', background:'#1e3a5f', display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, fontWeight:700, color:'#38bdf8' }}>{initials(viewClient.name)}</div>
+                <div>
+                  <div style={{ fontSize:18, fontWeight:700, color:'#e2e8f0' }}>{viewClient.name}</div>
+                  <div style={{ fontSize:13, color:'#475569', marginTop:2 }}>{viewClient.email}</div>
+                </div>
+              </div>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+                {[['Phone', viewClient.phone||'—'], ['Nationality', viewClient.nationality||'—'], ['Type', viewClient.type], ['Status', viewClient.status], ['Created', fmtDate(viewClient.createdAt)]].map(([l,v])=>(
+                  <div key={l} style={{ background:'#0f1623', borderRadius:8, padding:'10px 14px' }}>
+                    <div style={{ fontSize:10, color:'#475569', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:4 }}>{l}</div>
+                    <div style={{ fontSize:13, color:'#e2e8f0', fontWeight:500 }}>{v}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize:11, color:'#64748b', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:10 }}>Jobs ({jobs.filter(j=>j.clientId===viewClient.id).length})</div>
+              <div style={{ display:'flex', flexDirection:'column', gap:8, maxHeight:220, overflowY:'auto' }}>
+                {jobs.filter(j=>j.clientId===viewClient.id).length === 0 && <div style={{ color:'#334155', fontSize:13 }}>No jobs yet</div>}
+                {jobs.filter(j=>j.clientId===viewClient.id).map(j=>(
+                  <div key={j.id} style={{ background:'#0f1623', borderRadius:8, padding:'10px 14px', border:'1px solid #1e2d40' }}>
+                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:4 }}>
+                      <span style={{ fontSize:13, fontWeight:600, color:'#e2e8f0' }}>{j.title}</span>
+                      <StatusBadge status={j.status} small />
+                    </div>
+                    <div style={{ fontSize:11, color:'#475569', marginBottom:6 }}>{j.type} · Due {fmtDate(j.dueDate)||'—'}</div>
+                    <ProgressBar value={j.progress} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          {normalizeNotes(viewClient.notes).length > 0 && (
+            <div style={{ marginTop:18, borderTop:'1px solid #1e2d40', paddingTop:16 }}>
+              <div style={{ fontSize:11, color:'#64748b', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:10 }}>Notes ({normalizeNotes(viewClient.notes).length})</div>
+              <div style={{ display:'flex', flexDirection:'column', gap:8, maxHeight:160, overflowY:'auto' }}>
+                {[...normalizeNotes(viewClient.notes)].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)).map(n=>(
+                  <div key={n.id} style={{ background:'#0f1623', borderRadius:8, padding:'10px 14px' }}>
+                    <div style={{ fontSize:13, color:'#cbd5e1', whiteSpace:'pre-wrap' }}>{n.text}</div>
+                    <div style={{ fontSize:11, color:'#334155', marginTop:4 }}>{fmtDate(n.createdAt)}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:18 }}>
+            <button onClick={()=>setViewClient(null)} style={{ background:'#1e2d40', border:'none', borderRadius:8, padding:'9px 18px', color:'#94a3b8', fontWeight:500 }}>Close</button>
+            <button onClick={()=>{ setViewClient(null); openEdit(viewClient); }} style={{ background:'#38bdf8', border:'none', borderRadius:8, padding:'9px 20px', color:'#080c14', fontWeight:700 }}>Edit Client</button>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
@@ -557,6 +762,8 @@ function Jobs({ jobs, clients, team, setJobs }) {
   const [view, setView] = useState('list');
   const [modal, setModal] = useState(null);
   const [form, setForm] = useState({});
+  const [viewJob, setViewJob] = useState(null);
+  const [docChecks, setDocChecks] = useState({});
 
   const getClient = id => clients.find(c=>c.id===id);
   const getMember = id => team.find(t=>t.id===id);
@@ -632,6 +839,26 @@ function Jobs({ jobs, clients, team, setJobs }) {
       <div style={{ borderTop:'1px solid #1e2d40', marginTop:8, paddingTop:16 }}>
         <NotesPanel notes={normalizeNotes(form.notes)} onAddNote={addNote} onDeleteNote={deleteNote} />
       </div>
+      {(DOC_CHECKLISTS[form.type]||[]).length > 0 && (
+        <div style={{ borderTop:'1px solid #1e2d40', marginTop:8, paddingTop:16 }}>
+          <div style={{ fontSize:11, color:'#64748b', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:12 }}>Document Checklist – {form.type}</div>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+            {(DOC_CHECKLISTS[form.type]||[]).map(doc => {
+              const key = (form.id||'new')+'::'+doc;
+              const checked = (form.docs||{})[doc] || false;
+              return (
+                <label key={doc} style={{ display:'flex', alignItems:'center', gap:8, background: checked?'#05966915':'#0f1623', borderRadius:7, padding:'7px 12px', cursor:'pointer', border:`1px solid ${checked?'#05966940':'#1e2d40'}`, transition:'all 0.15s' }}>
+                  <input type="checkbox" checked={checked} onChange={e=>setForm(f=>({...f, docs:{...(f.docs||{}), [doc]:e.target.checked}}))} style={{ accentColor:'#34d399', width:14, height:14 }} />
+                  <span style={{ fontSize:12, color: checked?'#34d399':'#94a3b8' }}>{doc}</span>
+                </label>
+              );
+            })}
+          </div>
+          <div style={{ fontSize:11, color:'#475569', marginTop:10 }}>
+            {Object.values(form.docs||{}).filter(Boolean).length} / {(DOC_CHECKLISTS[form.type]||[]).length} documents received
+          </div>
+        </div>
+      )}
     </>
   );
 
@@ -665,7 +892,7 @@ function Jobs({ jobs, clients, team, setJobs }) {
                     const member = getMember(j.assignedTo);
                     const jnotes = normalizeNotes(j.notes);
                     return (
-                      <div key={j.id} onClick={()=>openEdit(j)} style={{ background:'#0f1623', border:'1px solid #1e2d40', borderRadius:10, padding:14, cursor:'pointer', transition:'border-color 0.15s' }}
+                      <div key={j.id} onClick={()=>setViewJob(j)} style={{ background:'#0f1623', border:'1px solid #1e2d40', borderRadius:10, padding:14, cursor:'pointer', transition:'border-color 0.15s' }}
                         onMouseEnter={e=>e.currentTarget.style.borderColor='#38bdf840'}
                         onMouseLeave={e=>e.currentTarget.style.borderColor='#1e2d40'}>
                         <div style={{ fontSize:13, fontWeight:600, color:'#e2e8f0', marginBottom:5 }}>{j.title}</div>
@@ -696,6 +923,49 @@ function Jobs({ jobs, clients, team, setJobs }) {
             </div>
           </Modal>
         )}
+        {viewJob && (() => {
+          const vc2 = getClient(viewJob.clientId);
+          const vm2 = getMember(viewJob.assignedTo);
+          const checklist2 = DOC_CHECKLISTS[viewJob.type] || [];
+          const docs2 = viewJob.docs || {};
+          return (
+            <Modal title={viewJob.title} onClose={()=>setViewJob(null)} wide>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20, marginBottom:18 }}>
+                <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+                  {[['Client', vc2?.name||'—'], ['Type', viewJob.type], ['Status', viewJob.status], ['Priority', viewJob.priority], ['Due Date', fmtDate(viewJob.dueDate)||'—']].map(([l,v])=>(
+                    <div key={l} style={{ display:'flex', justifyContent:'space-between', background:'#0f1623', borderRadius:8, padding:'9px 14px' }}>
+                      <span style={{ fontSize:11, color:'#475569', textTransform:'uppercase', letterSpacing:'0.06em' }}>{l}</span>
+                      <span style={{ fontSize:13, color:'#e2e8f0', fontWeight:500 }}>{v}</span>
+                    </div>
+                  ))}
+                </div>
+                <div>
+                  <div style={{ marginBottom:14 }}>
+                    <div style={{ fontSize:11, color:'#64748b', letterSpacing:'0.08em', marginBottom:6 }}>Progress – {viewJob.progress}%</div>
+                    <ProgressBar value={viewJob.progress} />
+                  </div>
+                  {checklist2.length > 0 && (
+                    <div>
+                      <div style={{ fontSize:11, color:'#64748b', letterSpacing:'0.08em', marginBottom:8 }}>Documents – {checklist2.filter(d=>docs2[d]).length}/{checklist2.length}</div>
+                      <div style={{ background:'#080c1460', borderRadius:8, padding:10, maxHeight:180, overflowY:'auto' }}>
+                        {checklist2.map(doc=>(
+                          <div key={doc} style={{ display:'flex', alignItems:'center', gap:8, padding:'5px 4px', borderBottom:'1px solid #1e2d4030' }}>
+                            <span style={{ fontSize:14, color: docs2[doc]?'#34d399':'#334155' }}>{docs2[doc]?'✓':'○'}</span>
+                            <span style={{ fontSize:12, color: docs2[doc]?'#94a3b8':'#475569', textDecoration: docs2[doc]?'line-through':'none' }}>{doc}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:18 }}>
+                <button onClick={()=>setViewJob(null)} style={{ background:'#1e2d40', border:'none', borderRadius:8, padding:'9px 18px', color:'#94a3b8', fontWeight:500 }}>Close</button>
+                <button onClick={()=>{ setViewJob(null); openEdit(viewJob); }} style={{ background:'#38bdf8', border:'none', borderRadius:8, padding:'9px 20px', color:'#080c14', fontWeight:700 }}>Edit Job</button>
+              </div>
+            </Modal>
+          );
+        })()}
       </div>
     );
   }
@@ -739,7 +1009,7 @@ function Jobs({ jobs, clients, team, setJobs }) {
               <div style={{ display:'flex', alignItems:'center', gap:16, flexWrap:'wrap' }}>
                 <div style={{ flex:1, minWidth:200 }}>
                   <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
-                    <span style={{ fontSize:14, fontWeight:600, color:'#e2e8f0' }}>{j.title}</span>
+                    <span onClick={()=>setViewJob(j)} style={{ fontSize:14, fontWeight:600, color:'#38bdf8', cursor:'pointer', textDecoration:'underline', textDecorationStyle:'dotted', textDecorationColor:'#38bdf840' }}>{j.title}</span>
                     <PriorityBadge priority={j.priority} />
                     {overdue && <span style={{ fontSize:11, color:'#f87171', background:'#7f1d1d30', borderRadius:10, padding:'2px 8px' }}>Overdue</span>}
                   </div>
@@ -778,6 +1048,75 @@ function Jobs({ jobs, clients, team, setJobs }) {
           </div>
         </Modal>
       )}
+      {viewJob && (() => {
+        const vc = getClient(viewJob.clientId);
+        const vm = getMember(viewJob.assignedTo);
+        const checklist = DOC_CHECKLISTS[viewJob.type] || [];
+        const docs = viewJob.docs || {};
+        const docsReceived = checklist.filter(d=>docs[d]).length;
+        return (
+          <Modal title={viewJob.title} onClose={()=>setViewJob(null)} wide>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20, marginBottom:18 }}>
+              <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+                {[['Client', vc?.name||'—'], ['Type', viewJob.type], ['Status', viewJob.status], ['Priority', viewJob.priority], ['Due Date', fmtDate(viewJob.dueDate)||'—'], ['Created', fmtDate(viewJob.createdAt)]].map(([l,v])=>(
+                  <div key={l} style={{ display:'flex', justifyContent:'space-between', background:'#0f1623', borderRadius:8, padding:'9px 14px' }}>
+                    <span style={{ fontSize:11, color:'#475569', textTransform:'uppercase', letterSpacing:'0.06em' }}>{l}</span>
+                    <span style={{ fontSize:13, color:'#e2e8f0', fontWeight:500 }}>{v}</span>
+                  </div>
+                ))}
+                {vm && (
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', background:'#0f1623', borderRadius:8, padding:'9px 14px' }}>
+                    <span style={{ fontSize:11, color:'#475569', textTransform:'uppercase', letterSpacing:'0.06em' }}>Assigned</span>
+                    <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                      <Avatar name={vm.name} color={vm.color} size={22} />
+                      <span style={{ fontSize:13, color:'#e2e8f0', fontWeight:500 }}>{vm.name}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div>
+                <div style={{ marginBottom:14 }}>
+                  <div style={{ fontSize:11, color:'#64748b', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:6 }}>Progress – {viewJob.progress}%</div>
+                  <ProgressBar value={viewJob.progress} />
+                </div>
+                {checklist.length > 0 && (
+                  <div>
+                    <div style={{ fontSize:11, color:'#64748b', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:8 }}>Documents – {docsReceived}/{checklist.length}</div>
+                    <div style={{ background:'#080c1460', borderRadius:8, padding:10, maxHeight:210, overflowY:'auto' }}>
+                      {checklist.map(doc=>{
+                        const got = docs[doc];
+                        return (
+                          <div key={doc} style={{ display:'flex', alignItems:'center', gap:8, padding:'5px 4px', borderBottom:'1px solid #1e2d4030' }}>
+                            <span style={{ fontSize:14, color: got?'#34d399':'#334155' }}>{got?'✓':'○'}</span>
+                            <span style={{ fontSize:12, color: got?'#94a3b8':'#475569', textDecoration: got?'line-through':'none' }}>{doc}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            {normalizeNotes(viewJob.notes).length > 0 && (
+              <div style={{ borderTop:'1px solid #1e2d40', paddingTop:14 }}>
+                <div style={{ fontSize:11, color:'#64748b', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:8 }}>Notes</div>
+                <div style={{ display:'flex', flexDirection:'column', gap:8, maxHeight:150, overflowY:'auto' }}>
+                  {[...normalizeNotes(viewJob.notes)].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)).map(n=>(
+                    <div key={n.id} style={{ background:'#0f1623', borderRadius:8, padding:'10px 14px' }}>
+                      <div style={{ fontSize:13, color:'#cbd5e1', whiteSpace:'pre-wrap' }}>{n.text}</div>
+                      <div style={{ fontSize:11, color:'#334155', marginTop:4 }}>{fmtDate(n.createdAt)}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:18 }}>
+              <button onClick={()=>setViewJob(null)} style={{ background:'#1e2d40', border:'none', borderRadius:8, padding:'9px 18px', color:'#94a3b8', fontWeight:500 }}>Close</button>
+              <button onClick={()=>{ setViewJob(null); openEdit(viewJob); }} style={{ background:'#38bdf8', border:'none', borderRadius:8, padding:'9px 20px', color:'#080c14', fontWeight:700 }}>Edit Job</button>
+            </div>
+          </Modal>
+        );
+      })()}
     </div>
   );
 }
