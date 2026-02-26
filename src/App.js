@@ -926,7 +926,6 @@ function Jobs({ jobs, clients, team, setJobs }) {
           return (
             <Modal title={viewJob.title} onClose={()=>setViewJob(null)} wide>
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20, marginBottom:18 }}>
-                <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
                   {[['Client', vc2?.name||'—'], ['Type', viewJob.type], ['Status', viewJob.status], ['Priority', viewJob.priority], ['Due Date', fmtDate(viewJob.dueDate)||'—']].map(([l,v])=>(
                     <div key={l} style={{ display:'flex', justifyContent:'space-between', background:'#0f1623', borderRadius:8, padding:'9px 14px' }}>
                       <span style={{ fontSize:11, color:'#475569', textTransform:'uppercase', letterSpacing:'0.06em' }}>{l}</span>
@@ -953,7 +952,6 @@ function Jobs({ jobs, clients, team, setJobs }) {
                     </div>
                   )}
                 </div>
-              </div>
               <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:18 }}>
                 <button onClick={()=>setViewJob(null)} style={{ background:'#1e2d40', border:'none', borderRadius:8, padding:'9px 18px', color:'#94a3b8', fontWeight:500 }}>Close</button>
                 <button onClick={()=>{ setViewJob(null); openEdit(viewJob); }} style={{ background:'#38bdf8', border:'none', borderRadius:8, padding:'9px 20px', color:'#080c14', fontWeight:700 }}>Edit Job</button>
