@@ -21,7 +21,47 @@ const GLOBAL_CSS = `
 
 /* ─── CONSTANTS ─────────────────────────────────────────────────────────────── */
 const JOB_STATUSES = ['New', 'In Progress', 'Awaiting Docs', 'Under Review', 'Completed', 'On Hold'];
-const JOB_TYPES = ['Student Visa', 'Work Visa', 'Partner Visa', 'Bridging Visa', 'PR Application', 'Visitor Visa', 'Enrollment Support', 'Scholarship Application', 'Other'];
+const JOB_TYPES = [
+  // Skill Assessments
+  'Skills Assessment – ACS (IT)',
+  'Skills Assessment – Engineers Australia',
+  'Skills Assessment – VETASSESS',
+  'Skills Assessment – ANMAC (Nursing)',
+  'Skills Assessment – CPA / CA (Accounting)',
+  'Skills Assessment – NAATI (Translation)',
+  'Skills Assessment – TRA (Trades)',
+  // Student & Graduate
+  'Subclass 500 – Student Visa',
+  'Subclass 485 – Graduate Temp',
+  // Skilled Independent & Regional
+  'Subclass 189 – Skilled Independent',
+  'Subclass 190 – Skilled Nominated',
+  'Subclass 491 – Skilled Regional (State)',
+  'Subclass 491 – Skilled Regional (Family)',
+  'Subclass 494 – Employer Sponsored Regional',
+  'Subclass 887 – Skilled (Residence)',
+  // Work & Employer Sponsored
+  'Subclass 482 – TSS (Short-term)',
+  'Subclass 482 – TSS (Medium-term)',
+  'Subclass 186 – ENS (Direct Entry)',
+  'Subclass 186 – ENS (TRT)',
+  'Subclass 407 – Training Visa',
+  // Partner & Family
+  'Subclass 820/801 – Partner (Onshore)',
+  'Subclass 309/100 – Partner (Offshore)',
+  'Subclass 300 – Prospective Marriage',
+  // Visitor & Temporary
+  'Subclass 600 – Visitor',
+  'Subclass 408 – Temp Activity',
+  // Bridging
+  'Bridging Visa A',
+  'Bridging Visa B',
+  'Bridging Visa C',
+  // Support Services
+  'Enrollment Support',
+  'Scholarship Application',
+  'Other',
+];
 const PRIORITIES = ['Low', 'Medium', 'High', 'Urgent'];
 const CLIENT_TYPES = ['Student', 'Migration', 'Both'];
 const CLIENT_STATUSES = ['Active', 'Pending', 'Completed', 'Inactive'];
@@ -49,15 +89,37 @@ const TEAM_COLORS = ['#38bdf8','#34d399','#f59e0b','#a78bfa','#fb923c','#f472b6'
 
 /* Document checklists per job type */
 const DOC_CHECKLISTS = {
-  'Student Visa': ['Offer Letter / CoE', 'Valid Passport (6+ months)', 'English Test Results (IELTS/PTE)', 'Financial Evidence', 'Health Insurance (OSHC)', 'Genuine Temporary Entrant (GTE) Statement', 'Academic Transcripts', 'Health & Character Checks'],
-  'Work Visa': ['Job Offer / Employment Contract', 'Skills Assessment (if required)', 'Passport', 'Labour Market Testing Evidence', 'English Language Evidence', 'Health & Character Checks', 'Sponsorship Approval Documents'],
-  'Partner Visa': ['Relationship Evidence (photos/messages)', 'Joint Financial Evidence', 'Statutory Declarations', 'Both Passports', 'Health Examination', 'Police Clearance', 'Birth Certificates'],
-  'Bridging Visa': ['Current Visa Copy', 'Application Reference Number', 'Passport', 'Substantive Visa Application Lodgement Receipt'],
-  'PR Application': ['Skills Assessment', 'English Test Results', 'Employment References (3+ years)', 'Passport', 'State Nomination (if applicable)', 'Health & Character Checks', 'EOI / SkillSelect Profile'],
-  'Visitor Visa': ['Passport', 'Travel Itinerary', 'Financial Evidence', 'Ties to Home Country Evidence', 'Travel Insurance (recommended)'],
-  'Enrollment Support': ['Offer Letter', 'Academic Transcripts', 'English Test Results', 'Passport Copy', 'Previous Visa (if applicable)'],
-  'Scholarship Application': ['Academic Transcripts', 'English Test Results', 'Research Proposal / Personal Statement', 'Referee Letters (2–3)', 'Passport', 'CV/Resume'],
-  'Other': ['Passport', 'Supporting Documents'],
+  'Skills Assessment – ACS (IT)':              ['Passport', 'Academic Transcripts', 'Employment References', 'Resume/CV', 'RPL Evidence (if applicable)', 'English Evidence'],
+  'Skills Assessment – Engineers Australia':   ['Passport', 'Academic Transcripts', 'Employment References', 'CDR (Career Episodes x3)', 'Summary Statement', 'CPD Evidence'],
+  'Skills Assessment – VETASSESS':             ['Passport', 'Academic Transcripts', 'Employment References', 'Position Descriptions', 'English Evidence'],
+  'Skills Assessment – ANMAC (Nursing)':       ['Passport', 'Nursing Registration Cert', 'Academic Transcripts', 'English Evidence (OET/IELTS)', 'Employment References', 'AHPRA Application'],
+  'Skills Assessment – CPA / CA (Accounting)': ['Passport', 'Academic Transcripts', 'Employment References', 'Membership Certificate', 'English Evidence'],
+  'Skills Assessment – NAATI (Translation)':   ['Passport', 'Language Qualification Proof', 'Interpreter Experience Evidence', 'Application Form'],
+  'Skills Assessment – TRA (Trades)':          ['Passport', 'Trade Qualification Cert', 'Employment References', 'English Evidence', 'RPL if no cert'],
+  'Subclass 500 – Student Visa':               ['CoE (Confirmation of Enrolment)', 'Valid Passport (6+ months)', 'English Test Results (IELTS/PTE)', 'Financial Evidence (AUD 21,041+)', 'OSHC (Health Cover)', 'GTE Statement', 'Academic Transcripts', 'Health & Character Checks'],
+  'Subclass 485 – Graduate Temp':              ['CoE or Completion Letter', 'Passport', 'AQF Qualification Certificate', 'English Evidence', 'Health Insurance', 'Health & Character Checks'],
+  'Subclass 189 – Skilled Independent':        ['Skills Assessment', 'English Test Results', 'EOI via SkillSelect', 'Passport', 'Health Examination', 'Police Clearance', 'Employment References'],
+  'Subclass 190 – Skilled Nominated':          ['Skills Assessment', 'State Nomination Evidence', 'English Test Results', 'EOI via SkillSelect', 'Passport', 'Health Examination', 'Police Clearance', 'Employment References'],
+  'Subclass 491 – Skilled Regional (State)':   ['Skills Assessment', 'State/Territory Nomination', 'English Test Results', 'EOI via SkillSelect', 'Passport', 'Health & Character Checks', 'Employment References'],
+  'Subclass 491 – Skilled Regional (Family)':  ['Skills Assessment', 'Eligible Relative Sponsorship', 'English Test Results', 'EOI via SkillSelect', 'Passport', 'Health & Character Checks'],
+  'Subclass 494 – Employer Sponsored Regional':['Employer Sponsorship Approval', 'Skills Assessment', 'Passport', 'Labour Market Testing Evidence', 'English Evidence', 'Health & Character Checks'],
+  'Subclass 887 – Skilled (Residence)':        ['491/494 Grant Letter', 'Passport', 'Evidence of Regional Living/Working (2 yrs)', 'Health & Character Checks'],
+  'Subclass 482 – TSS (Short-term)':           ['Approved Sponsorship', 'Job Offer / Contract', 'Passport', 'Skills Assessment (if required)', 'English Evidence', 'Health & Character Checks'],
+  'Subclass 482 – TSS (Medium-term)':          ['Approved Sponsorship', 'Job Offer / Contract', 'Passport', 'Skills Assessment', 'English Evidence', 'Health & Character Checks', 'Labour Market Testing'],
+  'Subclass 186 – ENS (Direct Entry)':         ['Employer Nomination Approval', 'Skills Assessment', 'Passport', 'English Evidence', 'Health & Character Checks', 'Employment References (3 yrs)'],
+  'Subclass 186 – ENS (TRT)':                  ['Employer Nomination Approval', 'Passport', 'Evidence of 2 Years Employment with Sponsor', 'English Evidence', 'Health & Character Checks'],
+  'Subclass 407 – Training Visa':              ['Training Plan', 'Sponsor Approval', 'Passport', 'English Evidence', 'Health & Character Checks'],
+  'Subclass 820/801 – Partner (Onshore)':      ['Relationship Evidence (photos/comms/finance)', 'Joint Bank Statements', 'Statutory Declarations (x2)', 'Both Passports', 'Health Examination', 'Police Clearance'],
+  'Subclass 309/100 – Partner (Offshore)':     ['Relationship Evidence', 'Joint Financial Evidence', 'Statutory Declarations', 'Both Passports', 'Health Examination', 'Police Clearance'],
+  'Subclass 300 – Prospective Marriage':       ['Proof of Genuine Relationship', 'Passports', 'Evidence of Meeting in Person', 'Health & Character Checks'],
+  'Subclass 600 – Visitor':                    ['Passport', 'Travel Itinerary', 'Financial Evidence', 'Ties to Home Country Evidence', 'Travel Insurance (recommended)'],
+  'Subclass 408 – Temp Activity':              ['Passport', 'Sponsor Approval or Event Invitation', 'Activity Evidence', 'Health & Character Checks'],
+  'Bridging Visa A':                           ['Current Visa Copy', 'Substantive Visa Application Receipt', 'Passport'],
+  'Bridging Visa B':                           ['Current BVA Grant Letter', 'Passport', 'Evidence of Compelling Reason to Travel'],
+  'Bridging Visa C':                           ['Current Application Reference', 'Passport'],
+  'Enrollment Support':                        ['Offer Letter', 'Academic Transcripts', 'English Test Results', 'Passport Copy'],
+  'Scholarship Application':                   ['Academic Transcripts', 'English Test Results', 'Research Proposal / Personal Statement', 'Referee Letters (2-3)', 'Passport', 'CV/Resume'],
+  'Other':                                     ['Passport', 'Supporting Documents'],
 };
 
 const INIT_TEAM = [
@@ -80,20 +142,48 @@ const normalizeNotes = (notes) => {
   return [];
 };
 
+
 const INIT_CLIENTS = [
-  { id: 'c1', name: 'Wei Zhang',     email: 'wei@email.com',    phone: '0412 345 678', type: 'Student',   status: 'Active',  nationality: 'Chinese',   notes: [{ id:'n1', text:'Masters at UNSW – needs CoE follow-up', createdAt:'2025-01-15T09:00:00.000Z' }], createdAt: '2025-01-15' },
-  { id: 'c2', name: 'Amara Okonkwo', email: 'amara@email.com',  phone: '0423 456 789', type: 'Migration', status: 'Active',  nationality: 'Nigerian',  notes: [{ id:'n2', text:'Skilled 189 visa pathway',              createdAt:'2025-02-01T09:00:00.000Z' }], createdAt: '2025-02-01' },
-  { id: 'c3', name: 'Rafael Santos', email: 'rafael@email.com', phone: '0434 567 890', type: 'Student',   status: 'Pending', nationality: 'Brazilian', notes: [{ id:'n3', text:'Bachelor of IT at UTS',                  createdAt:'2025-02-20T09:00:00.000Z' }], createdAt: '2025-02-20' },
-  { id: 'c4', name: 'Yuna Kim',      email: 'yuna@email.com',   phone: '0445 678 901', type: 'Both',      status: 'Active',  nationality: 'Korean',    notes: [{ id:'n4', text:'Completed study, now PR pathway',        createdAt:'2025-03-01T09:00:00.000Z' }], createdAt: '2025-03-01' },
+  { id: 'c1', name: 'Wei Zhang',       email: 'wei@email.com',      phone: '0412 345 678', type: 'Student',   status: 'Active',  nationality: 'Chinese',    notes: [{ id:'n1', text:'Masters at UNSW – needs CoE follow-up',           createdAt:'2025-01-15T09:00:00.000Z' }], createdAt: '2025-01-15' },
+  { id: 'c2', name: 'Amara Okonkwo',   email: 'amara@email.com',    phone: '0423 456 789', type: 'Migration', status: 'Active',  nationality: 'Nigerian',   notes: [{ id:'n2', text:'Skilled 189 pathway – skills assessment done',    createdAt:'2025-02-01T09:00:00.000Z' }], createdAt: '2025-02-01' },
+  { id: 'c3', name: 'Rafael Santos',   email: 'rafael@email.com',   phone: '0434 567 890', type: 'Student',   status: 'Active',  nationality: 'Brazilian',  notes: [{ id:'n3', text:'Bachelor of IT at UTS – 500 visa in progress',    createdAt:'2025-02-20T09:00:00.000Z' }], createdAt: '2025-02-20' },
+  { id: 'c4', name: 'Yuna Kim',        email: 'yuna@email.com',     phone: '0445 678 901', type: 'Both',      status: 'Active',  nationality: 'Korean',     notes: [{ id:'n4', text:'Completed study, now targeting 190 nomination',   createdAt:'2025-03-01T09:00:00.000Z' }], createdAt: '2025-03-01' },
+  { id: 'c5', name: 'Priya Sharma',    email: 'priya@email.com',    phone: '0456 789 012', type: 'Migration', status: 'Active',  nationality: 'Indian',     notes: [{ id:'n5', text:'Nurse – ANMAC assessment then 190 visa',          createdAt:'2025-03-10T09:00:00.000Z' }], createdAt: '2025-03-10' },
+  { id: 'c6', name: 'James Liu',       email: 'james@email.com',    phone: '0467 890 123', type: 'Migration', status: 'Active',  nationality: 'Chinese',    notes: [{ id:'n6', text:'IT engineer, ACS assessment underway',            createdAt:'2025-03-15T09:00:00.000Z' }], createdAt: '2025-03-15' },
+  { id: 'c7', name: 'Sofia Garcia',    email: 'sofia@email.com',    phone: '0478 901 234', type: 'Student',   status: 'Active',  nationality: 'Colombian',  notes: [{ id:'n7', text:'Scholarship application to Monash',               createdAt:'2025-03-18T09:00:00.000Z' }], createdAt: '2025-03-18' },
+  { id: 'c8', name: 'Chen Wei',        email: 'chenw@email.com',    phone: '0489 012 345', type: 'Migration', status: 'Active',  nationality: 'Chinese',    notes: [{ id:'n8', text:'482 TSS sponsored by employer – urgent',          createdAt:'2025-03-20T09:00:00.000Z' }], createdAt: '2025-03-20' },
 ];
 
 const INIT_JOBS = [
-  { id: 'j1', clientId: 'c1', title: 'Student Visa Application',   type: 'Student Visa',       assignedTo: 't1', status: 'In Progress',   priority: 'High',   dueDate: '2025-04-10', notes: [{ id:'jn1', text:'CoE received, lodging visa application',        createdAt:'2025-01-15T09:00:00.000Z' }], progress: 60, createdAt: '2025-01-15' },
-  { id: 'j2', clientId: 'c2', title: 'Skills Assessment Review',   type: 'PR Application',     assignedTo: 't2', status: 'Awaiting Docs', priority: 'Urgent', dueDate: '2025-03-25', notes: [{ id:'jn2', text:'Waiting for employer references x3',             createdAt:'2025-02-01T09:00:00.000Z' }], progress: 40, createdAt: '2025-02-01' },
-  { id: 'j3', clientId: 'c3', title: 'University Enrollment Help', type: 'Enrollment Support', assignedTo: 't3', status: 'New',           priority: 'Medium', dueDate: '2025-05-01', notes: [{ id:'jn3', text:'Reviewing offer letter conditions',              createdAt:'2025-02-20T09:00:00.000Z' }], progress: 10, createdAt: '2025-02-20' },
-  { id: 'j4', clientId: 'c4', title: 'Bridging Visa Application',  type: 'Bridging Visa',      assignedTo: 't4', status: 'Under Review',  priority: 'High',   dueDate: '2025-03-30', notes: [{ id:'jn4', text:'Submitted, awaiting departmental review',       createdAt:'2025-03-01T09:00:00.000Z' }], progress: 80, createdAt: '2025-03-01' },
-  { id: 'j5', clientId: 'c4', title: 'PR Expression of Interest',  type: 'PR Application',     assignedTo: 't2', status: 'In Progress',   priority: 'Medium', dueDate: '2025-06-01', notes: [{ id:'jn5', text:'Building EOI points checklist',                  createdAt:'2025-03-05T09:00:00.000Z' }], progress: 25, createdAt: '2025-03-05' },
+  // t1 – Liang Jiang (Senior Consultant)
+  { id: 'j1',  clientId: 'c1', title: 'Subclass 500 – Student Visa',            type: 'Subclass 500 – Student Visa',            assignedTo: 't1', status: 'In Progress',   priority: 'High',   dueDate: '2026-04-10', notes: [{ id:'jn1',  text:'CoE received, lodging visa application',              createdAt:'2025-01-15T09:00:00.000Z' }], progress: 60, createdAt: '2025-01-15' },
+  { id: 'j2',  clientId: 'c4', title: 'Subclass 190 – Skilled Nominated',       type: 'Subclass 190 – Skilled Nominated',       assignedTo: 't1', status: 'Awaiting Docs', priority: 'Urgent', dueDate: '2026-03-25', notes: [{ id:'jn2',  text:'Waiting on state nomination letter',                  createdAt:'2025-03-01T09:00:00.000Z' }], progress: 45, createdAt: '2025-03-01' },
+  { id: 'j3',  clientId: 'c6', title: 'Skills Assessment – ACS (IT)',            type: 'Skills Assessment – ACS (IT)',            assignedTo: 't1', status: 'Under Review',  priority: 'High',   dueDate: '2026-04-05', notes: [{ id:'jn3',  text:'CDR submitted to ACS, outcome pending',              createdAt:'2025-03-15T09:00:00.000Z' }], progress: 80, createdAt: '2025-03-15' },
+  // t2 – Mansi Mao (Migration Agent)
+  { id: 'j4',  clientId: 'c2', title: 'Subclass 189 – Skilled Independent',     type: 'Subclass 189 – Skilled Independent',     assignedTo: 't2', status: 'In Progress',   priority: 'Urgent', dueDate: '2026-03-30', notes: [{ id:'jn4',  text:'EOI submitted, invitation expected soon',            createdAt:'2025-02-01T09:00:00.000Z' }], progress: 55, createdAt: '2025-02-01' },
+  { id: 'j5',  clientId: 'c4', title: 'Skills Assessment – Engineers Australia', type: 'Skills Assessment – Engineers Australia', assignedTo: 't2', status: 'Awaiting Docs', priority: 'High',   dueDate: '2026-04-15', notes: [{ id:'jn5',  text:'Waiting for CDR career episodes draft',               createdAt:'2025-03-05T09:00:00.000Z' }], progress: 30, createdAt: '2025-03-05' },
+  { id: 'j6',  clientId: 'c8', title: 'Subclass 491 – Skilled Regional (State)', type: 'Subclass 491 – Skilled Regional (State)', assignedTo: 't2', status: 'New',           priority: 'Medium', dueDate: '2026-05-20', notes: [{ id:'jn6',  text:'Initial consult done, preparing EOI',                 createdAt:'2025-03-20T09:00:00.000Z' }], progress: 15, createdAt: '2025-03-20' },
+  // t3 – Mia Ma (Student Advisor)
+  { id: 'j7',  clientId: 'c3', title: 'Subclass 500 – Student Visa',            type: 'Subclass 500 – Student Visa',            assignedTo: 't3', status: 'In Progress',   priority: 'High',   dueDate: '2026-04-20', notes: [{ id:'jn7',  text:'Offer letter conditional – reviewing requirements',   createdAt:'2025-02-20T09:00:00.000Z' }], progress: 40, createdAt: '2025-02-20' },
+  { id: 'j8',  clientId: 'c7', title: 'Enrollment Support – Monash',            type: 'Enrollment Support',                     assignedTo: 't3', status: 'New',           priority: 'Medium', dueDate: '2026-05-01', notes: [{ id:'jn8',  text:'Reviewing scholarship offer conditions',              createdAt:'2025-03-18T09:00:00.000Z' }], progress: 10, createdAt: '2025-03-18' },
+  { id: 'j9',  clientId: 'c1', title: 'Subclass 485 – Graduate Temp',           type: 'Subclass 485 – Graduate Temp',           assignedTo: 't3', status: 'Awaiting Docs', priority: 'Urgent', dueDate: '2026-03-28', notes: [{ id:'jn9',  text:'Course completion letter needed urgently',            createdAt:'2025-03-22T09:00:00.000Z' }], progress: 20, createdAt: '2025-03-22' },
+  // t4 – Nicole Chen (Case Manager)
+  { id: 'j10', clientId: 'c4', title: 'Bridging Visa A',                         type: 'Bridging Visa A',                         assignedTo: 't4', status: 'Under Review',  priority: 'High',   dueDate: '2026-03-30', notes: [{ id:'jn10', text:'Submitted, awaiting departmental review',           createdAt:'2025-03-01T09:00:00.000Z' }], progress: 80, createdAt: '2025-03-01' },
+  { id: 'j11', clientId: 'c5', title: 'Subclass 820/801 – Partner (Onshore)',   type: 'Subclass 820/801 – Partner (Onshore)',   assignedTo: 't4', status: 'Awaiting Docs', priority: 'Urgent', dueDate: '2026-04-02', notes: [{ id:'jn11', text:'Stat declarations and photos still outstanding',       createdAt:'2025-03-10T09:00:00.000Z' }], progress: 35, createdAt: '2025-03-10' },
+  // t5 – Cici Fu (Student Advisor)
+  { id: 'j12', clientId: 'c7', title: 'Scholarship Application – Monash',       type: 'Scholarship Application',                assignedTo: 't5', status: 'In Progress',   priority: 'High',   dueDate: '2026-04-12', notes: [{ id:'jn12', text:'Personal statement draft in review',                  createdAt:'2025-03-18T09:00:00.000Z' }], progress: 50, createdAt: '2025-03-18' },
+  { id: 'j13', clientId: 'c3', title: 'Enrollment Support – UTS',               type: 'Enrollment Support',                     assignedTo: 't5', status: 'New',           priority: 'Low',    dueDate: '2026-06-01', notes: [{ id:'jn13', text:'Waiting for client to confirm enrolment intent',     createdAt:'2025-03-19T09:00:00.000Z' }], progress: 5,  createdAt: '2025-03-19' },
+  // t6 – Momo Qiu (Admin Officer)
+  { id: 'j14', clientId: 'c8', title: 'Subclass 482 – TSS (Medium-term)',       type: 'Subclass 482 – TSS (Medium-term)',       assignedTo: 't6', status: 'Awaiting Docs', priority: 'Urgent', dueDate: '2026-03-27', notes: [{ id:'jn14', text:'Employer sponsorship approved, personal docs needed',  createdAt:'2025-03-20T09:00:00.000Z' }], progress: 60, createdAt: '2025-03-20' },
+  { id: 'j15', clientId: 'c2', title: 'Skills Assessment – VETASSESS',          type: 'Skills Assessment – VETASSESS',          assignedTo: 't6', status: 'In Progress',   priority: 'Medium', dueDate: '2026-05-10', notes: [{ id:'jn15', text:'Gathering employment evidence from last 5 years',     createdAt:'2025-03-22T09:00:00.000Z' }], progress: 25, createdAt: '2025-03-22' },
+  // t7 – Sandy Xu (Document Specialist)
+  { id: 'j16', clientId: 'c5', title: 'Skills Assessment – ANMAC (Nursing)',    type: 'Skills Assessment – ANMAC (Nursing)',    assignedTo: 't7', status: 'In Progress',   priority: 'High',   dueDate: '2026-04-08', notes: [{ id:'jn16', text:'AHPRA application lodged, waiting on assessment',    createdAt:'2025-03-10T09:00:00.000Z' }], progress: 65, createdAt: '2025-03-10' },
+  { id: 'j17', clientId: 'c6', title: 'Subclass 186 – ENS (Direct Entry)',      type: 'Subclass 186 – ENS (Direct Entry)',      assignedTo: 't7', status: 'New',           priority: 'Medium', dueDate: '2026-05-25', notes: [{ id:'jn17', text:'Employer nomination in preparation',                 createdAt:'2025-03-16T09:00:00.000Z' }], progress: 10, createdAt: '2025-03-16' },
+  // t8 – Zoya Chen (Compliance Officer)
+  { id: 'j18', clientId: 'c5', title: 'Subclass 190 – Skilled Nominated',       type: 'Subclass 190 – Skilled Nominated',       assignedTo: 't8', status: 'In Progress',   priority: 'High',   dueDate: '2026-04-18', notes: [{ id:'jn18', text:'State nomination approved, lodging main application', createdAt:'2025-03-12T09:00:00.000Z' }], progress: 70, createdAt: '2025-03-12' },
+  { id: 'j19', clientId: 'c8', title: 'Bridging Visa B',                         type: 'Bridging Visa B',                         assignedTo: 't8', status: 'Awaiting Docs', priority: 'Urgent', dueDate: '2026-03-26', notes: [{ id:'jn19', text:'Travel evidence and reason statement required now',   createdAt:'2025-03-21T09:00:00.000Z' }], progress: 40, createdAt: '2025-03-21' },
 ];
+
 
 /* ─── HELPERS ────────────────────────────────────────────────────────────────── */
 const uid = () => Math.random().toString(36).slice(2, 9);
@@ -573,8 +663,16 @@ function Clients({ clients, jobs, setClients }) {
   const handleRowEnter = (e, id) => {
     clearTimeout(hoverTimer.current);
     const rect = e.currentTarget.getBoundingClientRect();
-    const x = Math.min(rect.right + 12, window.innerWidth - 320);
-    const y = Math.min(rect.top, window.innerHeight - 400);
+    const tooltipW = 310;
+    const tooltipH = 420;
+    // Prefer right side; fall back to left if it would clip
+    let x = rect.right + 14;
+    if (x + tooltipW > window.innerWidth - 8) x = rect.left - tooltipW - 14;
+    if (x < 8) x = 8;
+    // Align top with row; push up if it would clip bottom
+    let y = rect.top;
+    if (y + tooltipH > window.innerHeight - 8) y = window.innerHeight - tooltipH - 8;
+    if (y < 8) y = 8;
     hoverTimer.current = setTimeout(() => { setTooltipPos({ x, y }); setHoverId(id); }, 350);
   };
   const handleRowLeave = () => { clearTimeout(hoverTimer.current); setHoverId(null); };
@@ -763,6 +861,7 @@ function Jobs({ jobs, clients, team, setJobs }) {
   const [modal, setModal] = useState(null);
   const [form, setForm] = useState({});
   const [viewJob, setViewJob] = useState(null);
+  // doc checks handled via form.docs directly
 
   const getClient = id => clients.find(c=>c.id===id);
   const getMember = id => team.find(t=>t.id===id);
@@ -778,7 +877,7 @@ function Jobs({ jobs, clients, team, setJobs }) {
     );
   });
 
-  const openAdd = () => { setForm({ title:'', type:'Student Visa', clientId: clients[0]?.id||'', assignedTo: team[0]?.id||'', status:'New', priority:'Medium', dueDate:'', notes:[], progress:0, createdAt:today() }); setModal('add'); };
+  const openAdd = () => { setForm({ title:'', type:'Subclass 500 – Student Visa', clientId: clients[0]?.id||'', assignedTo: team[0]?.id||'', status:'New', priority:'Medium', dueDate:'', notes:[], progress:0, createdAt:today() }); setModal('add'); };
   const openEdit = (j) => { setForm({ ...j, notes: normalizeNotes(j.notes) }); setModal(j); };
   const closeModal = () => setModal(null);
 
@@ -1119,30 +1218,48 @@ function Jobs({ jobs, clients, team, setJobs }) {
 }
 
 /* ─── TEAM ─────────────────────────────────────────────────────────────────── */
-function Team({ team, jobs, setTeam }) {
+function Team({ team, jobs, clients, setTeam }) {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({});
 
-  const getMemberJobs = id => jobs.filter(j=>j.assignedTo===id && j.status!=='Completed');
-  const getCompletedCount = id => jobs.filter(j=>j.assignedTo===id && j.status==='Completed').length;
+  const PRIORITY_ORDER = { 'Urgent': 0, 'High': 1, 'Medium': 2, 'Low': 3 };
+
+  const getMemberJobs = id => jobs
+    .filter(j => j.assignedTo === id && j.status !== 'Completed')
+    .sort((a, b) => {
+      const pdiff = PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority];
+      if (pdiff !== 0) return pdiff;
+      if (a.dueDate && b.dueDate) return new Date(a.dueDate) - new Date(b.dueDate);
+      return 0;
+    });
+  const getCompletedCount = id => jobs.filter(j => j.assignedTo === id && j.status === 'Completed').length;
+  const getClient = id => clients.find(c => c.id === id);
+
+  // Short label for case type — strip "Subclass " prefix for brevity
+  const caseLabel = (type) => {
+    if (!type) return '—';
+    return type.replace('Subclass ', 'SC ').replace('Skills Assessment – ', 'SA – ');
+  };
 
   const openEdit = m => { setForm({...m}); setEditing(m.id); };
-  const save = () => { setTeam(prev=>prev.map(m=>m.id===form.id?form:m)); setEditing(null); };
+  const save = () => { setTeam(prev => prev.map(m => m.id === form.id ? form : m)); setEditing(null); };
 
   return (
     <div className="animate-fade">
       <div style={{ marginBottom:24 }}>
         <h1 style={{ fontSize:24, fontWeight:700, color:'#e2e8f0' }}>Team</h1>
-        <p style={{ color:'#475569', fontSize:14, marginTop:2 }}>{team.length} members · click Edit to update details</p>
+        <p style={{ color:'#475569', fontSize:14, marginTop:2 }}>{team.length} members · Active jobs ranked by urgency</p>
       </div>
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))', gap:16 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(360px,1fr))', gap:16 }}>
         {team.map(m => {
           const activeJobs = getMemberJobs(m.id);
           const completedCount = getCompletedCount(m.id);
+          const urgentCount = activeJobs.filter(j => j.priority === 'Urgent').length;
           return (
             <Card key={m.id} style={{ position:'relative' }}>
-              <div style={{ position:'absolute', top:0, left:0, right:0, height:4, borderRadius:'12px 12px 0 0', background: `linear-gradient(90deg, ${m.color}80, ${m.color}20)` }} />
-              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:16, marginTop:4 }}>
+              <div style={{ position:'absolute', top:0, left:0, right:0, height:4, borderRadius:'12px 12px 0 0', background:`linear-gradient(90deg, ${m.color}80, ${m.color}20)` }} />
+              {/* Member header */}
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:14, marginTop:4 }}>
                 <div style={{ display:'flex', alignItems:'center', gap:12 }}>
                   <Avatar name={m.name} color={m.color} size={44} />
                   <div>
@@ -1151,51 +1268,90 @@ function Team({ team, jobs, setTeam }) {
                     <div style={{ fontSize:11, color:'#334155', marginTop:2 }}>✉ {m.email}</div>
                   </div>
                 </div>
-                <button onClick={()=>openEdit(m)} style={{ background:'#1e2d40', border:'none', borderRadius:7, padding:'4px 10px', color:'#64748b', fontSize:12 }}>Edit</button>
+                <button onClick={() => openEdit(m)} style={{ background:'#1e2d40', border:'none', borderRadius:7, padding:'4px 10px', color:'#64748b', fontSize:12 }}>Edit</button>
               </div>
-              <div style={{ display:'flex', gap:12, marginBottom:14 }}>
-                <div style={{ flex:1, background:'#080c14', borderRadius:8, padding:'8px 12px', textAlign:'center' }}>
-                  <div style={{ fontSize:22, fontWeight:700, color:m.color, fontFamily:"'JetBrains Mono',monospace" }}>{activeJobs.length}</div>
+              {/* Stats */}
+              <div style={{ display:'flex', gap:8, marginBottom:14 }}>
+                <div style={{ flex:1, background:'#080c14', borderRadius:8, padding:'7px 10px', textAlign:'center' }}>
+                  <div style={{ fontSize:20, fontWeight:700, color:m.color, fontFamily:"'JetBrains Mono',monospace" }}>{activeJobs.length}</div>
                   <div style={{ fontSize:11, color:'#475569' }}>Active</div>
                 </div>
-                <div style={{ flex:1, background:'#080c14', borderRadius:8, padding:'8px 12px', textAlign:'center' }}>
-                  <div style={{ fontSize:22, fontWeight:700, color:'#34d399', fontFamily:"'JetBrains Mono',monospace" }}>{completedCount}</div>
+                {urgentCount > 0 && (
+                  <div style={{ flex:1, background:'#7f1d1d20', borderRadius:8, padding:'7px 10px', textAlign:'center', border:'1px solid #7f1d1d40' }}>
+                    <div style={{ fontSize:20, fontWeight:700, color:'#f87171', fontFamily:"'JetBrains Mono',monospace" }}>{urgentCount}</div>
+                    <div style={{ fontSize:11, color:'#f87171' }}>Urgent</div>
+                  </div>
+                )}
+                <div style={{ flex:1, background:'#080c14', borderRadius:8, padding:'7px 10px', textAlign:'center' }}>
+                  <div style={{ fontSize:20, fontWeight:700, color:'#34d399', fontFamily:"'JetBrains Mono',monospace" }}>{completedCount}</div>
                   <div style={{ fontSize:11, color:'#475569' }}>Done</div>
                 </div>
               </div>
-              {activeJobs.length > 0 && (
+              {/* Active job list */}
+              {activeJobs.length > 0 ? (
                 <div>
-                  <div style={{ fontSize:11, color:'#334155', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:8 }}>Active Jobs</div>
-                  <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
-                    {activeJobs.slice(0,3).map(j=>(
-                      <div key={j.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'6px 10px', background:'#080c14', borderRadius:7 }}>
-                        <span style={{ fontSize:12, color:'#94a3b8', flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{j.title}</span>
-                        <StatusBadge status={j.status} small />
-                      </div>
-                    ))}
-                    {activeJobs.length > 3 && <div style={{ fontSize:12, color:'#334155', textAlign:'center', padding:'4px 0' }}>+{activeJobs.length-3} more</div>}
+                  <div style={{ fontSize:11, color:'#334155', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:8 }}>
+                    Active Cases — ranked by urgency
+                  </div>
+                  <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
+                    {activeJobs.map((j, idx) => {
+                      const client = getClient(j.clientId);
+                      const overdue = isOverdue(j.dueDate);
+                      const pStyle = PRIORITY_STYLES[j.priority] || {};
+                      return (
+                        <div key={j.id} style={{
+                          background: idx === 0 && j.priority === 'Urgent' ? '#7f1d1d18' : '#080c14',
+                          border: `1px solid ${idx === 0 && j.priority === 'Urgent' ? '#7f1d1d50' : '#1e2d4060'}`,
+                          borderRadius:8, padding:'8px 10px',
+                        }}>
+                          {/* Row 1: client + priority badge */}
+                          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:4 }}>
+                            <span style={{ fontSize:12, fontWeight:600, color:'#e2e8f0', flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginRight:6 }}>
+                              {client?.name || '—'}
+                            </span>
+                            <span style={{ fontSize:10, fontWeight:700, color:pStyle.text||'#94a3b8', background:pStyle.bg||'#1e2d40', borderRadius:10, padding:'1px 7px', flexShrink:0, textTransform:'uppercase', letterSpacing:'0.04em' }}>
+                              {j.priority}
+                            </span>
+                          </div>
+                          {/* Row 2: case type */}
+                          <div style={{ fontSize:11, color:'#60a5fa', marginBottom:4, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                            {caseLabel(j.type)}
+                          </div>
+                          {/* Row 3: status + due date */}
+                          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                            <StatusBadge status={j.status} small />
+                            {j.dueDate && (
+                              <span style={{ fontSize:10, color: overdue ? '#f87171' : '#475569' }}>
+                                {overdue ? '⚠ ' : ''}{fmtDate(j.dueDate)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
+              ) : (
+                <div style={{ fontSize:13, color:'#334155', textAlign:'center', padding:'10px 0' }}>No active jobs 🎉</div>
               )}
-              {activeJobs.length === 0 && <div style={{ fontSize:13, color:'#334155', textAlign:'center', padding:'10px 0' }}>No active jobs 🎉</div>}
             </Card>
           );
         })}
       </div>
       {editing && (
-        <Modal title="Edit Team Member" onClose={()=>setEditing(null)}>
-          <FormField label="Name"><input style={inputStyle} value={form.name||''} onChange={e=>setForm(f=>({...f,name:e.target.value}))} /></FormField>
-          <FormField label="Role"><input style={inputStyle} value={form.role||''} onChange={e=>setForm(f=>({...f,role:e.target.value}))} /></FormField>
-          <FormField label="Email"><input style={inputStyle} value={form.email||''} onChange={e=>setForm(f=>({...f,email:e.target.value}))} /></FormField>
+        <Modal title="Edit Team Member" onClose={() => setEditing(null)}>
+          <FormField label="Name"><input style={inputStyle} value={form.name||''} onChange={e => setForm(f => ({...f, name:e.target.value}))} /></FormField>
+          <FormField label="Role"><input style={inputStyle} value={form.role||''} onChange={e => setForm(f => ({...f, role:e.target.value}))} /></FormField>
+          <FormField label="Email"><input style={inputStyle} value={form.email||''} onChange={e => setForm(f => ({...f, email:e.target.value}))} /></FormField>
           <FormField label="Color">
             <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginTop:4 }}>
-              {TEAM_COLORS.map(c=>(
-                <button key={c} onClick={()=>setForm(f=>({...f,color:c}))} style={{ width:28, height:28, borderRadius:'50%', background:c, border: form.color===c?`3px solid white`:'3px solid transparent', cursor:'pointer' }} />
+              {TEAM_COLORS.map(c => (
+                <button key={c} onClick={() => setForm(f => ({...f, color:c}))} style={{ width:28, height:28, borderRadius:'50%', background:c, border: form.color===c?'3px solid white':'3px solid transparent', cursor:'pointer' }} />
               ))}
             </div>
           </FormField>
           <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:8 }}>
-            <button onClick={()=>setEditing(null)} style={{ background:'#1e2d40', border:'none', borderRadius:8, padding:'9px 18px', color:'#94a3b8', fontWeight:500 }}>Cancel</button>
+            <button onClick={() => setEditing(null)} style={{ background:'#1e2d40', border:'none', borderRadius:8, padding:'9px 18px', color:'#94a3b8', fontWeight:500 }}>Cancel</button>
             <button onClick={save} style={{ background:'#38bdf8', border:'none', borderRadius:8, padding:'9px 20px', color:'#080c14', fontWeight:700 }}>Save</button>
           </div>
         </Modal>
@@ -1272,7 +1428,7 @@ export default function App() {
           {view === 'dashboard' && <Dashboard clients={clients} jobs={jobs} team={team} onGoTo={setView} />}
           {view === 'clients'   && <Clients clients={clients} jobs={jobs} setClients={setClients} />}
           {view === 'jobs'      && <Jobs jobs={jobs} clients={clients} team={team} setJobs={setJobs} />}
-          {view === 'team'      && <Team team={team} jobs={jobs} setTeam={setTeam} />}
+          {view === 'team'      && <Team team={team} jobs={jobs} clients={clients} setTeam={setTeam} />}
         </div>
       </div>
     </>
