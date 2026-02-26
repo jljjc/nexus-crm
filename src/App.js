@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+
 /* ─── STYLES ───────────────────────────────────────────────────────────────── */
 const GLOBAL_CSS = `
   @import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
@@ -762,6 +763,8 @@ function Jobs({ jobs, clients, team, setJobs }) {
   const [modal, setModal] = useState(null);
   const [form, setForm] = useState({});
   const [viewJob, setViewJob] = useState(null);
+  const [docChecks, setDocChecks] = useState({});
+
   const getClient = id => clients.find(c=>c.id===id);
   const getMember = id => team.find(t=>t.id===id);
 
@@ -841,6 +844,7 @@ function Jobs({ jobs, clients, team, setJobs }) {
           <div style={{ fontSize:11, color:'#64748b', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:12 }}>Document Checklist – {form.type}</div>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
             {(DOC_CHECKLISTS[form.type]||[]).map(doc => {
+              const key = (form.id||'new')+'::'+doc;
               const checked = (form.docs||{})[doc] || false;
               return (
                 <label key={doc} style={{ display:'flex', alignItems:'center', gap:8, background: checked?'#05966915':'#0f1623', borderRadius:7, padding:'7px 12px', cursor:'pointer', border:`1px solid ${checked?'#05966940':'#1e2d40'}`, transition:'all 0.15s' }}>
@@ -921,11 +925,13 @@ function Jobs({ jobs, clients, team, setJobs }) {
         )}
         {viewJob && (() => {
           const vc2 = getClient(viewJob.clientId);
+          const vm2 = getMember(viewJob.assignedTo);
           const checklist2 = DOC_CHECKLISTS[viewJob.type] || [];
           const docs2 = viewJob.docs || {};
           return (
             <Modal title={viewJob.title} onClose={()=>setViewJob(null)} wide>
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20, marginBottom:18 }}>
+                <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
                   {[['Client', vc2?.name||'—'], ['Type', viewJob.type], ['Status', viewJob.status], ['Priority', viewJob.priority], ['Due Date', fmtDate(viewJob.dueDate)||'—']].map(([l,v])=>(
                     <div key={l} style={{ display:'flex', justifyContent:'space-between', background:'#0f1623', borderRadius:8, padding:'9px 14px' }}>
                       <span style={{ fontSize:11, color:'#475569', textTransform:'uppercase', letterSpacing:'0.06em' }}>{l}</span>
@@ -952,6 +958,7 @@ function Jobs({ jobs, clients, team, setJobs }) {
                     </div>
                   )}
                 </div>
+              </div>
               <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:18 }}>
                 <button onClick={()=>setViewJob(null)} style={{ background:'#1e2d40', border:'none', borderRadius:8, padding:'9px 18px', color:'#94a3b8', fontWeight:500 }}>Close</button>
                 <button onClick={()=>{ setViewJob(null); openEdit(viewJob); }} style={{ background:'#38bdf8', border:'none', borderRadius:8, padding:'9px 20px', color:'#080c14', fontWeight:700 }}>Edit Job</button>
