@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from "react";
-
 /* ─── STYLES ───────────────────────────────────────────────────────────────── */
 const GLOBAL_CSS = `
   @import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
@@ -111,7 +110,7 @@ function ProgressBar({ value }) {
   const color = value >= 100 ? '#10b981' : value >= 60 ? '#38bdf8' : value >= 30 ? '#f59e0b' : '#fb923c';
   return (
     <div style={{ height:4, borderRadius:4, background:'#1e293b', overflow:'hidden' }}>
-      <div style={{ height:'100%', width:`${Math.min(value,100)}%`, background:color, borderRadius:4, transition:'width 0.3s ease' }} />
+      <div style={{ height:'100%', width:`${Math.min(value, 100)}%`, background:color, borderRadius:4, transition:'width 0.3s ease' }} />
     </div>
   );
 }
@@ -299,7 +298,7 @@ function Clients({ clients, jobs, setClients }) {
     closeModal();
   };
 
-  const del = (id) => { if (confirm('Delete this client?')) setClients(prev=>prev.filter(c=>c.id!==id)); };
+  const del = (id) => { if (window.confirm('Delete this client?')) setClients(prev=>prev.filter(c=>c.id!==id)); };
 
   const clientJobCount = id => jobs.filter(j=>j.clientId===id).length;
 
@@ -441,7 +440,7 @@ function Jobs({ jobs, clients, team, setJobs }) {
     closeModal();
   };
 
-  const del = id => { if(confirm('Delete this job?')) setJobs(prev=>prev.filter(j=>j.id!==id)); };
+  const del = id => { if(window.confirm('Delete this job?')) setJobs(prev=>prev.filter(j=>j.id!==id)); };
   const updateStatus = (id, status) => setJobs(prev => prev.map(j => j.id===id ? {...j, status} : j));
 
   const JobForm = () => (
