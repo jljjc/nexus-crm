@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 /* ─── STYLES ───────────────────────────────────────────────────────────────── */
 const GLOBAL_CSS = `
   @import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
@@ -441,7 +441,6 @@ function Jobs({ jobs, clients, team, setJobs }) {
   };
 
   const del = id => { if(window.confirm('Delete this job?')) setJobs(prev=>prev.filter(j=>j.id!==id)); };
-  const updateStatus = (id, status) => setJobs(prev => prev.map(j => j.id===id ? {...j, status} : j));
 
   const JobForm = () => (
     <>
