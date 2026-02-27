@@ -1219,8 +1219,10 @@ function Jobs({ jobs, clients, team, setJobs }) {
 
 /* ─── TEAM ─────────────────────────────────────────────────────────────────── */
 function Team({ team, jobs, clients, setTeam }) {
-  const [editing, setEditing] = useState(null);
-  const [form, setForm] = useState({});
+  const [editing, setEditing]       = useState(null);
+  const [form, setForm]             = useState({});
+  const [drillMember, setDrillMember] = useState(null);  // member whose full case list is shown
+  const [viewJob, setViewJob]       = useState(null);     // job detail modal
 
   const PRIORITY_ORDER = { 'Urgent': 0, 'High': 1, 'Medium': 2, 'Low': 3 };
 
@@ -1235,7 +1237,6 @@ function Team({ team, jobs, clients, setTeam }) {
   const getCompletedCount = id => jobs.filter(j => j.assignedTo === id && j.status === 'Completed').length;
   const getClient = id => clients.find(c => c.id === id);
 
-  // Short label for case type — strip "Subclass " prefix for brevity
   const caseLabel = (type) => {
     if (!type) return '—';
     return type.replace('Subclass ', 'SC ').replace('Skills Assessment – ', 'SA – ');
@@ -1244,20 +1245,70 @@ function Team({ team, jobs, clients, setTeam }) {
   const openEdit = m => { setForm({...m}); setEditing(m.id); };
   const save = () => { setTeam(prev => prev.map(m => m.id === form.id ? form : m)); setEditing(null); };
 
+  /* Shared job-row renderer used both in cards and drill-down modal */
+  const JobRow = ({ j, idx, compact }) => {
+    const client = getClient(j.clientId);
+    const overdue = isOverdue(j.dueDate);
+    const pStyle = PRIORITY_STYLES[j.priority] || {};
+    const isUrgentTop = idx === 0 && j.priority === 'Urgent';
+    return (
+      <div
+        onClick={() => setViewJob(j)}
+        style={{
+          background: isUrgentTop ? '#7f1d1d18' : '#080c14',
+          border: `1px solid ${isUrgentTop ? '#7f1d1d50' : '#1e2d4060'}`,
+          borderRadius:8, padding: compact ? '7px 10px' : '10px 14px',
+          cursor:'pointer', transition:'background 0.15s',
+        }}
+        onMouseEnter={e => e.currentTarget.style.background = isUrgentTop ? '#7f1d1d28' : '#0f1f33'}
+        onMouseLeave={e => e.currentTarget.style.background = isUrgentTop ? '#7f1d1d18' : '#080c14'}
+      >
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:3 }}>
+          <span style={{ fontSize:13, fontWeight:600, color:'#e2e8f0', flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginRight:8 }}>
+            {client?.name || '—'}
+          </span>
+          <span style={{ fontSize:10, fontWeight:700, color:pStyle.text||'#94a3b8', background:pStyle.bg||'#1e2d40', borderRadius:10, padding:'2px 8px', flexShrink:0, textTransform:'uppercase', letterSpacing:'0.04em' }}>
+            {j.priority}
+          </span>
+        </div>
+        <div style={{ fontSize:11, color:'#60a5fa', marginBottom:5, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+          {caseLabel(j.type)}
+        </div>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+          <StatusBadge status={j.status} small />
+          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+            {j.dueDate && (
+              <span style={{ fontSize:10, color: overdue ? '#f87171' : '#475569' }}>
+                {overdue ? '⚠ ' : ''}{fmtDate(j.dueDate)}
+              </span>
+            )}
+            <span style={{ fontSize:10, color:'#334155' }}>→</span>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="animate-fade">
       <div style={{ marginBottom:24 }}>
         <h1 style={{ fontSize:24, fontWeight:700, color:'#e2e8f0' }}>Team</h1>
-        <p style={{ color:'#475569', fontSize:14, marginTop:2 }}>{team.length} members · Active jobs ranked by urgency</p>
+        <p style={{ color:'#475569', fontSize:14, marginTop:2 }}>{team.length} members · Click any case to open details</p>
       </div>
+
+      {/* ── Member cards grid ── */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(360px,1fr))', gap:16 }}>
         {team.map(m => {
           const activeJobs = getMemberJobs(m.id);
           const completedCount = getCompletedCount(m.id);
           const urgentCount = activeJobs.filter(j => j.priority === 'Urgent').length;
+          const preview = activeJobs.slice(0, 3);
+          const remaining = activeJobs.length - 3;
+
           return (
             <Card key={m.id} style={{ position:'relative' }}>
               <div style={{ position:'absolute', top:0, left:0, right:0, height:4, borderRadius:'12px 12px 0 0', background:`linear-gradient(90deg, ${m.color}80, ${m.color}20)` }} />
+
               {/* Member header */}
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:14, marginTop:4 }}>
                 <div style={{ display:'flex', alignItems:'center', gap:12 }}>
@@ -1270,7 +1321,8 @@ function Team({ team, jobs, clients, setTeam }) {
                 </div>
                 <button onClick={() => openEdit(m)} style={{ background:'#1e2d40', border:'none', borderRadius:7, padding:'4px 10px', color:'#64748b', fontSize:12 }}>Edit</button>
               </div>
-              {/* Stats */}
+
+              {/* Stats row */}
               <div style={{ display:'flex', gap:8, marginBottom:14 }}>
                 <div style={{ flex:1, background:'#080c14', borderRadius:8, padding:'7px 10px', textAlign:'center' }}>
                   <div style={{ fontSize:20, fontWeight:700, color:m.color, fontFamily:"'JetBrains Mono',monospace" }}>{activeJobs.length}</div>
@@ -1287,49 +1339,35 @@ function Team({ team, jobs, clients, setTeam }) {
                   <div style={{ fontSize:11, color:'#475569' }}>Done</div>
                 </div>
               </div>
-              {/* Active job list */}
+
+              {/* Top-3 case list */}
               {activeJobs.length > 0 ? (
                 <div>
                   <div style={{ fontSize:11, color:'#334155', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:8 }}>
-                    Active Cases — ranked by urgency
+                    Top Cases — ranked by urgency
                   </div>
                   <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
-                    {activeJobs.map((j, idx) => {
-                      const client = getClient(j.clientId);
-                      const overdue = isOverdue(j.dueDate);
-                      const pStyle = PRIORITY_STYLES[j.priority] || {};
-                      return (
-                        <div key={j.id} style={{
-                          background: idx === 0 && j.priority === 'Urgent' ? '#7f1d1d18' : '#080c14',
-                          border: `1px solid ${idx === 0 && j.priority === 'Urgent' ? '#7f1d1d50' : '#1e2d4060'}`,
-                          borderRadius:8, padding:'8px 10px',
-                        }}>
-                          {/* Row 1: client + priority badge */}
-                          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:4 }}>
-                            <span style={{ fontSize:12, fontWeight:600, color:'#e2e8f0', flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginRight:6 }}>
-                              {client?.name || '—'}
-                            </span>
-                            <span style={{ fontSize:10, fontWeight:700, color:pStyle.text||'#94a3b8', background:pStyle.bg||'#1e2d40', borderRadius:10, padding:'1px 7px', flexShrink:0, textTransform:'uppercase', letterSpacing:'0.04em' }}>
-                              {j.priority}
-                            </span>
-                          </div>
-                          {/* Row 2: case type */}
-                          <div style={{ fontSize:11, color:'#60a5fa', marginBottom:4, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                            {caseLabel(j.type)}
-                          </div>
-                          {/* Row 3: status + due date */}
-                          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                            <StatusBadge status={j.status} small />
-                            {j.dueDate && (
-                              <span style={{ fontSize:10, color: overdue ? '#f87171' : '#475569' }}>
-                                {overdue ? '⚠ ' : ''}{fmtDate(j.dueDate)}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
+                    {preview.map((j, idx) => <JobRow key={j.id} j={j} idx={idx} compact />)}
                   </div>
+
+                  {/* View All button */}
+                  {remaining > 0 ? (
+                    <button
+                      onClick={() => setDrillMember(m)}
+                      style={{ marginTop:10, width:'100%', background:'#1e2d40', border:'1px solid #2a3a52', borderRadius:8, padding:'8px 0', color:'#94a3b8', fontSize:12, fontWeight:600, cursor:'pointer', transition:'all 0.15s' }}
+                      onMouseEnter={e => { e.currentTarget.style.background='#253650'; e.currentTarget.style.color='#e2e8f0'; }}
+                      onMouseLeave={e => { e.currentTarget.style.background='#1e2d40'; e.currentTarget.style.color='#94a3b8'; }}
+                    >
+                      View all {activeJobs.length} cases →
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setDrillMember(m)}
+                      style={{ marginTop:10, width:'100%', background:'transparent', border:'1px solid #1e2d40', borderRadius:8, padding:'6px 0', color:'#334155', fontSize:11, cursor:'pointer' }}
+                    >
+                      View details
+                    </button>
+                  )}
                 </div>
               ) : (
                 <div style={{ fontSize:13, color:'#334155', textAlign:'center', padding:'10px 0' }}>No active jobs 🎉</div>
@@ -1338,6 +1376,139 @@ function Team({ team, jobs, clients, setTeam }) {
           );
         })}
       </div>
+
+      {/* ── Drill-down modal: all cases for one member ── */}
+      {drillMember && (() => {
+        const allJobs = getMemberJobs(drillMember.id);
+        const completedJobs = jobs.filter(j => j.assignedTo === drillMember.id && j.status === 'Completed');
+        return (
+          <Modal title={`${drillMember.name} — All Cases`} onClose={() => setDrillMember(null)} wide>
+            {/* Member summary bar */}
+            <div style={{ display:'flex', alignItems:'center', gap:14, marginBottom:20, padding:'12px 16px', background:'#080c14', borderRadius:10, border:'1px solid #1e2d40' }}>
+              <Avatar name={drillMember.name} color={drillMember.color} size={40} />
+              <div style={{ flex:1 }}>
+                <div style={{ fontWeight:600, color:'#e2e8f0', fontSize:15 }}>{drillMember.name}</div>
+                <div style={{ fontSize:12, color:'#475569' }}>{drillMember.role} · {drillMember.email}</div>
+              </div>
+              <div style={{ display:'flex', gap:12 }}>
+                <div style={{ textAlign:'center' }}>
+                  <div style={{ fontSize:18, fontWeight:700, color:drillMember.color, fontFamily:"'JetBrains Mono',monospace" }}>{allJobs.length}</div>
+                  <div style={{ fontSize:10, color:'#475569' }}>Active</div>
+                </div>
+                <div style={{ textAlign:'center' }}>
+                  <div style={{ fontSize:18, fontWeight:700, color:'#34d399', fontFamily:"'JetBrains Mono',monospace" }}>{completedJobs.length}</div>
+                  <div style={{ fontSize:10, color:'#475569' }}>Done</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Active cases */}
+            {allJobs.length > 0 && (
+              <div style={{ marginBottom:20 }}>
+                <div style={{ fontSize:11, color:'#334155', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:10 }}>
+                  Active Cases ({allJobs.length}) — click to open
+                </div>
+                <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+                  {allJobs.map((j, idx) => <JobRow key={j.id} j={j} idx={idx} />)}
+                </div>
+              </div>
+            )}
+
+            {/* Completed cases */}
+            {completedJobs.length > 0 && (
+              <div>
+                <div style={{ fontSize:11, color:'#334155', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:10 }}>
+                  Completed ({completedJobs.length})
+                </div>
+                <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
+                  {completedJobs.map(j => {
+                    const client = getClient(j.clientId);
+                    return (
+                      <div key={j.id} onClick={() => setViewJob(j)} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 12px', background:'#080c14', borderRadius:8, cursor:'pointer', opacity:0.6 }}
+                        onMouseEnter={e => e.currentTarget.style.opacity='1'}
+                        onMouseLeave={e => e.currentTarget.style.opacity='0.6'}>
+                        <span style={{ fontSize:12, color:'#94a3b8' }}>{client?.name || '—'}</span>
+                        <span style={{ fontSize:11, color:'#60a5fa' }}>{caseLabel(j.type)}</span>
+                        <StatusBadge status={j.status} small />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {allJobs.length === 0 && completedJobs.length === 0 && (
+              <div style={{ textAlign:'center', color:'#334155', padding:'20px 0' }}>No cases assigned yet.</div>
+            )}
+
+            <div style={{ display:'flex', justifyContent:'flex-end', marginTop:20 }}>
+              <button onClick={() => setDrillMember(null)} style={{ background:'#1e2d40', border:'none', borderRadius:8, padding:'9px 20px', color:'#94a3b8', fontWeight:500 }}>Close</button>
+            </div>
+          </Modal>
+        );
+      })()}
+
+      {/* ── Job detail modal (opened by clicking a case row) ── */}
+      {viewJob && (() => {
+        const vc = getClient(viewJob.clientId);
+        const checklist = DOC_CHECKLISTS[viewJob.type] || [];
+        const docs = viewJob.docs || {};
+        const docsReceived = checklist.filter(d => docs[d]).length;
+        return (
+          <Modal title={viewJob.title} onClose={() => setViewJob(null)} wide>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20, marginBottom:18 }}>
+              <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+                {[['Client', vc?.name||'—'], ['Type', viewJob.type], ['Status', viewJob.status], ['Priority', viewJob.priority], ['Due Date', fmtDate(viewJob.dueDate)||'—']].map(([l,v]) => (
+                  <div key={l} style={{ display:'flex', justifyContent:'space-between', background:'#0f1623', borderRadius:8, padding:'9px 14px' }}>
+                    <span style={{ fontSize:11, color:'#475569', textTransform:'uppercase', letterSpacing:'0.06em' }}>{l}</span>
+                    <span style={{ fontSize:13, color:'#e2e8f0', fontWeight:500 }}>{v}</span>
+                  </div>
+                ))}
+              </div>
+              <div>
+                <div style={{ marginBottom:14 }}>
+                  <div style={{ fontSize:11, color:'#64748b', letterSpacing:'0.08em', marginBottom:6 }}>Progress — {viewJob.progress}%</div>
+                  <ProgressBar value={viewJob.progress} />
+                </div>
+                {checklist.length > 0 && (
+                  <div>
+                    <div style={{ fontSize:11, color:'#64748b', letterSpacing:'0.08em', marginBottom:8 }}>Documents — {docsReceived}/{checklist.length}</div>
+                    <div style={{ background:'#080c1460', borderRadius:8, padding:10, maxHeight:200, overflowY:'auto' }}>
+                      {checklist.map(doc => {
+                        const got = docs[doc];
+                        return (
+                          <div key={doc} style={{ display:'flex', alignItems:'center', gap:8, padding:'5px 4px', borderBottom:'1px solid #1e2d4030' }}>
+                            <span style={{ fontSize:14, color: got?'#34d399':'#334155' }}>{got?'✓':'○'}</span>
+                            <span style={{ fontSize:12, color: got?'#94a3b8':'#475569', textDecoration: got?'line-through':'none' }}>{doc}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            {normalizeNotes(viewJob.notes).length > 0 && (
+              <div style={{ borderTop:'1px solid #1e2d40', paddingTop:14 }}>
+                <div style={{ fontSize:11, color:'#64748b', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:8 }}>Notes</div>
+                <div style={{ display:'flex', flexDirection:'column', gap:8, maxHeight:150, overflowY:'auto' }}>
+                  {[...normalizeNotes(viewJob.notes)].sort((a,b) => new Date(b.createdAt)-new Date(a.createdAt)).map(n => (
+                    <div key={n.id} style={{ background:'#0f1623', borderRadius:8, padding:'10px 14px' }}>
+                      <div style={{ fontSize:13, color:'#cbd5e1', whiteSpace:'pre-wrap' }}>{n.text}</div>
+                      <div style={{ fontSize:11, color:'#334155', marginTop:4 }}>{fmtDate(n.createdAt)}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div style={{ display:'flex', justifyContent:'flex-end', marginTop:18 }}>
+              <button onClick={() => setViewJob(null)} style={{ background:'#1e2d40', border:'none', borderRadius:8, padding:'9px 20px', color:'#94a3b8', fontWeight:500 }}>Close</button>
+            </div>
+          </Modal>
+        );
+      })()}
+
+      {/* ── Edit member modal ── */}
       {editing && (
         <Modal title="Edit Team Member" onClose={() => setEditing(null)}>
           <FormField label="Name"><input style={inputStyle} value={form.name||''} onChange={e => setForm(f => ({...f, name:e.target.value}))} /></FormField>
