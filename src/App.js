@@ -280,7 +280,7 @@ const CLIENT_TYPES = ['Student', 'Migration', 'Both'];
 const CLIENT_STATUSES = ['Active', 'Pending', 'Completed', 'Inactive'];
 
 const STATUS_STYLES = {
-  'New':           { bg: '#0ea5e920', text: '#38bdf8', dot: '#38bdf8' },
+  'New':           { bg: '#0ea5e920', text: '#6366f1', dot: '#6366f1' },
   'In Progress':   { bg: '#f59e0b20', text: '#fbbf24', dot: '#f59e0b' },
   'Awaiting Docs': { bg: '#a78bfa20', text: '#c4b5fd', dot: '#a78bfa' },
   'Under Review':  { bg: '#fb923c20', text: '#fdba74', dot: '#fb923c' },
@@ -298,7 +298,7 @@ const PRIORITY_STYLES = {
   'Urgent': { bg: '#7f1d1d',   text: '#fca5a5' },
 };
 
-const TEAM_COLORS = ['#38bdf8','#34d399','#f59e0b','#a78bfa','#fb923c','#f472b6','#4ade80','#60a5fa'];
+const TEAM_COLORS = ['#6366f1','#34d399','#f59e0b','#a78bfa','#fb923c','#f472b6','#4ade80','#60a5fa'];
 
 /* Document checklists per job type */
 const DOC_CHECKLISTS = {
@@ -336,7 +336,7 @@ const DOC_CHECKLISTS = {
 };
 
 const INIT_TEAM = [
-  { id:'t1', name:'Liang Jiang',   role:'Senior Consultant',   email:'liang@ozsky.com.au',   phone:'0411 111 001', color:'#38bdf8' },
+  { id:'t1', name:'Liang Jiang',   role:'Senior Consultant',   email:'liang@ozsky.com.au',   phone:'0411 111 001', color:'#6366f1' },
   { id:'t2', name:'Mansi Mao',     role:'Migration Agent',     email:'mansi@ozsky.com.au',   phone:'0411 111 002', color:'#34d399' },
   { id:'t3', name:'Mia Ma',        role:'Student Advisor',     email:'mia@ozsky.com.au',     phone:'0411 111 003', color:'#f59e0b' },
   { id:'t4', name:'Nicole Chen',   role:'Case Manager',        email:'nicole@ozsky.com.au',  phone:'0411 111 004', color:'#a78bfa' },
@@ -407,7 +407,7 @@ function Avatar({ name, color, size=32 }) {
 }
 
 function ProgressBar({ value }) {
-  const color = value >= 100 ? '#10b981' : value >= 60 ? '#38bdf8' : value >= 30 ? '#f59e0b' : '#fb923c';
+  const color = value >= 100 ? '#10b981' : value >= 60 ? '#6366f1' : value >= 30 ? '#f59e0b' : '#fb923c';
   return (
     <div style={{ height:4, borderRadius:4, background:'#1e293b', overflow:'hidden' }}>
       <div style={{ height:'100%', width:`${Math.min(value, 100)}%`, background:color, borderRadius:4, transition:'width 0.3s ease' }} />
@@ -428,7 +428,7 @@ function Card({ children, style, onClick }) {
 function Modal({ title, onClose, children, wide }) {
   return (
     <div style={{ position:'fixed', inset:0, background:'#000000b0', backdropFilter:'blur(4px)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:20 }} onClick={e => e.target===e.currentTarget && onClose()}>
-      <div className="animate-fade" style={{ background:'#f5f6fa', border:'1px solid #2a3a52', borderRadius:16, padding:28, width:'100%', maxWidth: wide?720:520, maxHeight:'90vh', overflowY:'auto' }}>
+      <div className="animate-fade" style={{ background:'#f5f6fa', border:'1px solid #e5e7eb', borderRadius:16, padding:28, width:'100%', maxWidth: wide?720:520, maxHeight:'90vh', overflowY:'auto' }}>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
           <h2 style={{ fontSize:18, fontWeight:600, color:'#111827' }}>{title}</h2>
           <button onClick={onClose} style={{ background:'#e5e7eb', border:'none', borderRadius:8, width:32, height:32, color:'#6b7280', fontSize:18, display:'flex', alignItems:'center', justifyContent:'center' }}>×</button>
@@ -475,14 +475,14 @@ function NotesPanel({ notes, onAddNote, onDeleteNote }) {
           placeholder="Add a note… (Ctrl+Enter to save)"
           style={{ ...textareaStyle, minHeight:60, flex:1, fontSize:13 }}
         />
-        <button onClick={handleAdd} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, padding:'0 14px', color:'#080c14', fontWeight:700, fontSize:13, alignSelf:'stretch', minWidth:60 }}>Add</button>
+        <button onClick={handleAdd} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, padding:'0 14px', color:'#fff', fontWeight:700, fontSize:13, alignSelf:'stretch', minWidth:60 }}>Add</button>
       </div>
       {/* Notes list */}
       <div style={{ display:'flex', flexDirection:'column', gap:8, maxHeight:260, overflowY:'auto' }}>
         {sorted.length === 0 && <div style={{ fontSize:13, color:'#9ca3af', textAlign:'center', padding:'16px 0' }}>No notes yet</div>}
         {sorted.map((n, i) => (
           <div key={n.id} style={{ background:'#f5f6fa', border:'1px solid #e9eaf3', borderRadius:8, padding:'10px 12px', position:'relative' }}>
-            {i === 0 && <span style={{ position:'absolute', top:8, right:36, fontSize:10, background:'#38bdf820', color:'#38bdf8', borderRadius:6, padding:'1px 6px' }}>Latest</span>}
+            {i === 0 && <span style={{ position:'absolute', top:8, right:36, fontSize:10, background:'#eef2ff', color:'#6366f1', borderRadius:6, padding:'1px 6px' }}>Latest</span>}
             <div style={{ fontSize:13, color:'#374151', lineHeight:1.5, marginBottom:6, paddingRight:24 }}>{n.text}</div>
             <div style={{ fontSize:11, color:'#9ca3af' }}>🕐 {fmtDateTime(n.createdAt)}</div>
             <button onClick={()=>onDeleteNote(n.id)} style={{ position:'absolute', top:8, right:8, background:'none', border:'none', color:'#9ca3af', fontSize:14, lineHeight:1, padding:2 }} title="Delete note">×</button>
@@ -504,13 +504,13 @@ function ClientSnapshot({ client, jobs, visible, anchorRef }) {
   return (
     <div className="tooltip-anim" style={{
       position:'fixed', zIndex:2000,
-      background:'#f5f6fa', border:'1px solid #2a3a52',
+      background:'#f5f6fa', border:'1px solid #e5e7eb',
       borderRadius:14, padding:18, width:300,
       boxShadow:'0 20px 60px #000000cc',
       pointerEvents:'none',
     }}>
       {/* Header */}
-      <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:14, paddingBottom:12, borderBottom:'1px solid #1e2d40' }}>
+      <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:14, paddingBottom:12, borderBottom:'1px solid #f0f1f5' }}>
         <div style={{ width:44, height:44, borderRadius:'50%', background:'#e5e7eb', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, fontWeight:700, color:'#6b7280', flexShrink:0 }}>{initials(client.name)}</div>
         <div>
           <div style={{ fontWeight:700, color:'#111827', fontSize:15 }}>{client.name}</div>
@@ -588,7 +588,7 @@ function Dashboard({ clients, jobs, team, onGoTo }) {
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
   const statCards = [
-    { label:'Active Clients',   value:active,     icon:'👥', color:'#38bdf8', sub:`of ${clients.length} total`,   onClick:()=>onGoTo('clients') },
+    { label:'Active Clients',   value:active,     icon:'👥', color:'#6366f1', sub:`of ${clients.length} total`,   onClick:()=>onGoTo('clients') },
     { label:'Jobs In Progress', value:inProgress, icon:'⚡', color:'#f59e0b', sub:`${jobs.length} total jobs`,     onClick:()=>onGoTo('jobs') },
     { label:'Urgent Jobs',      value:urgent,     icon:'🔴', color:'#f87171', sub:'need immediate attention',       onClick:()=>onGoTo('jobs') },
     { label:'Completed',        value:completed,  icon:'✅', color:'#34d399', sub:'jobs finished',                  onClick:()=>onGoTo('jobs') },
@@ -628,7 +628,7 @@ function Dashboard({ clients, jobs, team, onGoTo }) {
       <Card style={{ marginBottom:20, padding:'16px 20px' }}>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
           <h3 style={{ fontSize:15, fontWeight:600, color:'#111827' }}>Pipeline Overview</h3>
-          <button onClick={()=>onGoTo('jobs')} style={{ background:'none', border:'none', color:'#38bdf8', fontSize:13, cursor:'pointer' }}>View all →</button>
+          <button onClick={()=>onGoTo('jobs')} style={{ background:'none', border:'none', color:'#6366f1', fontSize:13, cursor:'pointer' }}>View all →</button>
         </div>
         <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
           {pipeline.map(p => {
@@ -650,7 +650,7 @@ function Dashboard({ clients, jobs, team, onGoTo }) {
         <Card>
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
             <h3 style={{ fontSize:15, fontWeight:600, color:'#111827' }}>Recent Jobs</h3>
-            <button onClick={()=>onGoTo('jobs')} style={{ background:'none', border:'none', color:'#38bdf8', fontSize:13, cursor:'pointer' }}>View all →</button>
+            <button onClick={()=>onGoTo('jobs')} style={{ background:'none', border:'none', color:'#6366f1', fontSize:13, cursor:'pointer' }}>View all →</button>
           </div>
           <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
             {recentJobs.map(j => {
@@ -681,7 +681,7 @@ function Dashboard({ clients, jobs, team, onGoTo }) {
         <Card>
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
             <h3 style={{ fontSize:15, fontWeight:600, color:'#111827' }}>Team Workload</h3>
-            <button onClick={()=>onGoTo('team')} style={{ background:'none', border:'none', color:'#38bdf8', fontSize:13, cursor:'pointer' }}>View team →</button>
+            <button onClick={()=>onGoTo('team')} style={{ background:'none', border:'none', color:'#6366f1', fontSize:13, cursor:'pointer' }}>View team →</button>
           </div>
           <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
             {memberLoad.map(m => {
@@ -712,7 +712,7 @@ function Dashboard({ clients, jobs, team, onGoTo }) {
         <Card>
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
             <h3 style={{ fontSize:15, fontWeight:600, color:'#111827' }}>📅 Upcoming Deadlines <span style={{ fontSize:12, color:'#6b7280', fontWeight:400 }}>(next 14 days)</span></h3>
-            <button onClick={()=>onGoTo('jobs')} style={{ background:'none', border:'none', color:'#38bdf8', fontSize:13, cursor:'pointer' }}>View all →</button>
+            <button onClick={()=>onGoTo('jobs')} style={{ background:'none', border:'none', color:'#6366f1', fontSize:13, cursor:'pointer' }}>View all →</button>
           </div>
           <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
             {upcoming.map(j => {
@@ -782,9 +782,9 @@ function Dashboard({ clients, jobs, team, onGoTo }) {
               ))}
             </div>
           )}
-          <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:4, borderTop:'1px solid #1e2d40', paddingTop:16 }}>
+          <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:4, borderTop:'1px solid #f0f1f5', paddingTop:16 }}>
             <button onClick={()=>setSelectedJob(null)} style={{ background:'#e5e7eb', border:'none', borderRadius:8, padding:'9px 18px', color:'#6b7280', fontWeight:500 }}>Close</button>
-            <button onClick={()=>{ setSelectedJob(null); onGoTo('jobs'); }} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, padding:'9px 20px', color:'#080c14', fontWeight:700 }}>Open in Jobs →</button>
+            <button onClick={()=>{ setSelectedJob(null); onGoTo('jobs'); }} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, padding:'9px 20px', color:'#fff', fontWeight:700 }}>Open in Jobs →</button>
           </div>
         </Modal>
       )}
@@ -800,7 +800,67 @@ function ClientDetailModal({ client, jobs, onClose, onEdit, onSaveProfile }) {
   const [importPreview, setImportPreview] = useState(null);
   const [applyMsg, setApplyMsg]     = useState('');
   const fileRef                     = useRef(null);
+  // WeChat import state
+  const [wchat, setWchat]           = useState('');
+  const [wchatParsing, setWchatParsing] = useState(false);
+  const [wchatResult, setWchatResult]   = useState(null);
+  const [wchatSaved, setWchatSaved]     = useState(false);
   const clientJobs                  = jobs.filter(j => j.clientId === client.id);
+
+  /* ── WeChat chat import ─────────────────────────────── */
+  const parseWeChat = async () => {
+    if (!wchat.trim()) return;
+    setWchatParsing(true); setWchatResult(null); setWchatSaved(false);
+    try {
+      const res = await fetch('/api/claude', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          model:'claude-sonnet-4-20250514', max_tokens:3000,
+          messages:[{ role:'user', content:
+`You are an immigration CRM assistant. Analyse this WeChat conversation involving client "${client.name}" and extract a structured communication summary.
+
+WeChat Chat:
+${wchat.slice(0,6000)}
+
+Return ONLY valid JSON (no markdown, no explanation):
+{
+  "summary": "2-3 sentence overview of what was discussed",
+  "keyTopics": ["topic1","topic2"],
+  "clientRequests": ["what the client asked for or needed"],
+  "actionItems": ["things the agent/team needs to do"],
+  "importantDates": ["any dates mentioned e.g. visa expiry, appointment dates"],
+  "sentiment": "positive|neutral|concerned|urgent",
+  "language": "English|Mandarin|Mixed",
+  "messageCount": <number>,
+  "dateRange": "earliest to latest date found or null",
+  "tags": ["visa type mentioned","document mentioned","etc"]
+}`
+          }]
+        })
+      });
+      const data = await res.json();
+      const txt = (data.content||[]).map(c=>c.text||'').join('');
+      const clean = txt.replace(/```json|```/g,'').trim();
+      setWchatResult(JSON.parse(clean));
+    } catch(e) {
+      setWchatResult({ summary:'Parse error: '+e.message, keyTopics:[], clientRequests:[], actionItems:[], importantDates:[], sentiment:'neutral', language:'Unknown', messageCount:0, dateRange:null, tags:[] });
+    }
+    setWchatParsing(false);
+  };
+
+  const saveWchatNote = () => {
+    if (!wchatResult) return;
+    const noteText = [
+      '💬 WeChat Import',
+      `Summary: ${wchatResult.summary}`,
+      wchatResult.actionItems?.length ? `Action Items: ${wchatResult.actionItems.join('; ')}` : '',
+      wchatResult.clientRequests?.length ? `Client Requests: ${wchatResult.clientRequests.join('; ')}` : '',
+      wchatResult.importantDates?.length ? `Key Dates: ${wchatResult.importantDates.join(', ')}` : '',
+      wchatResult.dateRange ? `Chat Period: ${wchatResult.dateRange}` : '',
+    ].filter(Boolean).join('\n');
+    onSaveProfile({ ...client, notes: [makeNote(noteText), ...normalizeNotes(client.notes)] });
+    setWchatSaved(true);
+  };
   const p                           = client.profile || {};
 
   /* ── AI document import ─────────────────────────────── */
@@ -869,7 +929,7 @@ Return this exact structure (use null for missing, keep English for field values
   /* ── Section helpers ─────────────────────────────────── */
   const S = ({ icon, title, children }) => (
     <div style={{ marginBottom:20 }}>
-      <div style={{ fontSize:12, color:'#38bdf8', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:10, display:'flex', alignItems:'center', gap:6 }}>
+      <div style={{ fontSize:12, color:'#6366f1', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:10, display:'flex', alignItems:'center', gap:6 }}>
         <span>{icon}</span>{title}
       </div>
       {children}
@@ -909,15 +969,16 @@ Return this exact structure (use null for missing, keep English for field values
     { id:'profile',  label:'👤 Profile' },
     { id:'jobs',     label:`📋 Jobs (${clientJobs.length})` },
     { id:'notes',    label:`📝 Notes (${normalizeNotes(client.notes).length})` },
+    { id:'wechat',   label:'💬 WeChat' },
     { id:'import',   label:'📥 Import Doc' },
   ];
 
   return (
     <Modal title={`Client — ${client.name}`} onClose={onClose} wide>
       {/* Tabs */}
-      <div style={{ display:'flex', gap:4, marginBottom:20, borderBottom:'1px solid #1e2d40', paddingBottom:0 }}>
+      <div style={{ display:'flex', gap:4, marginBottom:20, borderBottom:'1px solid #f0f1f5', paddingBottom:0 }}>
         {tabs.map(t => (
-          <button key={t.id} onClick={()=>setTab(t.id)} style={{ padding:'8px 16px', background:'none', border:'none', color: tab===t.id ? '#38bdf8' : '#475569', fontWeight: tab===t.id ? 700 : 400, fontSize:13, borderBottom: tab===t.id ? '2px solid #38bdf8' : '2px solid transparent', cursor:'pointer', marginBottom:-1 }}>{t.label}</button>
+          <button key={t.id} onClick={()=>setTab(t.id)} style={{ padding:'8px 16px', background:'none', border:'none', color: tab===t.id ? '#6366f1' : '#6b7280', fontWeight: tab===t.id ? 700 : 400, fontSize:13, borderBottom: tab===t.id ? '2px solid #6366f1' : '2px solid transparent', cursor:'pointer', marginBottom:-1 }}>{t.label}</button>
         ))}
       </div>
 
@@ -925,8 +986,8 @@ Return this exact structure (use null for missing, keep English for field values
       {tab === 'profile' && (
         <div style={{ maxHeight:'65vh', overflowY:'auto', paddingRight:4 }}>
           {/* Header */}
-          <div style={{ display:'flex', alignItems:'center', gap:14, marginBottom:22, padding:'14px 16px', background:'linear-gradient(135deg,#0d1f33,#0a1220)', borderRadius:10, border:'1px solid #1e3a5f' }}>
-            <div style={{ width:52, height:52, borderRadius:'50%', background:'#1e3a5f', display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, fontWeight:700, color:'#38bdf8', flexShrink:0 }}>{initials(client.name)}</div>
+          <div style={{ display:'flex', alignItems:'center', gap:14, marginBottom:22, padding:'14px 16px', background:'linear-gradient(135deg,#eef2ff,#f5f3ff)', borderRadius:10, border:'1px solid #ddd6fe' }}>
+            <div style={{ width:52, height:52, borderRadius:'50%', background:'#e0e7ff', display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, fontWeight:700, color:'#6366f1', flexShrink:0 }}>{initials(client.name)}</div>
             <div style={{ flex:1 }}>
               <div style={{ fontSize:18, fontWeight:700, color:'#111827' }}>{client.name}</div>
               <div style={{ fontSize:12, color:'#6b7280', marginTop:2 }}>{client.email} · {client.phone}</div>
@@ -1043,7 +1104,7 @@ Return this exact structure (use null for missing, keep English for field values
               <div style={{ fontSize:32, marginBottom:12 }}>📥</div>
               <div style={{ fontSize:14, marginBottom:8 }}>No detailed profile yet</div>
               <div style={{ fontSize:12 }}>Upload a client information card to auto-fill this section</div>
-              <button onClick={()=>setTab('import')} style={{ marginTop:14, padding:'9px 18px', background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, color:'#080c14', fontWeight:700, fontSize:13, cursor:'pointer' }}>Import Document →</button>
+              <button onClick={()=>setTab('import')} style={{ marginTop:14, padding:'9px 18px', background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, color:'#fff', fontWeight:700, fontSize:13, cursor:'pointer' }}>Import Document →</button>
             </div>
           )}
         </div>
@@ -1084,13 +1145,149 @@ Return this exact structure (use null for missing, keep English for field values
         </div>
       )}
 
+
+      {/* ── WECHAT TAB ───────────────────────────────────── */}
+      {tab === 'wechat' && (
+        <div style={{ maxHeight:'65vh', overflowY:'auto', paddingRight:4 }}>
+          {/* Header */}
+          <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:18, padding:'14px 16px', background:'linear-gradient(135deg,#f0fdf4,#dcfce7)', borderRadius:12, border:'1px solid #86efac' }}>
+            <div style={{ fontSize:28 }}>💬</div>
+            <div>
+              <div style={{ fontSize:15, fontWeight:700, color:'#15803d' }}>WeChat Communication Import</div>
+              <div style={{ fontSize:12, color:'#4ade80', marginTop:2 }}>Paste WeChat chat history — AI will extract key info, action items & summaries</div>
+            </div>
+          </div>
+
+          {/* Paste area */}
+          <div style={{ marginBottom:16 }}>
+            <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#6b7280', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:7 }}>
+              Paste WeChat Chat Export
+              <span style={{ marginLeft:8, fontSize:10, fontWeight:500, color:'#9ca3af', textTransform:'none', letterSpacing:0 }}>
+                (微信聊天记录 — 直接粘贴即可)
+              </span>
+            </label>
+            <textarea
+              value={wchat}
+              onChange={e => { setWchat(e.target.value); setWchatResult(null); setWchatSaved(false); }}
+              placeholder="Paste WeChat chat history here (Chinese/English supported). e.g. 2024-01-15 10:23 Client: Hi I need help with my student visa..."
+              style={{ ...inputStyle, minHeight:180, fontFamily:"'JetBrains Mono',monospace", fontSize:12.5, resize:'vertical', background:'#f9fafb', lineHeight:1.6 }}
+            />
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:10 }}>
+              <span style={{ fontSize:12, color:'#9ca3af' }}>{wchat.length > 0 ? `${wchat.length.toLocaleString()} chars · ~${Math.ceil(wchat.length/4)} tokens` : 'Max ~6000 chars will be analysed'}</span>
+              <div style={{ display:'flex', gap:10 }}>
+                {wchat && <button onClick={()=>{setWchat('');setWchatResult(null);}} style={{ padding:'8px 14px', background:'#f3f4f6', border:'1px solid #e5e7eb', borderRadius:8, fontSize:12, color:'#6b7280', fontWeight:600 }}>Clear</button>}
+                <button
+                  onClick={parseWeChat}
+                  disabled={wchatParsing || !wchat.trim()}
+                  style={{ padding:'9px 20px', background: wchatParsing||!wchat.trim() ? '#e5e7eb' : 'linear-gradient(135deg,#22c55e,#16a34a)', border:'none', borderRadius:9, color: wchatParsing||!wchat.trim() ? '#9ca3af' : '#fff', fontWeight:700, fontSize:13, cursor: wchatParsing||!wchat.trim() ? 'default':'pointer', display:'flex', alignItems:'center', gap:7, transition:'all 0.15s' }}
+                >
+                  {wchatParsing ? <><span style={{ animation:'spin 1s linear infinite', display:'inline-block' }}>⏳</span> Analysing...</> : '🤖 Analyse with AI'}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* AI result */}
+          {wchatResult && (
+            <div style={{ background:'#fff', border:'1px solid #e5e7eb', borderRadius:14, overflow:'hidden', marginTop:4 }}>
+              {/* Result header */}
+              <div style={{ padding:'14px 18px', background:'linear-gradient(135deg,#f0fdf4,#dcfce7)', borderBottom:'1px solid #bbf7d0', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                <div>
+                  <div style={{ fontSize:14, fontWeight:700, color:'#15803d' }}>✅ Analysis Complete</div>
+                  {wchatResult.dateRange && <div style={{ fontSize:12, color:'#4ade80', marginTop:2 }}>📅 {wchatResult.dateRange} · {wchatResult.messageCount} messages · {wchatResult.language}</div>}
+                </div>
+                <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+                  {/* Sentiment badge */}
+                  {wchatResult.sentiment && (
+                    <span style={{ padding:'3px 10px', borderRadius:99, fontSize:11, fontWeight:700,
+                      background: wchatResult.sentiment==='urgent' ? '#fef2f2' : wchatResult.sentiment==='positive' ? '#f0fdf4' : wchatResult.sentiment==='concerned' ? '#fffbeb' : '#f0f9ff',
+                      color: wchatResult.sentiment==='urgent' ? '#dc2626' : wchatResult.sentiment==='positive' ? '#16a34a' : wchatResult.sentiment==='concerned' ? '#d97706' : '#0284c7'
+                    }}>
+                      {wchatResult.sentiment==='urgent'?'🚨':wchatResult.sentiment==='positive'?'😊':wchatResult.sentiment==='concerned'?'⚠️':'💬'} {wchatResult.sentiment}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div style={{ padding:'16px 18px' }}>
+                {/* Summary */}
+                <div style={{ marginBottom:14 }}>
+                  <div style={{ fontSize:11, fontWeight:700, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:6 }}>Summary</div>
+                  <div style={{ fontSize:13.5, color:'#374151', lineHeight:1.6, background:'#f9fafb', padding:'10px 14px', borderRadius:9, border:'1px solid #e5e7eb' }}>{wchatResult.summary}</div>
+                </div>
+
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:14 }}>
+                  {/* Action Items */}
+                  {wchatResult.actionItems?.length > 0 && (
+                    <div>
+                      <div style={{ fontSize:11, fontWeight:700, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:6 }}>🎯 Action Items</div>
+                      {wchatResult.actionItems.map((item,i) => (
+                        <div key={i} style={{ display:'flex', alignItems:'flex-start', gap:6, marginBottom:5 }}>
+                          <span style={{ width:18, height:18, borderRadius:99, background:'#fef2f2', border:'1px solid #fecaca', display:'flex', alignItems:'center', justifyContent:'center', fontSize:9, fontWeight:700, color:'#dc2626', flexShrink:0, marginTop:1 }}>{i+1}</span>
+                          <span style={{ fontSize:12.5, color:'#374151', lineHeight:1.5 }}>{item}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Client Requests */}
+                  {wchatResult.clientRequests?.length > 0 && (
+                    <div>
+                      <div style={{ fontSize:11, fontWeight:700, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:6 }}>💬 Client Requests</div>
+                      {wchatResult.clientRequests.map((req,i) => (
+                        <div key={i} style={{ display:'flex', alignItems:'flex-start', gap:6, marginBottom:5 }}>
+                          <span style={{ fontSize:13, flexShrink:0 }}>•</span>
+                          <span style={{ fontSize:12.5, color:'#374151', lineHeight:1.5 }}>{req}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Important Dates */}
+                {wchatResult.importantDates?.length > 0 && (
+                  <div style={{ marginBottom:14 }}>
+                    <div style={{ fontSize:11, fontWeight:700, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:6 }}>📅 Important Dates</div>
+                    <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+                      {wchatResult.importantDates.map((d,i) => (
+                        <span key={i} style={{ padding:'4px 10px', background:'#eff6ff', border:'1px solid #bfdbfe', borderRadius:8, fontSize:12, color:'#2563eb', fontWeight:500 }}>{d}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Topics / Tags */}
+                {wchatResult.tags?.length > 0 && (
+                  <div style={{ marginBottom:16 }}>
+                    <div style={{ fontSize:11, fontWeight:700, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:6 }}>🏷 Topics</div>
+                    <div style={{ display:'flex', flexWrap:'wrap', gap:5 }}>
+                      {wchatResult.tags.map((t,i) => (
+                        <span key={i} style={{ padding:'3px 9px', background:'#f5f3ff', border:'1px solid #ddd6fe', borderRadius:7, fontSize:11.5, color:'#7c3aed', fontWeight:500 }}>{t}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Save to notes */}
+                <div style={{ borderTop:'1px solid #f0f1f5', paddingTop:14, display:'flex', justifyContent:'flex-end', gap:10 }}>
+                  {wchatSaved && <span style={{ fontSize:13, color:'#16a34a', fontWeight:600, alignSelf:'center' }}>✅ Saved to client notes!</span>}
+                  <button onClick={saveWchatNote} disabled={wchatSaved} style={{ padding:'9px 20px', background: wchatSaved ? '#f3f4f6' : 'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:9, color: wchatSaved ? '#9ca3af':'#fff', fontWeight:700, fontSize:13, cursor: wchatSaved ? 'default':'pointer' }}>
+                    {wchatSaved ? '✅ Saved' : '💾 Save Summary to Client Notes'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ── IMPORT TAB ───────────────────────────────────── */}
       {tab === 'import' && (
         <div style={{ maxHeight:'65vh', overflowY:'auto' }}>
-          {applyMsg && <div style={{ padding:'10px 14px', background:'#052e16', border:'1px solid #166534', borderRadius:8, color:'#4ade80', fontSize:13, marginBottom:14 }}>{applyMsg}</div>}
+          {applyMsg && <div style={{ padding:'10px 14px', background:'#f0fdf4', border:'1px solid #86efac', borderRadius:8, color:'#15803d', fontSize:13, marginBottom:14 }}>{applyMsg}</div>}
 
           {!importPreview && (
-            <div style={{ textAlign:'center', padding:'40px 24px', border:'2px dashed #1e2d40', borderRadius:12 }}>
+            <div style={{ textAlign:'center', padding:'40px 24px', border:'2px dashed #dde1f0', borderRadius:12 }}>
               <div style={{ fontSize:40, marginBottom:12 }}>📄</div>
               <div style={{ fontSize:15, fontWeight:600, color:'#111827', marginBottom:6 }}>Upload Client Information Card</div>
               <div style={{ fontSize:13, color:'#6b7280', marginBottom:20 }}>Supports <strong style={{color:'#6b7280'}}>.docx</strong> files — AI will extract all fields automatically</div>
@@ -1098,7 +1295,7 @@ Return this exact structure (use null for missing, keep English for field values
               <button
                 onClick={() => fileRef.current?.click()}
                 disabled={importing}
-                style={{ padding:'11px 24px', background: importing ? '#e5e7eb' : '#38bdf8', border:'none', borderRadius:9, color: importing ? '#475569' : '#080c14', fontWeight:700, fontSize:14, cursor: importing ? 'default' : 'pointer' }}
+                style={{ padding:'11px 24px', background: importing ? '#e5e7eb' : 'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:9, color: importing ? '#6b7280' : '#fff', fontWeight:700, fontSize:14, cursor: importing ? 'default' : 'pointer' }}
               >
                 {importing ? '⏳ Analysing document...' : '📥 Select .docx File'}
               </button>
@@ -1108,7 +1305,7 @@ Return this exact structure (use null for missing, keep English for field values
 
           {importPreview && (
             <div>
-              <div style={{ padding:'10px 14px', background:'#052e16', border:'1px solid #166534', borderRadius:8, color:'#4ade80', fontSize:13, marginBottom:16 }}>
+              <div style={{ padding:'10px 14px', background:'#f0fdf4', border:'1px solid #86efac', borderRadius:8, color:'#15803d', fontSize:13, marginBottom:16 }}>
                 ✅ Document analysed — review the extracted data below, then click <strong>Apply to Record</strong>
               </div>
               <div style={{ display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:8, marginBottom:16 }}>
@@ -1144,7 +1341,7 @@ Return this exact structure (use null for missing, keep English for field values
 
               <div style={{ display:'flex', gap:10 }}>
                 <button onClick={()=>setImportPreview(null)} style={{ padding:'9px 18px', background:'#e5e7eb', border:'none', borderRadius:8, color:'#6b7280', fontWeight:500, cursor:'pointer' }}>← Re-upload</button>
-                <button onClick={applyImport} style={{ flex:1, padding:'10px 20px', background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, color:'#080c14', fontWeight:700, fontSize:14, cursor:'pointer' }}>✅ Apply to Client Record</button>
+                <button onClick={applyImport} style={{ flex:1, padding:'10px 20px', background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, color:'#fff', fontWeight:700, fontSize:14, cursor:'pointer' }}>✅ Apply to Client Record</button>
               </div>
             </div>
           )}
@@ -1152,9 +1349,9 @@ Return this exact structure (use null for missing, keep English for field values
       )}
 
       {/* Footer */}
-      <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:18, borderTop:'1px solid #1e2d40', paddingTop:14 }}>
+      <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:18, borderTop:'1px solid #f0f1f5', paddingTop:14 }}>
         <button onClick={onClose} style={{ padding:'9px 18px', background:'#e5e7eb', border:'none', borderRadius:8, color:'#6b7280', fontWeight:500, cursor:'pointer' }}>Close</button>
-        <button onClick={onEdit}  style={{ padding:'9px 20px', background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, color:'#080c14', fontWeight:700, cursor:'pointer' }}>✏️ Edit Client</button>
+        <button onClick={onEdit}  style={{ padding:'9px 20px', background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, color:'#fff', fontWeight:700, cursor:'pointer' }}>✏️ Edit Client</button>
       </div>
     </Modal>
   );
@@ -1245,7 +1442,7 @@ function Clients({ clients, jobs, setClients }) {
           <h1 style={{ fontSize:24, fontWeight:700, color:'#111827' }}>Clients</h1>
           <p style={{ color:'#6b7280', fontSize:14, marginTop:2 }}>{clients.length} total clients</p>
         </div>
-        <button onClick={openAdd} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:10, padding:'10px 18px', color:'#080c14', fontWeight:700, fontSize:14, display:'flex', alignItems:'center', gap:7 }}>
+        <button onClick={openAdd} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:10, padding:'10px 18px', color:'#fff', fontWeight:700, fontSize:14, display:'flex', alignItems:'center', gap:7 }}>
           <span style={{ fontSize:18, lineHeight:1 }}>+</span> Add Client
         </button>
       </div>
@@ -1265,9 +1462,9 @@ function Clients({ clients, jobs, setClients }) {
       <Card style={{ padding:0, overflow:'hidden' }}>
         <table style={{ width:'100%', borderCollapse:'collapse' }}>
           <thead>
-            <tr style={{ borderBottom:'1px solid #1e2d40' }}>
+            <tr style={{ borderBottom:'1px solid #f0f1f5' }}>
               {['Client','Type','Status','Jobs','Nationality','Notes','Created',''].map(h=>(
-                <th key={h} style={{ padding:'12px 16px', textAlign:'left', fontSize:11, fontWeight:600, color:'#6b7280', textTransform:'uppercase', letterSpacing:'0.06em', background:'#080c1460' }}>{h}</th>
+                <th key={h} style={{ padding:'12px 16px', textAlign:'left', fontSize:11, fontWeight:600, color:'#6b7280', textTransform:'uppercase', letterSpacing:'0.06em', background:'#f9fafb' }}>{h}</th>
               ))}
             </tr>
           </thead>
@@ -1286,7 +1483,7 @@ function Clients({ clients, jobs, setClients }) {
                     <div style={{ display:'flex', alignItems:'center', gap:10 }}>
                       <div style={{ width:34, height:34, borderRadius:'50%', background:'#e5e7eb', display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, fontWeight:600, color:'#6b7280' }}>{initials(c.name)}</div>
                       <div>
-                        <div onClick={()=>setViewClient(c)} style={{ fontWeight:600, color:'#38bdf8', fontSize:14, cursor:'pointer', textDecoration:'underline', textDecorationStyle:'dotted', textDecorationColor:'#38bdf840' }}>{c.name}</div>
+                        <div onClick={()=>setViewClient(c)} style={{ fontWeight:600, color:'#6366f1', fontSize:14, cursor:'pointer', fontWeight:600 }}>{c.name}</div>
                         <div style={{ fontSize:12, color:'#6b7280' }}>{c.email}</div>
                       </div>
                     </div>
@@ -1298,7 +1495,7 @@ function Clients({ clients, jobs, setClients }) {
                   <td style={{ padding:'13px 16px', color:'#6b7280', fontFamily:"'JetBrains Mono',monospace", fontSize:13 }}>{clientJobCount(c.id)}</td>
                   <td style={{ padding:'13px 16px', color:'#9ca3af', fontSize:13 }}>{c.nationality || '—'}</td>
                   <td style={{ padding:'13px 16px' }}>
-                    <span style={{ fontSize:12, color: notes.length>0?'#38bdf8':'#334155', background: notes.length>0?'#38bdf815':'transparent', padding:'2px 8px', borderRadius:10, fontFamily:"'JetBrains Mono',monospace" }}>
+                    <span style={{ fontSize:12, color: notes.length>0?'#6366f1':'#334155', background: notes.length>0?'#38bdf815':'transparent', padding:'2px 8px', borderRadius:10, fontFamily:"'JetBrains Mono',monospace" }}>
                       {notes.length > 0 ? `📝 ${notes.length}` : '—'}
                     </span>
                   </td>
@@ -1334,12 +1531,12 @@ function Clients({ clients, jobs, setClients }) {
               </select>
             </FormField>
           </div>
-          <div style={{ borderTop:'1px solid #1e2d40', marginTop:8, paddingTop:18 }}>
+          <div style={{ borderTop:'1px solid #f0f1f5', marginTop:8, paddingTop:18 }}>
             <NotesPanel notes={normalizeNotes(form.notes)} onAddNote={addNote} onDeleteNote={deleteNote} />
           </div>
           <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:18 }}>
             <button onClick={closeModal} style={{ background:'#e5e7eb', border:'none', borderRadius:8, padding:'9px 18px', color:'#6b7280', fontWeight:500 }}>Cancel</button>
-            <button onClick={save} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, padding:'9px 20px', color:'#080c14', fontWeight:700 }}>Save Client</button>
+            <button onClick={save} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, padding:'9px 20px', color:'#fff', fontWeight:700 }}>Save Client</button>
           </div>
         </Modal>
       )}
@@ -1449,20 +1646,20 @@ function Jobs({ jobs, clients, team, setJobs }) {
           <input type="date" style={inputStyle} value={form.dueDate||''} onChange={e=>setForm(f=>({...f,dueDate:e.target.value}))} />
         </FormField>
         <FormField label={`Progress: ${form.progress||0}%`}>
-          <input type="range" min={0} max={100} step={5} value={form.progress||0} onChange={e=>setForm(f=>({...f,progress:e.target.value}))} style={{ width:'100%', accentColor:'#38bdf8', marginTop:8 }} />
+          <input type="range" min={0} max={100} step={5} value={form.progress||0} onChange={e=>setForm(f=>({...f,progress:e.target.value}))} style={{ width:'100%', accentColor:'#6366f1', marginTop:8 }} />
         </FormField>
       </div>
-      <div style={{ borderTop:'1px solid #1e2d40', marginTop:8, paddingTop:16 }}>
+      <div style={{ borderTop:'1px solid #f0f1f5', marginTop:8, paddingTop:16 }}>
         <NotesPanel notes={normalizeNotes(form.notes)} onAddNote={addNote} onDeleteNote={deleteNote} />
       </div>
       {(DOC_CHECKLISTS[form.type]||[]).length > 0 && (
-        <div style={{ borderTop:'1px solid #1e2d40', marginTop:8, paddingTop:16 }}>
+        <div style={{ borderTop:'1px solid #f0f1f5', marginTop:8, paddingTop:16 }}>
           <div style={{ fontSize:11, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:12 }}>Document Checklist – {form.type}</div>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
             {(DOC_CHECKLISTS[form.type]||[]).map(doc => {
               const checked = (form.docs||{})[doc] || false;
               return (
-                <label key={doc} style={{ display:'flex', alignItems:'center', gap:8, background: checked?'#05966915':'#0f1623', borderRadius:7, padding:'7px 12px', cursor:'pointer', border:`1px solid ${checked?'#05966940':'#e5e7eb'}`, transition:'all 0.15s' }}>
+                <label key={doc} style={{ display:'flex', alignItems:'center', gap:8, background: checked?'#f0fdf4':'#f9fafb', borderRadius:7, padding:'7px 12px', cursor:'pointer', border:`1px solid ${checked?'#05966940':'#e5e7eb'}`, transition:'all 0.15s' }}>
                   <input type="checkbox" checked={checked} onChange={e=>setForm(f=>({...f, docs:{...(f.docs||{}), [doc]:e.target.checked}}))} style={{ accentColor:'#34d399', width:14, height:14 }} />
                   <span style={{ fontSize:12, color: checked?'#34d399':'#94a3b8' }}>{doc}</span>
                 </label>
@@ -1487,7 +1684,7 @@ function Jobs({ jobs, clients, team, setJobs }) {
             <div style={{ display:'flex', background:'#f5f6fa', borderRadius:8, border:'1px solid #e9eaf3', overflow:'hidden' }}>
               {['list','board'].map(v=><button key={v} onClick={()=>setView(v)} style={{ padding:'7px 14px', background: view===v?'#e5e7eb':'transparent', border:'none', color: view===v?'#e2e8f0':'#475569', fontSize:13, fontWeight:500, textTransform:'capitalize' }}>{v}</button>)}
             </div>
-            <button onClick={openAdd} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:10, padding:'9px 16px', color:'#080c14', fontWeight:700, fontSize:13 }}>+ New Job</button>
+            <button onClick={openAdd} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:10, padding:'9px 16px', color:'#fff', fontWeight:700, fontSize:13 }}>+ New Job</button>
           </div>
         </div>
         <div style={{ display:'flex', gap:14, overflowX:'auto', paddingBottom:12 }}>
@@ -1516,7 +1713,7 @@ function Jobs({ jobs, clients, team, setJobs }) {
                         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:10 }}>
                           <PriorityBadge priority={j.priority} />
                           <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-                            {jnotes.length > 0 && <span style={{ fontSize:11, color:'#38bdf8' }}>📝{jnotes.length}</span>}
+                            {jnotes.length > 0 && <span style={{ fontSize:11, color:'#6366f1' }}>📝{jnotes.length}</span>}
                             {member && <Avatar name={member.name} color={member.color} size={24} />}
                           </div>
                         </div>
@@ -1534,7 +1731,7 @@ function Jobs({ jobs, clients, team, setJobs }) {
             <JobForm />
             <div style={{display:'flex',justifyContent:'flex-end',gap:10,marginTop:18}}>
               <button onClick={closeModal} style={{background:'#e5e7eb',border:'none',borderRadius:8,padding:'9px 18px',color:'#6b7280',fontWeight:500}}>Cancel</button>
-              <button onClick={save} style={{background:'linear-gradient(135deg,#6366f1,#8b5cf6)',border:'none',borderRadius:8,padding:'9px 20px',color:'#080c14',fontWeight:700}}>Save Job</button>
+              <button onClick={save} style={{background:'linear-gradient(135deg,#6366f1,#8b5cf6)',border:'none',borderRadius:8,padding:'9px 20px',color:'#ffffff',fontWeight:700}}>Save Job</button>
             </div>
           </Modal>
         )}
@@ -1561,9 +1758,9 @@ function Jobs({ jobs, clients, team, setJobs }) {
                   {checklist2.length > 0 && (
                     <div>
                       <div style={{ fontSize:11, color:'#9ca3af', letterSpacing:'0.08em', marginBottom:8 }}>Documents – {checklist2.filter(d=>docs2[d]).length}/{checklist2.length}</div>
-                      <div style={{ background:'#080c1460', borderRadius:8, padding:10, maxHeight:180, overflowY:'auto' }}>
+                      <div style={{ background:'#f9fafb', borderRadius:8, padding:10, maxHeight:180, overflowY:'auto' }}>
                         {checklist2.map(doc=>(
-                          <div key={doc} style={{ display:'flex', alignItems:'center', gap:8, padding:'5px 4px', borderBottom:'1px solid #1e2d4030' }}>
+                          <div key={doc} style={{ display:'flex', alignItems:'center', gap:8, padding:'5px 4px', borderBottom:'1px solid #f0f1f5' }}>
                             <span style={{ fontSize:14, color: docs2[doc]?'#34d399':'#334155' }}>{docs2[doc]?'✓':'○'}</span>
                             <span style={{ fontSize:12, color: docs2[doc]?'#94a3b8':'#475569', textDecoration: docs2[doc]?'line-through':'none' }}>{doc}</span>
                           </div>
@@ -1575,7 +1772,7 @@ function Jobs({ jobs, clients, team, setJobs }) {
               </div>
               <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:18 }}>
                 <button onClick={()=>setViewJob(null)} style={{ background:'#e5e7eb', border:'none', borderRadius:8, padding:'9px 18px', color:'#6b7280', fontWeight:500 }}>Close</button>
-                <button onClick={()=>{ setViewJob(null); openEdit(viewJob); }} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, padding:'9px 20px', color:'#080c14', fontWeight:700 }}>Edit Job</button>
+                <button onClick={()=>{ setViewJob(null); openEdit(viewJob); }} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, padding:'9px 20px', color:'#fff', fontWeight:700 }}>Edit Job</button>
               </div>
             </Modal>
           );
@@ -1593,7 +1790,7 @@ function Jobs({ jobs, clients, team, setJobs }) {
           <div style={{ display:'flex', background:'#f5f6fa', borderRadius:8, border:'1px solid #e9eaf3', overflow:'hidden' }}>
             {['list','board'].map(v=><button key={v} onClick={()=>setView(v)} style={{ padding:'7px 14px', background: view===v?'#e5e7eb':'transparent', border:'none', color: view===v?'#e2e8f0':'#475569', fontSize:13, fontWeight:500, textTransform:'capitalize' }}>{v}</button>)}
           </div>
-          <button onClick={openAdd} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:10, padding:'9px 16px', color:'#080c14', fontWeight:700, fontSize:13 }}>+ New Job</button>
+          <button onClick={openAdd} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:10, padding:'9px 16px', color:'#fff', fontWeight:700, fontSize:13 }}>+ New Job</button>
         </div>
       </div>
       <div style={{ display:'flex', gap:10, marginBottom:18, flexWrap:'wrap' }}>
@@ -1623,7 +1820,7 @@ function Jobs({ jobs, clients, team, setJobs }) {
               <div style={{ display:'flex', alignItems:'center', gap:16, flexWrap:'wrap' }}>
                 <div style={{ flex:1, minWidth:200 }}>
                   <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
-                    <span onClick={()=>setViewJob(j)} style={{ fontSize:14, fontWeight:600, color:'#38bdf8', cursor:'pointer', textDecoration:'underline', textDecorationStyle:'dotted', textDecorationColor:'#38bdf840' }}>{j.title}</span>
+                    <span onClick={()=>setViewJob(j)} style={{ fontSize:14, fontWeight:600, color:'#6366f1', cursor:'pointer', textDecoration:'underline', textDecorationStyle:'dotted', textDecorationColor:'#38bdf840' }}>{j.title}</span>
                     <PriorityBadge priority={j.priority} />
                     {overdue && <span style={{ fontSize:11, color:'#f87171', background:'#7f1d1d30', borderRadius:10, padding:'2px 8px' }}>Overdue</span>}
                   </div>
@@ -1635,7 +1832,7 @@ function Jobs({ jobs, clients, team, setJobs }) {
                     <ProgressBar value={j.progress} />
                   </div>
                   <StatusBadge status={j.status} small />
-                  {jnotes.length > 0 && <span style={{ fontSize:12, color:'#38bdf8', background:'#38bdf815', borderRadius:10, padding:'2px 8px' }}>📝 {jnotes.length}</span>}
+                  {jnotes.length > 0 && <span style={{ fontSize:12, color:'#6366f1', background:'#eef2ff', borderRadius:10, padding:'2px 8px' }}>📝 {jnotes.length}</span>}
                   {member && (
                     <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:110 }}>
                       <Avatar name={member.name} color={member.color} size={26} />
@@ -1658,7 +1855,7 @@ function Jobs({ jobs, clients, team, setJobs }) {
           <JobForm />
           <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:18 }}>
             <button onClick={closeModal} style={{ background:'#e5e7eb', border:'none', borderRadius:8, padding:'9px 18px', color:'#6b7280', fontWeight:500 }}>Cancel</button>
-            <button onClick={save} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, padding:'9px 20px', color:'#080c14', fontWeight:700 }}>Save Job</button>
+            <button onClick={save} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, padding:'9px 20px', color:'#fff', fontWeight:700 }}>Save Job</button>
           </div>
         </Modal>
       )}
@@ -1696,11 +1893,11 @@ function Jobs({ jobs, clients, team, setJobs }) {
                 {checklist.length > 0 && (
                   <div>
                     <div style={{ fontSize:11, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:8 }}>Documents – {docsReceived}/{checklist.length}</div>
-                    <div style={{ background:'#080c1460', borderRadius:8, padding:10, maxHeight:210, overflowY:'auto' }}>
+                    <div style={{ background:'#f9fafb', borderRadius:8, padding:10, maxHeight:210, overflowY:'auto' }}>
                       {checklist.map(doc=>{
                         const got = docs[doc];
                         return (
-                          <div key={doc} style={{ display:'flex', alignItems:'center', gap:8, padding:'5px 4px', borderBottom:'1px solid #1e2d4030' }}>
+                          <div key={doc} style={{ display:'flex', alignItems:'center', gap:8, padding:'5px 4px', borderBottom:'1px solid #f0f1f5' }}>
                             <span style={{ fontSize:14, color: got?'#34d399':'#334155' }}>{got?'✓':'○'}</span>
                             <span style={{ fontSize:12, color: got?'#94a3b8':'#475569', textDecoration: got?'line-through':'none' }}>{doc}</span>
                           </div>
@@ -1712,7 +1909,7 @@ function Jobs({ jobs, clients, team, setJobs }) {
               </div>
             </div>
             {normalizeNotes(viewJob.notes).length > 0 && (
-              <div style={{ borderTop:'1px solid #1e2d40', paddingTop:14 }}>
+              <div style={{ borderTop:'1px solid #f0f1f5', paddingTop:14 }}>
                 <div style={{ fontSize:11, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:8 }}>Notes</div>
                 <div style={{ display:'flex', flexDirection:'column', gap:8, maxHeight:150, overflowY:'auto' }}>
                   {[...normalizeNotes(viewJob.notes)].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)).map(n=>(
@@ -1726,7 +1923,7 @@ function Jobs({ jobs, clients, team, setJobs }) {
             )}
             <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:18 }}>
               <button onClick={()=>setViewJob(null)} style={{ background:'#e5e7eb', border:'none', borderRadius:8, padding:'9px 18px', color:'#6b7280', fontWeight:500 }}>Close</button>
-              <button onClick={()=>{ setViewJob(null); openEdit(viewJob); }} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, padding:'9px 20px', color:'#080c14', fontWeight:700 }}>Edit Job</button>
+              <button onClick={()=>{ setViewJob(null); openEdit(viewJob); }} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, padding:'9px 20px', color:'#fff', fontWeight:700 }}>Edit Job</button>
             </div>
           </Modal>
         );
@@ -1777,13 +1974,13 @@ function Team({ team, jobs, clients, setTeam }) {
       <div
         onClick={() => setViewJob(j)}
         style={{
-          background: isUrgentTop ? '#7f1d1d18' : '#080c14',
+          background: isUrgentTop ? '#7f1d1d18' : '#ffffff',
           border: `1px solid ${isUrgentTop ? '#7f1d1d50' : '#1e2d4060'}`,
           borderRadius:8, padding: compact ? '7px 10px' : '10px 14px',
           cursor:'pointer', transition:'background 0.15s',
         }}
         onMouseEnter={e => e.currentTarget.style.background = isUrgentTop ? '#7f1d1d28' : '#0f1f33'}
-        onMouseLeave={e => e.currentTarget.style.background = isUrgentTop ? '#7f1d1d18' : '#080c14'}
+        onMouseLeave={e => e.currentTarget.style.background = isUrgentTop ? '#7f1d1d18' : '#ffffff'}
       >
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:3 }}>
           <span style={{ fontSize:13, fontWeight:600, color:'#111827', flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginRight:8 }}>
@@ -1876,7 +2073,7 @@ function Team({ team, jobs, clients, setTeam }) {
                   {remaining > 0 ? (
                     <button
                       onClick={() => setDrillMember(m)}
-                      style={{ marginTop:10, width:'100%', background:'#e5e7eb', border:'1px solid #2a3a52', borderRadius:8, padding:'8px 0', color:'#6b7280', fontSize:12, fontWeight:600, cursor:'pointer', transition:'all 0.15s' }}
+                      style={{ marginTop:10, width:'100%', background:'#e5e7eb', border:'1px solid #e5e7eb', borderRadius:8, padding:'8px 0', color:'#6b7280', fontSize:12, fontWeight:600, cursor:'pointer', transition:'all 0.15s' }}
                       onMouseEnter={e => { e.currentTarget.style.background='#253650'; e.currentTarget.style.color='#e2e8f0'; }}
                       onMouseLeave={e => { e.currentTarget.style.background='#e5e7eb'; e.currentTarget.style.color='#94a3b8'; }}
                     >
@@ -1995,11 +2192,11 @@ function Team({ team, jobs, clients, setTeam }) {
                 {checklist.length > 0 && (
                   <div>
                     <div style={{ fontSize:11, color:'#9ca3af', letterSpacing:'0.08em', marginBottom:8 }}>Documents — {docsReceived}/{checklist.length}</div>
-                    <div style={{ background:'#080c1460', borderRadius:8, padding:10, maxHeight:200, overflowY:'auto' }}>
+                    <div style={{ background:'#f9fafb', borderRadius:8, padding:10, maxHeight:200, overflowY:'auto' }}>
                       {checklist.map(doc => {
                         const got = docs[doc];
                         return (
-                          <div key={doc} style={{ display:'flex', alignItems:'center', gap:8, padding:'5px 4px', borderBottom:'1px solid #1e2d4030' }}>
+                          <div key={doc} style={{ display:'flex', alignItems:'center', gap:8, padding:'5px 4px', borderBottom:'1px solid #f0f1f5' }}>
                             <span style={{ fontSize:14, color: got?'#34d399':'#334155' }}>{got?'✓':'○'}</span>
                             <span style={{ fontSize:12, color: got?'#94a3b8':'#475569', textDecoration: got?'line-through':'none' }}>{doc}</span>
                           </div>
@@ -2011,7 +2208,7 @@ function Team({ team, jobs, clients, setTeam }) {
               </div>
             </div>
             {normalizeNotes(viewJob.notes).length > 0 && (
-              <div style={{ borderTop:'1px solid #1e2d40', paddingTop:14 }}>
+              <div style={{ borderTop:'1px solid #f0f1f5', paddingTop:14 }}>
                 <div style={{ fontSize:11, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:8 }}>Notes</div>
                 <div style={{ display:'flex', flexDirection:'column', gap:8, maxHeight:150, overflowY:'auto' }}>
                   {[...normalizeNotes(viewJob.notes)].sort((a,b) => new Date(b.createdAt)-new Date(a.createdAt)).map(n => (
@@ -2045,7 +2242,7 @@ function Team({ team, jobs, clients, setTeam }) {
           </FormField>
           <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:8 }}>
             <button onClick={() => setEditing(null)} style={{ background:'#e5e7eb', border:'none', borderRadius:8, padding:'9px 18px', color:'#6b7280', fontWeight:500 }}>Cancel</button>
-            <button onClick={save} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, padding:'9px 20px', color:'#080c14', fontWeight:700 }}>Save</button>
+            <button onClick={save} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, padding:'9px 20px', color:'#fff', fontWeight:700 }}>Save</button>
           </div>
         </Modal>
       )}
@@ -2061,7 +2258,7 @@ function Team({ team, jobs, clients, setTeam }) {
 /* ─── NEW CONSTANTS ──────────────────────────────────────────────────────────── */
 const LEAD_STAGES = ['New Enquiry','Consultation Booked','Proposal Sent','Converted','Lost'];
 const LEAD_STAGE_COLORS = { 
-  'New Enquiry':        '#38bdf8',
+  'New Enquiry':        '#6366f1',
   'Consultation Booked':'#a78bfa',
   'Proposal Sent':      '#f59e0b',
   'Converted':          '#34d399',
@@ -2070,7 +2267,7 @@ const LEAD_STAGE_COLORS = {
 const INVOICE_STATUSES = ['Draft','Sent','Paid','Overdue'];
 const INVOICE_STATUS_STYLES = {
   'Draft':   { bg:'#1e2d4040', text:'#94a3b8' },
-  'Sent':    { bg:'#0ea5e920', text:'#38bdf8' },
+  'Sent':    { bg:'#0ea5e920', text:'#6366f1' },
   'Paid':    { bg:'#10b98120', text:'#34d399' },
   'Overdue': { bg:'#ef444420', text:'#f87171' },
 };
@@ -2178,7 +2375,7 @@ function Leads({ leads, setLeads, clients, setClients, jobs, setJobs, team, agen
         </div>
         <div style={{ display:'flex', gap:10 }}>
           <input value={filter} onChange={e=>setFilter(e.target.value)} placeholder="Search leads…" style={{ background:'#f5f6fa', border:'1px solid #e9eaf3', borderRadius:8, padding:'8px 12px', color:'#111827', fontSize:13, width:200, outline:'none' }}/>
-          <button onClick={openAdd} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', color:'#080c14', border:'none', borderRadius:8, padding:'9px 18px', fontWeight:700, fontSize:13 }}>+ Add Lead</button>
+          <button onClick={openAdd} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', color:'#ffffff', border:'none', borderRadius:8, padding:'9px 18px', fontWeight:700, fontSize:13 }}>+ Add Lead</button>
         </div>
       </div>
 
@@ -2206,7 +2403,7 @@ function Leads({ leads, setLeads, clients, setClients, jobs, setJobs, team, agen
                 <div key={lead.id} style={{ background:'#f5f6fa', border:'1px solid #e9eaf3', borderRadius:10, padding:'12px 14px', cursor:'pointer' }}
                   onClick={() => openEdit(lead)}>
                   <div style={{ fontWeight:600, color:'#111827', fontSize:13, marginBottom:4 }}>{lead.name}</div>
-                  {lead.visaInterest && <div style={{ fontSize:11, color:'#38bdf8', marginBottom:4 }}>{lead.visaInterest}</div>}
+                  {lead.visaInterest && <div style={{ fontSize:11, color:'#6366f1', marginBottom:4 }}>{lead.visaInterest}</div>}
                   {lead.email && <div style={{ fontSize:11, color:'#6b7280', marginBottom:2 }}>✉ {lead.email}</div>}
                   {lead.source && <div style={{ fontSize:11, color:'#9ca3af' }}>src: {lead.source}</div>}
                   <div style={{ display:'flex', gap:6, marginTop:8 }}>
@@ -2259,7 +2456,7 @@ function Leads({ leads, setLeads, clients, setClients, jobs, setJobs, team, agen
           </FormField>
           <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:16 }}>
             <button onClick={()=>setShowForm(false)} style={{ background:'#e5e7eb', border:'none', borderRadius:8, padding:'9px 18px', color:'#6b7280', fontSize:13 }}>Cancel</button>
-            <button onClick={save} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, padding:'9px 18px', color:'#080c14', fontWeight:700, fontSize:13 }}>Save Lead</button>
+            <button onClick={save} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, padding:'9px 18px', color:'#fff', fontWeight:700, fontSize:13 }}>Save Lead</button>
           </div>
         </Modal>
       )}
@@ -2339,7 +2536,7 @@ function CalendarPage({ appointments, setAppointments, jobs, clients, team }) {
           <button onClick={()=>setCurMonth(p=>{const d=new Date(p.y,p.m-1);return{y:d.getFullYear(),m:d.getMonth()};})} style={{ background:'#e5e7eb', border:'none', borderRadius:7, padding:'7px 12px', color:'#6b7280', fontSize:16 }}>‹</button>
           <span style={{ fontSize:15, fontWeight:600, color:'#111827', minWidth:140, textAlign:'center' }}>{monthNames[curMonth.m]} {curMonth.y}</span>
           <button onClick={()=>setCurMonth(p=>{const d=new Date(p.y,p.m+1);return{y:d.getFullYear(),m:d.getMonth()};})} style={{ background:'#e5e7eb', border:'none', borderRadius:7, padding:'7px 12px', color:'#6b7280', fontSize:16 }}>›</button>
-          <button onClick={()=>{setForm(emptyAppt);setEditAppt(null);setShowForm(true);}} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', color:'#080c14', border:'none', borderRadius:8, padding:'9px 18px', fontWeight:700, fontSize:13 }}>+ Add Appointment</button>
+          <button onClick={()=>{setForm(emptyAppt);setEditAppt(null);setShowForm(true);}} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', color:'#ffffff', border:'none', borderRadius:8, padding:'9px 18px', fontWeight:700, fontSize:13 }}>+ Add Appointment</button>
         </div>
       </div>
 
@@ -2359,9 +2556,9 @@ function CalendarPage({ appointments, setAppointments, jobs, clients, team }) {
                 <div key={i} style={{ minHeight:90, padding:'8px 6px', borderRight:'1px solid #e9eaf3', borderBottom:'1px solid #e9eaf3', background: isToday?'#38bdf808':'transparent', opacity: d?1:0.3 }}>
                   {d && (
                     <>
-                      <div style={{ fontSize:13, fontWeight: isToday?700:400, color: isToday?'#38bdf8':'#94a3b8', marginBottom:4 }}>{d}</div>
+                      <div style={{ fontSize:13, fontWeight: isToday?700:400, color: isToday?'#6366f1':'#94a3b8', marginBottom:4 }}>{d}</div>
                       {events.slice(0,3).map((ev,ei) => (
-                        <div key={ei} onClick={()=>{ if(!ev.isDeadline){setForm({...ev});setEditAppt(ev.id);setShowForm(true);}}} style={{ fontSize:10, background: ev.isDeadline?'#f59e0b20':'#38bdf815', color: ev.isDeadline?'#fbbf24':'#38bdf8', borderRadius:4, padding:'2px 5px', marginBottom:2, cursor: ev.isDeadline?'default':'pointer', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                        <div key={ei} onClick={()=>{ if(!ev.isDeadline){setForm({...ev});setEditAppt(ev.id);setShowForm(true);}}} style={{ fontSize:10, background: ev.isDeadline?'#f59e0b20':'#38bdf815', color: ev.isDeadline?'#fbbf24':'#6366f1', borderRadius:4, padding:'2px 5px', marginBottom:2, cursor: ev.isDeadline?'default':'pointer', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                           {ev.time && !ev.isDeadline ? ev.time.slice(0,5)+' ' : ''}{ev.title}
                         </div>
                       ))}
@@ -2391,7 +2588,7 @@ function CalendarPage({ appointments, setAppointments, jobs, clients, team }) {
                       {d===0?'Today': d===1?'Tomorrow':`${d}d`}
                     </span>
                   </div>
-                  <div style={{ fontSize:11, color:'#38bdf8', marginTop:3 }}>{a.type}</div>
+                  <div style={{ fontSize:11, color:'#6366f1', marginTop:3 }}>{a.type}</div>
                   {cl && <div style={{ fontSize:11, color:'#6b7280', marginTop:2 }}>👤 {cl.name}</div>}
                   <div style={{ display:'flex', justifyContent:'space-between', marginTop:6 }}>
                     <span style={{ fontSize:11, color:'#9ca3af' }}>{fmtDate(a.date)} {a.time}</span>
@@ -2444,7 +2641,7 @@ function CalendarPage({ appointments, setAppointments, jobs, clients, team }) {
             {editAppt && <button onClick={()=>{deleteAppt(editAppt);setShowForm(false);}} style={{ background:'#ef444420', border:'none', borderRadius:8, padding:'9px 16px', color:'#f87171', fontSize:13 }}>Delete</button>}
             <div style={{ display:'flex', gap:10, marginLeft:'auto' }}>
               <button onClick={()=>setShowForm(false)} style={{ background:'#e5e7eb', border:'none', borderRadius:8, padding:'9px 18px', color:'#6b7280', fontSize:13 }}>Cancel</button>
-              <button onClick={save} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, padding:'9px 18px', color:'#080c14', fontWeight:700, fontSize:13 }}>Save</button>
+              <button onClick={save} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, padding:'9px 18px', color:'#fff', fontWeight:700, fontSize:13 }}>Save</button>
             </div>
           </div>
         </Modal>
@@ -2501,13 +2698,13 @@ function Invoices({ invoices, setInvoices, clients, jobs }) {
           <h1 style={{ fontSize:22, fontWeight:700, color:'#111827' }}>Invoices</h1>
           <div style={{ fontSize:13, color:'#6b7280', marginTop:3 }}>{invoices.length} invoices total</div>
         </div>
-        <button onClick={()=>{setForm(emptyInv);setEditInv(null);setShowForm(true);}} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', color:'#080c14', border:'none', borderRadius:8, padding:'9px 18px', fontWeight:700, fontSize:13 }}>+ New Invoice</button>
+        <button onClick={()=>{setForm(emptyInv);setEditInv(null);setShowForm(true);}} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', color:'#ffffff', border:'none', borderRadius:8, padding:'9px 18px', fontWeight:700, fontSize:13 }}>+ New Invoice</button>
       </div>
 
       {/* Summary cards */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:14, marginBottom:24 }}>
         {[
-          { label:'Total Invoiced', value: fmtCurrency(invoices.reduce((s,i)=>s+Number(i.amount||0),0)), color:'#38bdf8' },
+          { label:'Total Invoiced', value: fmtCurrency(invoices.reduce((s,i)=>s+Number(i.amount||0),0)), color:'#6366f1' },
           { label:'Paid', value: fmtCurrency(totalPaid), color:'#34d399' },
           { label:'Outstanding', value: fmtCurrency(totalDue), color:'#f59e0b' },
           { label:'Overdue', value: fmtCurrency(totalOverdue), color:'#ef4444' },
@@ -2522,7 +2719,7 @@ function Invoices({ invoices, setInvoices, clients, jobs }) {
       {/* Filter tabs */}
       <div style={{ display:'flex', gap:6, marginBottom:18 }}>
         {['All',...INVOICE_STATUSES].map(s => (
-          <button key={s} onClick={()=>setFilterStatus(s)} style={{ background: filterStatus===s?'#38bdf820':'#0f1623', border: `1px solid ${filterStatus===s?'#38bdf840':'#e9eaf3'}`, borderRadius:7, padding:'6px 14px', color: filterStatus===s?'#38bdf8':'#475569', fontSize:12, fontWeight: filterStatus===s?600:400 }}>
+          <button key={s} onClick={()=>setFilterStatus(s)} style={{ background: filterStatus===s?'#38bdf820':'#f9fafb', border: `1px solid ${filterStatus===s?'#38bdf840':'#e9eaf3'}`, borderRadius:7, padding:'6px 14px', color: filterStatus===s?'#6366f1':'#475569', fontSize:12, fontWeight: filterStatus===s?600:400 }}>
             {s} {s!=='All' && `(${enriched.filter(i=>i.status===s).length})`}
           </button>
         ))}
@@ -2548,7 +2745,7 @@ function Invoices({ invoices, setInvoices, clients, jobs }) {
               const st = INVOICE_STATUS_STYLES[inv.status] || INVOICE_STATUS_STYLES['Draft'];
               return (
                 <tr key={inv.id} style={{ borderTop:'1px solid #e9eaf3' }} onMouseEnter={e=>e.currentTarget.style.background='#ffffff05'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
-                  <td style={{ padding:'12px 14px', fontSize:13, color:'#38bdf8', fontFamily:"'JetBrains Mono',monospace" }}>{invNo(inv.id)}</td>
+                  <td style={{ padding:'12px 14px', fontSize:13, color:'#6366f1', fontFamily:"'JetBrains Mono',monospace" }}>{invNo(inv.id)}</td>
                   <td style={{ padding:'12px 14px', fontSize:13, color:'#111827' }}>{cl?.name || '—'}</td>
                   <td style={{ padding:'12px 14px', fontSize:12, color:'#6b7280' }}>{jb?.type?.slice(0,30) || inv.description?.slice(0,30) || '—'}</td>
                   <td style={{ padding:'12px 14px', fontSize:13, fontWeight:600, color:'#111827', fontFamily:"'JetBrains Mono',monospace" }}>{fmtCurrency(inv.amount)}</td>
@@ -2605,7 +2802,7 @@ function Invoices({ invoices, setInvoices, clients, jobs }) {
             {editInv && <button onClick={()=>{deleteInv(editInv);setShowForm(false);}} style={{ background:'#ef444420', border:'none', borderRadius:8, padding:'9px 16px', color:'#f87171', fontSize:13 }}>Delete</button>}
             <div style={{ display:'flex', gap:10, marginLeft:'auto' }}>
               <button onClick={()=>setShowForm(false)} style={{ background:'#e5e7eb', border:'none', borderRadius:8, padding:'9px 18px', color:'#6b7280', fontSize:13 }}>Cancel</button>
-              <button onClick={save} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, padding:'9px 18px', color:'#080c14', fontWeight:700, fontSize:13 }}>Save Invoice</button>
+              <button onClick={save} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, padding:'9px 18px', color:'#fff', fontWeight:700, fontSize:13 }}>Save Invoice</button>
             </div>
           </div>
         </Modal>
@@ -2667,7 +2864,7 @@ function Reports({ clients, jobs, leads, invoices, team }) {
       {/* Top KPIs */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:14, marginBottom:28 }}>
         {[
-          { label:'Total Clients', value: clients.length, sub: `${clients.filter(c=>c.status==='Active').length} active`, icon:'👤', color:'#38bdf8' },
+          { label:'Total Clients', value: clients.length, sub: `${clients.filter(c=>c.status==='Active').length} active`, icon:'👤', color:'#6366f1' },
           { label:'Active Cases', value: jobs.filter(j=>j.status!=='Completed').length, sub: `${jobs.filter(j=>j.status==='Completed').length} completed`, icon:'📋', color:'#a78bfa' },
           { label:'Lead Conversion', value: convRate+'%', sub: `${converted}/${totalLeads} leads`, icon:'🎯', color:'#34d399' },
           { label:'Total Revenue', value: fmtCurrency(invoices.filter(i=>i.status==='Paid').reduce((s,i)=>s+Number(i.amount||0),0)), sub: `${invoices.filter(i=>i.status==='Paid').length} paid invoices`, icon:'💰', color:'#f59e0b' },
@@ -2691,7 +2888,7 @@ function Reports({ clients, jobs, leads, invoices, team }) {
             {revenueByMonth.map(mo => (
               <div key={mo.label} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:4 }}>
                 <div style={{ fontSize:9, color:'#6b7280', fontFamily:"'JetBrains Mono',monospace" }}>{mo.total>0?'$'+Math.round(mo.total/1000)+'k':''}</div>
-                <div style={{ width:'100%', background: mo.total>0?'#38bdf8':'#e5e7eb', borderRadius:'4px 4px 0 0', height: Math.max(4, (mo.total/maxRev)*90)+'px', transition:'height 0.3s' }}/>
+                <div style={{ width:'100%', background: mo.total>0?'#6366f1':'#e5e7eb', borderRadius:'4px 4px 0 0', height: Math.max(4, (mo.total/maxRev)*90)+'px', transition:'height 0.3s' }}/>
                 <div style={{ fontSize:9, color:'#6b7280' }}>{mo.label}</div>
               </div>
             ))}
@@ -2788,7 +2985,7 @@ function AgentsPage({ agents, setAgents, leads, jobs, invoices }) {
           <h1 style={{ fontSize:22, fontWeight:700, color:'#111827' }}>Referral Agents</h1>
           <div style={{ fontSize:13, color:'#6b7280', marginTop:3 }}>{agents.length} agents registered</div>
         </div>
-        <button onClick={()=>{setForm(empty);setEditAgent(null);setShowForm(true);}} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', color:'#080c14', border:'none', borderRadius:8, padding:'9px 18px', fontWeight:700, fontSize:13 }}>+ Add Agent</button>
+        <button onClick={()=>{setForm(empty);setEditAgent(null);setShowForm(true);}} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', color:'#ffffff', border:'none', borderRadius:8, padding:'9px 18px', fontWeight:700, fontSize:13 }}>+ Add Agent</button>
       </div>
 
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))', gap:16 }}>
@@ -2820,7 +3017,7 @@ function AgentsPage({ agents, setAgents, leads, jobs, invoices }) {
               {agent.phone && <div style={{ fontSize:12, color:'#6b7280', marginBottom:10 }}>📞 {agent.phone}</div>}
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8, background:'#f5f6fa', borderRadius:8, padding:'10px' }}>
                 <div style={{ textAlign:'center' }}>
-                  <div style={{ fontSize:18, fontWeight:700, color:'#38bdf8' }}>{agentLeads.length}</div>
+                  <div style={{ fontSize:18, fontWeight:700, color:'#6366f1' }}>{agentLeads.length}</div>
                   <div style={{ fontSize:10, color:'#6b7280' }}>Leads</div>
                 </div>
                 <div style={{ textAlign:'center' }}>
@@ -2860,7 +3057,7 @@ function AgentsPage({ agents, setAgents, leads, jobs, invoices }) {
           </FormField>
           <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:16 }}>
             <button onClick={()=>setShowForm(false)} style={{ background:'#e5e7eb', border:'none', borderRadius:8, padding:'9px 18px', color:'#6b7280', fontSize:13 }}>Cancel</button>
-            <button onClick={save} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, padding:'9px 18px', color:'#080c14', fontWeight:700, fontSize:13 }}>Save Agent</button>
+            <button onClick={save} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, padding:'9px 18px', color:'#fff', fontWeight:700, fontSize:13 }}>Save Agent</button>
           </div>
         </Modal>
       )}
