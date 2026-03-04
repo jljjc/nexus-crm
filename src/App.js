@@ -1,6 +1,136 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import * as mammoth from 'mammoth';
+
+/* ─── i18n LANGUAGE SYSTEM ──────────────────────────────────────────────────── */
+const LANG_ZH = {
+  // Nav
+  'Dashboard':'仪表板','Clients':'客户','Jobs':'案件','Leads':'潜在客户',
+  'Calendar':'日历','Invoices':'发票','Agents':'推荐代理','Team':'团队','Reports':'报告',
+  // Top bar / auth
+  'Sign out':'退出登录','Staff':'员工','Manager':'经理',
+  // Clients page
+  'Add Client':'+ 添加客户','Search clients...':'搜索客户...',
+  'All Types':'所有类型','All Status':'所有状态',
+  'CLIENT':'客户','TYPE':'类型','STATUS':'状态','JOBS':'案件',
+  'NATIONALITY':'国籍','NOTES':'备注','CREATED':'创建日期',
+  'Edit':'编辑','Del':'删除',
+  'total clients':'位客户',
+  // Client modal tabs
+  '👤 Profile':'👤 档案','📋 Jobs':'📋 案件','📝 Notes':'📝 备注',
+  '💬 WeChat':'💬 微信','📥 Import Doc':'📥 导入文档',
+  // Profile sections
+  'Client —':'客户 —',
+  'PERSONAL INFORMATION':'一、基本信息',
+  'Full Name':'姓名','Gender':'性别','Date of Birth':'出生日期',
+  'Birthplace':'出生地','Nationality':'国籍','Passport No':'护照号码',
+  'Passport Expiry':'护照有效期','China ID':'身份证号',
+  'Email':'邮箱','Mobile':'手机','AU Address':'澳洲地址',
+  'Marital Status':'婚姻状况','QQ':'QQ','EA File No':'EA 档案号',
+  'Consultant':'负责顾问','Visa Target':'签证目标',
+  // Service agreement
+  'SERVICE AGREEMENT':'二、服务合同',
+  'Contract Date':'合同签署日期','Total Fee':'服务费合计',
+  'Payment 1':'第一期付款','Payment 2':'第二期付款',
+  'Paid':'已付','Pending':'待付',
+  // Visa history
+  'VISA HISTORY':'三、签证历史',
+  'Visa Type':'签证类型','Application No':'申请编号',
+  'Lodged':'递签日期','Granted':'下签日期','Expiry':'有效期',
+  'Approved':'已获批','In Progress':'进行中','Refused':'被拒',
+  'No records':'暂无记录',
+  // Skills assessment
+  'SKILLS ASSESSMENT':'四、职业评估',
+  'Occupation':'职业','Application ID':'申请编号',
+  'Submitted':'递交日期','Outcome':'评估结果',
+  'Unsuccessful':'不通过','Successful':'通过',
+  'Reason':'驳回原因','Appeal Deadline':'上诉截止日',
+  'Further Docs Requested':'追加材料请求',
+  'Add Assessment':'+ 添加评估',
+  // Case timeline
+  'CASE TIMELINE':'五、大事记',
+  'Date':'日期','Event':'事件',
+  'Completed':'已完成','Failed':'失败','Urgent':'紧急','Maintained':'维持原决定',
+  'Add Event':'+ 添加事件',
+  // Current status
+  'CURRENT STATUS & NEXT STEPS':'六、当前状态与建议行动',
+  'Status Summary':'状态摘要','Options to Consider':'可选路径',
+  'Option':'选项','Action':'行动','Details':'详情',
+  'High':'高','Medium':'中','Low':'低',
+  'Add Option':'+ 添加选项',
+  // Notes
+  'NOTES':'七、备注',
+  'Add a note... (Ctrl+Enter to save)':'添加备注... (Ctrl+Enter 保存)',
+  'No notes yet':'暂无备注',
+  // Address / employment history
+  'Address History (AU)':'地址历史（澳洲）',
+  'Employment History':'工作经历',
+  'From':'开始','To':'结束','Address':'地址',
+  'Company':'公司','Role':'职位','Country':'国家',
+  // Character checks
+  'Character / Police Checks':'品行 / 无犯罪记录',
+  'Form 80':'Form 80','AFP Police Check':'澳大利亚联邦警察无犯罪',
+  'China PCC':'中国无犯罪证明',
+  'Provided':'已提供','Missing':'未提供','Unknown':'未知',
+  // Documents
+  'Documents Checklist':'文件清单',
+  'Document':'文件','Main Applicant':'主申请人','Sponsor':'担保人','Secondary':'随迁人员',
+  // Key Issues
+  'Key Issues & Action Items':'关键问题与待办事项',
+  // Form fields & buttons
+  'Full Name *':'姓名 *','Save Client':'保存客户','Cancel':'取消',
+  'Client Type':'客户类型','Phone':'电话',
+  'Add New Client':'添加新客户','Edit Client':'编辑客户',
+  // Jobs page
+  'New Job':'新案件','Save Job':'保存案件',
+  'Job Title':'案件标题','Job Type':'案件类型','Client':'客户',
+  'Assign To':'分配给','Priority':'优先级','Due Date':'截止日期',
+  'Progress':'进度','CASE NOTES':'案件备注',
+  'DOCUMENT CHECKLIST':'文件清单',
+  'Edit Job':'编辑案件','Open in Jobs →':'在案件页打开 →',
+  // Dashboard
+  'Active Clients':'活跃客户','Jobs In Progress':'进行中案件',
+  'Urgent Jobs':'紧急案件',
+  'of':'共','total jobs':'个案件总计','jobs finished':'个案件已完成',
+  'need immediate attention':'需要立即处理',
+  'Recent Activity':'近期动态','Upcoming Deadlines':'即将到期',
+  'View all →':'查看全部 →','View team →':'查看团队 →',
+  // WeChat
+  'Paste WeChat Chat Export':'粘贴微信聊天记录',
+  'Analyse with AI':'AI 智能分析',
+  'Analysing...':'分析中...',
+  'Analysis Complete':'分析完成',
+  'Summary':'摘要','Action Items':'待办事项',
+  'Client Requests':'客户需求','Important Dates':'重要日期',
+  'Topics':'话题标签',
+  'Save Summary to Client Notes':'保存摘要到客户备注',
+  'Saved':'已保存','Clear':'清除',
+  // Edit profile tab
+  '✏️ Edit Client':'✏️ 编辑客户',
+  'Edit Profile':'编辑档案',
+  'Profile':'档案',
+  'Notes':'备注',
+  'WeChat':'微信',
+  'Import Doc':'导入文档',
+  'Payment':'付款',
+};
+
+// Language context – stored in sessionStorage so it persists across pages
+const getLang = () => sessionStorage.getItem('ozsky_lang') || 'en';
+const setLang  = (l) => { sessionStorage.setItem('ozsky_lang', l); window.dispatchEvent(new Event('ozsky-lang-change')); };
+
+// Hook: returns a translation function and current lang
+function useLang() {
+  const [lang, setLangState] = React.useState(getLang);
+  React.useEffect(() => {
+    const handler = () => setLangState(getLang());
+    window.addEventListener('ozsky-lang-change', handler);
+    return () => window.removeEventListener('ozsky-lang-change', handler);
+  }, []);
+  const t = (key) => lang === 'zh' ? (LANG_ZH[key] ?? key) : key;
+  return { lang, t };
+}
+
 /* ─── STYLES ───────────────────────────────────────────────────────────────── */
 const GLOBAL_CSS = `
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
@@ -595,6 +725,7 @@ function ClientSnapshot({ client, jobs, visible, anchorRef }) {
 
 /* ─── DASHBOARD ─────────────────────────────────────────────────────────────── */
 function Dashboard({ clients, jobs, team, onGoTo }) {
+  const { t, lang } = useLang();
   const [selectedJob, setSelectedJob] = useState(null);
 
   const active = clients.filter(c=>c.status==='Active').length;
@@ -836,6 +967,7 @@ function Dashboard({ clients, jobs, team, onGoTo }) {
 
 /* ─── CLIENT DETAIL MODAL (tabbed + AI import) ────────────────────────────── */
 function ClientDetailModal({ client, jobs, onClose, onEdit, onSaveProfile }) {
+  const { t, lang } = useLang();
   const [tab, setTab]               = useState('profile');
   const [importing, setImporting]   = useState(false);
   const [importPreview, setImportPreview] = useState(null);
@@ -996,8 +1128,8 @@ Return this exact structure (use null for missing, keep English for field values
           {rows.length === 0
             ? <tr><td colSpan={heads.length} style={{ padding:'10px 12px', color:'#9ca3af', textAlign:'center', fontSize:12 }}>No records</td></tr>
             : rows.map((r, i) => (
-              <tr key={i} style={{ borderTop:'1px solid #e9eaf3', background: i%2===0 ? 'transparent' : '#0a1220' }}>
-                {r.map((cell, j) => <td key={j} style={{ padding:'7px 12px', color: cell?.startsWith?.('⚠️') ? '#fbbf24' : '#cbd5e1' }}>{cell || '—'}</td>)}
+              <tr key={i} style={{ borderTop:'1px solid #e9eaf3', background: i%2===0 ? '#fff' : '#f9fafb' }}>
+                {r.map((cell, j) => <td key={j} style={{ padding:'7px 12px', color: cell?.startsWith?.('⚠️') || cell?.startsWith?.('❌') ? '#d97706' : '#374151' }}>{cell || '—'}</td>)}
               </tr>
             ))
           }
@@ -1009,13 +1141,13 @@ Return this exact structure (use null for missing, keep English for field values
   const tabs = [
     { id:'profile',  label:'👤 Profile' },
     { id:'jobs',     label:`📋 Jobs (${clientJobs.length})` },
-    { id:'notes',    label:`📝 Notes (${normalizeNotes(client.notes).length})` },
-    { id:'wechat',   label:'💬 WeChat' },
-    { id:'import',   label:'📥 Import Doc' },
+    { id:'notes',    label:`📝 ${t('Notes')||'Notes'} (${normalizeNotes(client.notes).length})` },
+    { id:'wechat',   label:`💬 ${t('WeChat')||'WeChat'}` },
+    { id:'import',   label:`📥 ${t('Import Doc')||'Import Doc'}` },
   ];
 
   return (
-    <Modal title={`Client — ${client.name}`} onClose={onClose} wide>
+    <Modal title={`${t('Client —')} ${client.name}`} onClose={onClose} wide>
       {/* Tabs */}
       <div style={{ display:'flex', gap:4, marginBottom:20, borderBottom:'1px solid #f0f1f5', paddingBottom:0 }}>
         {tabs.map(t => (
@@ -1025,114 +1157,134 @@ Return this exact structure (use null for missing, keep English for field values
 
       {/* ── PROFILE TAB ──────────────────────────────────── */}
       {tab === 'profile' && (
-        <div style={{ maxHeight:'65vh', overflowY:'auto', paddingRight:4 }}>
-          {/* Header */}
-          <div style={{ display:'flex', alignItems:'center', gap:14, marginBottom:22, padding:'14px 16px', background:'linear-gradient(135deg,#eef2ff,#f5f3ff)', borderRadius:10, border:'1px solid #ddd6fe' }}>
-            <div style={{ width:52, height:52, borderRadius:'50%', background:'#e0e7ff', display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, fontWeight:700, color:'#6366f1', flexShrink:0 }}>{initials(client.name)}</div>
-            <div style={{ flex:1 }}>
-              <div style={{ fontSize:18, fontWeight:700, color:'#111827' }}>{client.name}</div>
-              <div style={{ fontSize:12, color:'#6b7280', marginTop:2 }}>{client.email} · {client.phone}</div>
+        <div style={{ paddingRight:2 }}>
+
+          {/* ── SNAPSHOT HEADER CARD ─────────────────────── */}
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:20, padding:'16px 20px', background:'linear-gradient(135deg,#1c1f3a,#2d3563)', borderRadius:14, color:'#fff' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:14 }}>
+              <div style={{ width:56, height:56, borderRadius:'50%', background:'rgba(255,255,255,0.15)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:22, fontWeight:800, color:'#fff', flexShrink:0, border:'2px solid rgba(255,255,255,0.3)' }}>{initials(client.name)}</div>
+              <div>
+                <div style={{ fontSize:10, color:'rgba(255,255,255,0.6)', textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:2 }}>CLIENT SNAPSHOT CARD</div>
+                <div style={{ fontSize:20, fontWeight:800, letterSpacing:'0.02em' }}>{client.name}</div>
+                {p.nameChinese && <div style={{ fontSize:14, color:'rgba(255,255,255,0.7)', marginTop:1 }}>{p.nameChinese}</div>}
+                {p.dob && <div style={{ fontSize:12, color:'rgba(255,255,255,0.6)', marginTop:3 }}>DOB: {p.dob}</div>}
+              </div>
             </div>
-            <div style={{ display:'flex', gap:8 }}>
+            <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:6 }}>
               <StatusBadge status={client.status} />
-              <PriorityBadge priority={client.type === 'Migration' ? 'High' : 'Medium'} />
+              <button onClick={onEdit} style={{ background:'rgba(255,255,255,0.15)', border:'1px solid rgba(255,255,255,0.3)', borderRadius:8, padding:'5px 12px', color:'#fff', fontSize:11, fontWeight:600, cursor:'pointer' }}>✏️ {t('Edit Profile')}</button>
             </div>
           </div>
 
-          <S icon="👤" title="Main Applicant">
+          {/* ── 一、PERSONAL INFORMATION ────────────────── */}
+          <S icon="👤" title={`一、${t('PERSONAL INFORMATION')}`}>
             <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8 }}>
-              <Field label="Full Name"       value={client.name} />
-              <Field label="Gender"          value={p.sex} />
-              <Field label="Date of Birth"   value={p.dob} />
-              <Field label="Birthplace"      value={p.birthplace} />
-              <Field label="Nationality"     value={client.nationality} />
-              <Field label="Passport No"     value={p.passportNo} />
-              <Field label="Passport Expiry" value={p.passportExpiry} />
-              <Field label="China ID"        value={p.chinaId} />
-              <Field label="Email"           value={client.email} />
-              <Field label="Mobile"          value={client.phone} />
-              <Field label="AU Address"      value={p.auAddress} />
-              <Field label="Marital Status"  value={p.maritalStatus} />
+              <Field label={t('Full Name')}       value={client.name} />
+              <Field label={t('Gender')}          value={p.sex} />
+              <Field label={t('Date of Birth')}   value={p.dob} />
+              <Field label={t('Birthplace')}      value={p.birthplace} />
+              <Field label={t('Nationality')}     value={client.nationality} />
+              <Field label={t('Email')}           value={client.email} />
+              <Field label={t('Mobile')}          value={client.phone} />
+              <Field label="QQ"                   value={p.qq} />
+              <Field label={t('EA File No')}      value={p.eaFileNo} />
+              <Field label={t('Passport No')}     value={p.passportNo} />
+              <Field label={t('Passport Expiry')} value={p.passportExpiry} warn={p.passportExpiry && new Date(p.passportExpiry) < new Date(Date.now()+6*30*24*3600*1000)} />
+              <Field label={t('China ID')}        value={p.chinaId} />
+              <Field label={t('AU Address')}      value={p.auAddress} />
+              <Field label={t('Marital Status')}  value={p.maritalStatus} />
+              <Field label={t('Consultant')}      value={p.consultant} />
             </div>
           </S>
 
-          {(p.visaHistory?.length > 0) && (
-            <S icon="📋" title="Visa History">
-              <Table heads={['Type','Number','Granted','Expiry']} rows={(p.visaHistory||[]).map(v=>[v.type,v.number,v.grantDate,v.expiry])} />
+          {/* ── 二、SERVICE AGREEMENT ───────────────────── */}
+          {(p.serviceAgreement?.contractDate || p.serviceAgreement?.totalFee || p.visaTarget) && (
+            <S icon="📄" title={`二、${t('SERVICE AGREEMENT')}`}>
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8, marginBottom:10 }}>
+                <Field label={t('Visa Target')}    value={p.visaTarget || p.serviceAgreement?.visaTarget} />
+                <Field label={t('Contract Date')}  value={p.serviceAgreement?.contractDate} />
+                <Field label={t('Total Fee')}      value={p.serviceAgreement?.totalFee} />
+              </div>
+              {(p.serviceAgreement?.payments||[]).length > 0 && (
+                <Table
+                  heads={['#', t('Amount'), t('Status'), t('Details')]}
+                  rows={(p.serviceAgreement.payments||[]).map((pay,i)=>[
+                    `${t('Payment')} ${i+1}`,
+                    pay.amount,
+                    pay.status,
+                    pay.includes || pay.details || '—'
+                  ])}
+                />
+              )}
+              {p.serviceAgreement?.payment1Amount && (
+                <Table
+                  heads={['#', t('Amount'), t('Status'), t('Details')]}
+                  rows={[
+                    [`${t('Payment')} 1`, p.serviceAgreement.payment1Amount, t('Paid'), p.serviceAgreement.payment1Details||'—'],
+                    [`${t('Payment')} 2`, p.serviceAgreement.payment2Amount, t('Pending'), p.serviceAgreement.payment2Details||'—'],
+                  ]}
+                />
+              )}
             </S>
           )}
 
-          {(p.addressHistory?.length > 0) && (
-            <S icon="🏠" title="Address History (AU)">
-              <Table heads={['From','To','Address']} rows={(p.addressHistory||[]).map(r=>[r.from,r.to,r.address])} />
-            </S>
-          )}
+          {/* ── 三、VISA HISTORY ────────────────────────── */}
+          <S icon="🛂" title={`三、${t('VISA HISTORY')}`}>
+            {(p.visaHistory||[]).length === 0
+              ? <div style={{ fontSize:12, color:'#9ca3af', padding:'8px 0' }}>{t('No records')}</div>
+              : <Table
+                  heads={[t('Visa Type'), t('Application No'), t('Lodged'), t('Granted'), t('Status')]}
+                  rows={(p.visaHistory||[]).map(v=>[
+                    v.type, v.number, v.lodged||v.lodgeDate, v.grantDate||v.granted,
+                    v.status==='Approved'?`✅ ${t('Approved')}`:v.status==='In Progress'?`⏳ ${t('In Progress')}`:v.status==='Refused'?`❌ ${t('Refused')}`:v.status||'—'
+                  ])}
+                />
+            }
+          </S>
 
-          {(p.employmentHistory?.length > 0) && (
-            <S icon="💼" title="Employment History">
-              <Table heads={['From','To','Company','Role','Country']} rows={(p.employmentHistory||[]).map(r=>[r.from,r.to,r.company,r.role,r.country])} />
-            </S>
-          )}
-
-          {p.character && (
-            <S icon="✅" title="Character / Police Checks">
-              <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8 }}>
-                {[['Form 80', p.character.form80], ['AFP Police Check', p.character.afpCheck], ['China PCC', p.character.pcc]].map(([l,v])=>(
-                  <div key={l} style={{ background:'#f9fafb', borderRadius:8, padding:'9px 13px', border:'1px solid #e5e7eb', display:'flex', alignItems:'center', gap:8 }}>
-                    <span style={{ fontSize:16 }}>{v === true ? '✅' : v === false ? '❌' : '❓'}</span>
-                    <div>
-                      <div style={{ fontSize:10, color:'#6b7280', textTransform:'uppercase', letterSpacing:'0.06em' }}>{l}</div>
-                      <div style={{ fontSize:12, color:'#111827', fontWeight:500, marginTop:2 }}>{v === true ? 'Provided' : v === false ? 'Missing' : 'Unknown'}</div>
+          {/* ── 四、SKILLS ASSESSMENT ───────────────────── */}
+          {(p.skillsAssessments||[]).length > 0 && (
+            <S icon="📊" title={`四、${t('SKILLS ASSESSMENT')}`}>
+              {(p.skillsAssessments||[]).map((sa, idx) => {
+                const isUnsuc = sa.outcome?.toLowerCase().includes('unsuccessful') || sa.outcome?.toLowerCase().includes('不通过');
+                const outColor = sa.outcome ? (isUnsuc ? '#ef4444' : '#16a34a') : '#6b7280';
+                return (
+                  <div key={idx} style={{ marginBottom:14, background:'#f9fafb', borderRadius:12, padding:'14px 16px', border:`1px solid ${isUnsuc?'#fecaca':'#e5e7eb'}`, borderLeft:`4px solid ${isUnsuc?'#ef4444':'#6366f1'}` }}>
+                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
+                      <div style={{ fontSize:13, fontWeight:700, color:'#111827' }}>{t('Application ID')}: {sa.applicationId}</div>
+                      {sa.outcome && <span style={{ fontSize:11, fontWeight:700, color:outColor, background:outColor+'15', padding:'3px 10px', borderRadius:20 }}>{isUnsuc?`❌ ${t('Unsuccessful')}`:`✅ ${t('Successful')}`}</span>}
+                    </div>
+                    <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8 }}>
+                      <Field label={t('Occupation')}   value={sa.occupation} />
+                      <Field label={t('Submitted')}    value={sa.submitted||sa.lodgeDate} />
+                      <Field label={t('Outcome')}      value={sa.outcome} warn={isUnsuc} />
+                      {sa.furtherDocs && <Field label={t('Further Docs Requested')} value={sa.furtherDocs} />}
+                      {sa.reason && <Field label={t('Reason')} value={sa.reason} warn />}
+                      {sa.appealDeadline && <Field label={t('Appeal Deadline')} value={sa.appealDeadline} warn={new Date(sa.appealDeadline) < new Date(Date.now()+30*24*3600*1000)} />}
                     </div>
                   </div>
-                ))}
-              </div>
+                );
+              })}
             </S>
           )}
 
-          {p.sponsor?.name && (
-            <S icon="🧑" title="Sponsor">
-              <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8 }}>
-                <Field label="Name"           value={p.sponsor.name} />
-                <Field label="Gender"         value={p.sponsor.sex} />
-                <Field label="Date of Birth"  value={p.sponsor.dob} />
-                <Field label="Nationality"    value={p.sponsor.nationality} />
-                <Field label="Passport No"    value={p.sponsor.passportNo} />
-                <Field label="Occupation"     value={p.sponsor.occupation} />
-                <Field label="AU Address"     value={p.sponsor.address} />
-                <Field label="Prior Marital"  value={p.sponsor.priorMaritalStatus} />
-              </div>
-            </S>
-          )}
-
-          {p.marriage?.date && (
-            <S icon="💍" title="Marriage / Relationship">
-              <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8 }}>
-                <Field label="Date of Marriage"   value={p.marriage.date} />
-                <Field label="Location"           value={p.marriage.location} />
-                <Field label="Registration No"    value={p.marriage.registrationNo} />
-              </div>
-            </S>
-          )}
-
-          {(p.documents?.length > 0) && (
-            <S icon="📁" title="Documents Checklist">
-              <Table heads={['Document','Main Applicant','Sponsor','Secondary']} rows={(p.documents||[]).map(d=>[d.name, d.mainApplicant, d.sponsor, d.secondary])} />
-            </S>
-          )}
-
-          {(p.keyIssues?.length > 0) && (
-            <S icon="🚨" title="Key Issues & Action Items">
-              <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-                {(p.keyIssues||[]).map((issue, i) => {
-                  const col = issue.priority === 'High' ? '#ef4444' : issue.priority === 'Medium' ? '#f59e0b' : '#22c55e';
+          {/* ── 五、CASE TIMELINE ───────────────────────── */}
+          {(p.caseTimeline||[]).length > 0 && (
+            <S icon="📅" title={`五、${t('CASE TIMELINE')}`}>
+              <div style={{ position:'relative', paddingLeft:20 }}>
+                <div style={{ position:'absolute', left:7, top:8, bottom:8, width:2, background:'linear-gradient(to bottom, #6366f1, #e5e7eb)', borderRadius:2 }} />
+                {(p.caseTimeline||[]).map((ev, i) => {
+                  const stCol = ev.status==='Completed'?'#16a34a':ev.status==='Failed'?'#dc2626':ev.status==='Urgent'?'#d97706':ev.status==='Maintained'?'#dc2626':'#6366f1';
                   return (
-                    <div key={i} style={{ background:'#f9fafb', borderRadius:8, padding:'11px 14px', borderLeft:`3px solid ${col}`, border:`1px solid #1a2333`, borderLeftColor:col }}>
-                      <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
-                        <span style={{ fontSize:11, fontWeight:700, color:col, textTransform:'uppercase', letterSpacing:'0.06em' }}>{issue.priority}</span>
-                        <span style={{ fontSize:13, fontWeight:600, color:'#111827' }}>{issue.item}</span>
+                    <div key={i} style={{ display:'flex', gap:14, marginBottom:12, alignItems:'flex-start' }}>
+                      <div style={{ width:12, height:12, borderRadius:'50%', background:stCol, border:'2px solid #fff', boxShadow:`0 0 0 2px ${stCol}40`, flexShrink:0, marginTop:3, zIndex:1 }} />
+                      <div style={{ flex:1, background:'#fff', borderRadius:8, padding:'9px 13px', border:'1px solid #e5e7eb' }}>
+                        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:3 }}>
+                          <span style={{ fontSize:12, fontWeight:700, color:'#111827' }}>{ev.event}</span>
+                          <span style={{ fontSize:10, fontWeight:700, color:stCol, background:stCol+'15', padding:'2px 8px', borderRadius:20 }}>{ev.status}</span>
+                        </div>
+                        <div style={{ fontSize:11, color:'#9ca3af' }}>{ev.date}</div>
                       </div>
-                      <div style={{ fontSize:12, color:'#6b7280', lineHeight:1.5 }}>{issue.detail}</div>
                     </div>
                   );
                 })}
@@ -1140,17 +1292,56 @@ Return this exact structure (use null for missing, keep English for field values
             </S>
           )}
 
-          {!p.dob && !p.passportNo && !p.visaHistory?.length && (
-            <div style={{ textAlign:'center', padding:'40px 20px', color:'#9ca3af' }}>
-              <div style={{ fontSize:32, marginBottom:12 }}>📥</div>
-              <div style={{ fontSize:14, marginBottom:8 }}>No detailed profile yet</div>
-              <div style={{ fontSize:12 }}>Upload a client information card to auto-fill this section</div>
-              <button onClick={()=>setTab('import')} style={{ marginTop:14, padding:'9px 18px', background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, color:'#fff', fontWeight:700, fontSize:13, cursor:'pointer' }}>Import Document →</button>
+          {/* ── 六、CURRENT STATUS & NEXT STEPS ──────────── */}
+          {(p.currentStatus || (p.nextSteps||[]).length > 0) && (
+            <S icon="⚡" title={`六、${t('CURRENT STATUS & NEXT STEPS')}`}>
+              {p.currentStatus && (
+                <div style={{ background:'#fef2f2', border:'1px solid #fecaca', borderRadius:10, padding:'12px 16px', marginBottom:12 }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
+                    <span>⚠️</span>
+                    <span style={{ fontSize:13, fontWeight:700, color:'#dc2626' }}>{t('Status Summary')}</span>
+                  </div>
+                  <div style={{ fontSize:13, color:'#7f1d1d', lineHeight:1.6 }}>{p.currentStatus}</div>
+                </div>
+              )}
+              {(p.nextSteps||[]).length > 0 && (
+                <div>
+                  <div style={{ fontSize:11, color:'#6b7280', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:8 }}>{t('Options to Consider')}</div>
+                  {(p.nextSteps||[]).map((step, i) => {
+                    const col = step.priority==='High'?'#ef4444':step.priority==='Medium'?'#f59e0b':'#22c55e';
+                    return (
+                      <div key={i} style={{ display:'flex', gap:12, marginBottom:8, background:'#f9fafb', borderRadius:8, padding:'10px 14px', border:'1px solid #e5e7eb', borderLeft:`3px solid ${col}` }}>
+                        <div style={{ width:22, height:22, borderRadius:'50%', background:col+'20', border:`1px solid ${col}40`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:10, fontWeight:800, color:col, flexShrink:0 }}>{i+1}</div>
+                        <div style={{ flex:1 }}>
+                          <div style={{ fontSize:13, fontWeight:700, color:'#111827', marginBottom:3 }}>{step.action}</div>
+                          <div style={{ fontSize:12, color:'#6b7280', lineHeight:1.5 }}>{step.details}</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </S>
+          )}
+
+          {/* ── 七、NOTES ───────────────────────────────── */}
+          <S icon="📝" title={`七、${t('NOTES')}`}>
+            <NotesPanel notes={normalizeNotes(client.notes)} onAddNote={(text) => onSaveProfile({...client, notes:[makeNote(text),...normalizeNotes(client.notes)]})} onDeleteNote={(nid)=>onSaveProfile({...client,notes:normalizeNotes(client.notes).filter(n=>n.id!==nid)})} />
+          </S>
+
+          {/* empty state */}
+          {!p.dob && !p.passportNo && !(p.visaHistory?.length) && !(p.skillsAssessments?.length) && !(p.caseTimeline?.length) && (
+            <div style={{ textAlign:'center', padding:'30px 20px', color:'#9ca3af', background:'#f9fafb', borderRadius:12, border:'2px dashed #e5e7eb' }}>
+              <div style={{ fontSize:32, marginBottom:10 }}>📥</div>
+              <div style={{ fontSize:14, fontWeight:600, color:'#6b7280', marginBottom:6 }}>No detailed profile yet</div>
+              <div style={{ fontSize:12, marginBottom:14 }}>Import a document or fill in manually via Edit</div>
+              <button onClick={()=>setTab('import')} style={{ padding:'9px 18px', background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, color:'#fff', fontWeight:700, fontSize:13, cursor:'pointer' }}>📥 Import Document →</button>
             </div>
           )}
         </div>
       )}
 
+      {/* ── JOBS TAB ─────────────────────────────────────── */}
       {/* ── JOBS TAB ─────────────────────────────────────── */}
       {tab === 'jobs' && (
         <div style={{ maxHeight:'65vh', overflowY:'auto' }}>
@@ -1362,7 +1553,7 @@ Return this exact structure (use null for missing, keep English for field values
                   ['Sponsor',     importPreview.profile?.sponsor?.name],
                   ['Marriage Date', importPreview.profile?.marriage?.date],
                 ].map(([l,v]) => v ? (
-                  <div key={l} style={{ background:'#f9fafb', borderRadius:8, padding:'9px 13px', border:'1px solid #1e3a5f' }}>
+                  <div key={l} style={{ background:'#f9fafb', borderRadius:8, padding:'9px 13px', border:'1px solid #e5e7eb' }}>
                     <div style={{ fontSize:10, color:'#6b7280', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:3 }}>{l}</div>
                     <div style={{ fontSize:13, color:'#111827', fontWeight:500 }}>{v}</div>
                   </div>
@@ -1400,6 +1591,7 @@ Return this exact structure (use null for missing, keep English for field values
 
 /* ─── CLIENTS ────────────────────────────────────────────────────────────────── */
 function Clients({ clients, jobs, setClients }) {
+  const { t, lang } = useLang();
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState('All');
   const [filterStatus, setFilterStatus] = useState('All');
@@ -1600,6 +1792,7 @@ function Clients({ clients, jobs, setClients }) {
 
 /* ─── JOBS ────────────────────────────────────────────────────────────────────── */
 function Jobs({ jobs, clients, team, setJobs }) {
+  const { t, lang } = useLang();
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('All');
   const [filterAssigned, setFilterAssigned] = useState('All');
@@ -3302,7 +3495,30 @@ function LoginScreen({ onLogin }) {
   );
 }
 
-export default function App() {
+export default 
+/* ─── LANGUAGE TOGGLE ───────────────────────────────────────────────────────── */
+function LangToggle() {
+  const { lang } = useLang();
+  return (
+    <button
+      onClick={() => setLang(lang === 'en' ? 'zh' : 'en')}
+      title={lang === 'en' ? '切换中文' : 'Switch to English'}
+      style={{
+        display:'flex', alignItems:'center', gap:5, padding:'5px 12px',
+        background: lang === 'zh' ? 'linear-gradient(135deg,#e0e7ff,#ede9fe)' : '#f3f4f6',
+        border: lang === 'zh' ? '1px solid #c7d2fe' : '1px solid #e5e7eb',
+        borderRadius:20, cursor:'pointer', fontSize:12, fontWeight:700,
+        color: lang === 'zh' ? '#4338ca' : '#374151', transition:'all 0.2s',
+      }}
+    >
+      <span style={{ fontSize:14 }}>{lang === 'zh' ? '🇨🇳' : '🇦🇺'}</span>
+      {lang === 'zh' ? '中文' : 'EN'}
+    </button>
+  );
+}
+
+function App() {
+  const { lang, t } = useLang();
   const [clients, setClients]           = useState(INIT_CLIENTS);
   const [jobs, setJobs]                 = useState(INIT_JOBS);
   const [team, setTeam]                 = useState(INIT_TEAM);
@@ -3381,15 +3597,15 @@ export default function App() {
   }
 
   const allNav = [
-    { id:'dashboard', icon:'🏠', label:'Dashboard' },
-    { id:'clients',   icon:'👤', label:'Clients',  count: clients.filter(c=>c.status==='Active').length },
-    { id:'jobs',      icon:'📋', label:'Jobs',     count: jobs.filter(j=>j.status!=='Completed').length },
-    { id:'leads',     icon:'🎯', label:'Leads',    count: leads.filter(l=>l.stage!=='Converted'&&l.stage!=='Lost').length },
-    { id:'calendar',  icon:'📅', label:'Calendar', count: appointments.filter(a=>a.date===today()).length || undefined },
-    { id:'invoices',  icon:'💰', label:'Invoices', count: invoices.filter(i=>i.status==='Overdue'||i.status==='Sent').length || undefined },
-    { id:'agents',    icon:'🤝', label:'Agents' },
-    { id:'team',      icon:'👥', label:'Team' },
-    ...(isManager ? [{ id:'reports', icon:'📊', label:'Reports', managerOnly:true }] : []),
+    { id:'dashboard', icon:'🏠', label: t('Dashboard') },
+    { id:'clients',   icon:'👤', label: t('Clients'),  count: clients.filter(c=>c.status==='Active').length },
+    { id:'jobs',      icon:'📋', label: t('Jobs'),     count: jobs.filter(j=>j.status!=='Completed').length },
+    { id:'leads',     icon:'🎯', label: t('Leads'),    count: leads.filter(l=>l.stage!=='Converted'&&l.stage!=='Lost').length },
+    { id:'calendar',  icon:'📅', label: t('Calendar'), count: appointments.filter(a=>a.date===today()).length || undefined },
+    { id:'invoices',  icon:'💰', label: t('Invoices'), count: invoices.filter(i=>i.status==='Overdue'||i.status==='Sent').length || undefined },
+    { id:'agents',    icon:'🤝', label: t('Agents') },
+    { id:'team',      icon:'👥', label: t('Team') },
+    ...(isManager ? [{ id:'reports', icon:'📊', label: t('Reports'), managerOnly:true }] : []),
   ];
   // Bottom-nav shows first 5 items on mobile
   const mobileNav = allNav.slice(0,5);
