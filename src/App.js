@@ -633,7 +633,7 @@ function ClientDetailModal({ client, jobs, onClose, onEdit, onSaveProfile }) {
     setImporting(true); setImportPreview(null);
     try {
       const buf      = await file.arrayBuffer();
-      const { value: rawText } = await mammoth.default.extractRawText({ arrayBuffer: buf });
+      const { value: rawText } = await mammoth.extractRawText({ arrayBuffer: buf });
 
       const res = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
