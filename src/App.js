@@ -121,8 +121,8 @@ const setLang  = (l) => { sessionStorage.setItem('ozsky_lang', l); window.dispat
 
 // Hook: returns a translation function and current lang
 function useLang() {
-  const [lang, setLangState] = React.useState(getLang);
-  React.useEffect(() => {
+  const [lang, setLangState] = useState(getLang);
+  useEffect(() => {
     const handler = () => setLangState(getLang());
     window.addEventListener('ozsky-lang-change', handler);
     return () => window.removeEventListener('ozsky-lang-change', handler);
