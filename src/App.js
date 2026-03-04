@@ -2006,7 +2006,7 @@ export default function App() {
   const [jobs, setJobs]       = useState(INIT_JOBS);
   const [team, setTeam]       = useState(INIT_TEAM);
   const [view, setView]       = useState('dashboard');
-  const [loaded, setLoaded]   = useState(false);
+  const [, setLoaded]   = useState(false);
   const [authed, setAuthed]   = useState(() => sessionStorage.getItem('ozsky_auth') === '1');
 
   useEffect(() => {
