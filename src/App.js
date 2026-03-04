@@ -417,7 +417,7 @@ function ProgressBar({ value }) {
 
 function Card({ children, style, onClick }) {
   return (
-    <div onClick={onClick} style={{ background:'#f5f6fa', border:'1px solid #e9eaf3', borderRadius:12, padding:20, ...style, cursor: onClick ? 'pointer' : 'default', transition:'border-color 0.2s, transform 0.15s' }}
+    <div onClick={onClick} style={{ background:'#f5f6fa', border:'1px solid #e5e7eb', borderRadius:12, padding:20, ...style, cursor: onClick ? 'pointer' : 'default', transition:'border-color 0.2s, transform 0.15s' }}
       onMouseEnter={e => onClick && (e.currentTarget.style.borderColor='#38bdf830', e.currentTarget.style.transform='translateY(-1px)')}
       onMouseLeave={e => onClick && (e.currentTarget.style.borderColor='#e5e7eb', e.currentTarget.style.transform='translateY(0)')}>
       {children}
@@ -427,13 +427,22 @@ function Card({ children, style, onClick }) {
 
 function Modal({ title, onClose, children, wide }) {
   return (
-    <div style={{ position:'fixed', inset:0, background:'#000000b0', backdropFilter:'blur(4px)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:20 }} onClick={e => e.target===e.currentTarget && onClose()}>
-      <div className="animate-fade" style={{ background:'#f5f6fa', border:'1px solid #e5e7eb', borderRadius:16, padding:28, width:'100%', maxWidth: wide?720:520, maxHeight:'90vh', overflowY:'auto' }}>
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
-          <h2 style={{ fontSize:18, fontWeight:600, color:'#111827' }}>{title}</h2>
-          <button onClick={onClose} style={{ background:'#e5e7eb', border:'none', borderRadius:8, width:32, height:32, color:'#6b7280', fontSize:18, display:'flex', alignItems:'center', justifyContent:'center' }}>×</button>
+    <div
+      style={{ position:'fixed', inset:0, background:'rgba(17,24,39,0.55)', backdropFilter:'blur(4px)', zIndex:1000, overflowY:'auto', padding:'24px 16px' }}
+      onClick={e => e.target===e.currentTarget && onClose()}
+    >
+      <div
+        className="animate-fade"
+        style={{ background:'#fff', border:'1px solid #e5e7eb', borderRadius:16, width:'100%', maxWidth: wide?720:540, margin:'0 auto', boxShadow:'0 20px 60px rgba(0,0,0,0.18)' }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'20px 24px 16px', borderBottom:'1px solid #f3f4f8', position:'sticky', top:0, background:'#fff', zIndex:1, borderRadius:'16px 16px 0 0' }}>
+          <h2 style={{ fontSize:17, fontWeight:700, color:'#111827' }}>{title}</h2>
+          <button onClick={onClose} style={{ background:'#f3f4f6', border:'none', borderRadius:8, width:32, height:32, color:'#9ca3af', fontSize:18, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', transition:'all 0.15s' }}>×</button>
         </div>
-        {children}
+        <div style={{ padding:'20px 24px 24px' }}>
+          {children}
+        </div>
       </div>
     </div>
   );
@@ -481,7 +490,7 @@ function NotesPanel({ notes, onAddNote, onDeleteNote }) {
       <div style={{ display:'flex', flexDirection:'column', gap:8, maxHeight:260, overflowY:'auto' }}>
         {sorted.length === 0 && <div style={{ fontSize:13, color:'#9ca3af', textAlign:'center', padding:'16px 0' }}>No notes yet</div>}
         {sorted.map((n, i) => (
-          <div key={n.id} style={{ background:'#f5f6fa', border:'1px solid #e9eaf3', borderRadius:8, padding:'10px 12px', position:'relative' }}>
+          <div key={n.id} style={{ background:'#f5f6fa', border:'1px solid #e5e7eb', borderRadius:8, padding:'10px 12px', position:'relative' }}>
             {i === 0 && <span style={{ position:'absolute', top:8, right:36, fontSize:10, background:'#eef2ff', color:'#6366f1', borderRadius:6, padding:'1px 6px' }}>Latest</span>}
             <div style={{ fontSize:13, color:'#374151', lineHeight:1.5, marginBottom:6, paddingRight:24 }}>{n.text}</div>
             <div style={{ fontSize:11, color:'#9ca3af' }}>🕐 {fmtDateTime(n.createdAt)}</div>
@@ -657,7 +666,7 @@ function Dashboard({ clients, jobs, team, onGoTo }) {
               const client = getClient(j.clientId);
               const member = getMember(j.assignedTo);
               return (
-                <div key={j.id} onClick={()=>setSelectedJob(j)} style={{ padding:'10px 12px', background:'#f5f6fa', borderRadius:8, border:'1px solid #e9eaf3', cursor:'pointer', transition:'border-color 0.15s' }}
+                <div key={j.id} onClick={()=>setSelectedJob(j)} style={{ padding:'10px 12px', background:'#f5f6fa', borderRadius:8, border:'1px solid #e5e7eb', cursor:'pointer', transition:'border-color 0.15s' }}
                   onMouseEnter={e=>e.currentTarget.style.borderColor='#38bdf860'}
                   onMouseLeave={e=>e.currentTarget.style.borderColor='#e5e7eb'}>
                   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:6 }}>
@@ -720,7 +729,7 @@ function Dashboard({ clients, jobs, team, onGoTo }) {
               const daysLeft = Math.ceil((new Date(j.dueDate) - now) / 86400000);
               const urgency = daysLeft <= 3 ? '#f87171' : daysLeft <= 7 ? '#f59e0b' : '#34d399';
               return (
-                <div key={j.id} onClick={()=>setSelectedJob(j)} style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 14px', background:'#f5f6fa', borderRadius:8, border:'1px solid #e9eaf3', cursor:'pointer', transition:'border-color 0.15s' }}
+                <div key={j.id} onClick={()=>setSelectedJob(j)} style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 14px', background:'#f5f6fa', borderRadius:8, border:'1px solid #e5e7eb', cursor:'pointer', transition:'border-color 0.15s' }}
                   onMouseEnter={e=>e.currentTarget.style.borderColor='#38bdf860'}
                   onMouseLeave={e=>e.currentTarget.style.borderColor='#e5e7eb'}>
                   <div style={{ minWidth:42, height:42, borderRadius:8, background:urgency+'20', border:`2px solid ${urgency}40`, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center' }}>
@@ -775,7 +784,7 @@ function Dashboard({ clients, jobs, team, onGoTo }) {
             <div style={{ marginBottom:16 }}>
               <div style={{ fontSize:11, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:10 }}>Notes ({normalizeNotes(selectedJob.notes).length})</div>
               {[...normalizeNotes(selectedJob.notes)].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)).slice(0,3).map(n => (
-                <div key={n.id} style={{ background:'#f5f6fa', border:'1px solid #e9eaf3', borderRadius:8, padding:'10px 12px', marginBottom:8 }}>
+                <div key={n.id} style={{ background:'#f5f6fa', border:'1px solid #e5e7eb', borderRadius:8, padding:'10px 12px', marginBottom:8 }}>
                   <div style={{ fontSize:13, color:'#374151' }}>{n.text}</div>
                   <div style={{ fontSize:11, color:'#9ca3af', marginTop:4 }}>{fmtDateTime(n.createdAt)}</div>
                 </div>
@@ -937,17 +946,17 @@ Return this exact structure (use null for missing, keep English for field values
   );
 
   const Field = ({ label, value, warn }) => (
-    <div style={{ background:'#0a1220', borderRadius:8, padding:'9px 13px', border: warn ? '1px solid #f59e0b33' : '1px solid #1a2333' }}>
+    <div style={{ background:'#f9fafb', borderRadius:8, padding:'9px 13px', border: warn ? '1px solid #f59e0b60' : '1px solid #e5e7eb' }}>
       <div style={{ fontSize:10, color:'#6b7280', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:3 }}>{label}</div>
-      <div style={{ fontSize:13, color: warn ? '#fbbf24' : '#e2e8f0', fontWeight:500, wordBreak:'break-word' }}>{value || '—'}</div>
+      <div style={{ fontSize:13, color: warn ? '#d97706' : '#111827', fontWeight:500, wordBreak:'break-word' }}>{value || '—'}</div>
     </div>
   );
 
   const Table = ({ heads, rows }) => (
-    <div style={{ overflowX:'auto', borderRadius:8, border:'1px solid #e9eaf3' }}>
+    <div style={{ overflowX:'auto', borderRadius:8, border:'1px solid #e5e7eb' }}>
       <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
         <thead>
-          <tr style={{ background:'#0a1220' }}>
+          <tr style={{ background:'#f8fafc' }}>
             {heads.map(h => <th key={h} style={{ padding:'7px 12px', color:'#6b7280', fontWeight:600, textAlign:'left', whiteSpace:'nowrap', textTransform:'uppercase', fontSize:10, letterSpacing:'0.05em' }}>{h}</th>)}
           </tr>
         </thead>
@@ -1037,7 +1046,7 @@ Return this exact structure (use null for missing, keep English for field values
             <S icon="✅" title="Character / Police Checks">
               <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8 }}>
                 {[['Form 80', p.character.form80], ['AFP Police Check', p.character.afpCheck], ['China PCC', p.character.pcc]].map(([l,v])=>(
-                  <div key={l} style={{ background:'#0a1220', borderRadius:8, padding:'9px 13px', border:'1px solid #e9eaf3', display:'flex', alignItems:'center', gap:8 }}>
+                  <div key={l} style={{ background:'#f9fafb', borderRadius:8, padding:'9px 13px', border:'1px solid #e5e7eb', display:'flex', alignItems:'center', gap:8 }}>
                     <span style={{ fontSize:16 }}>{v === true ? '✅' : v === false ? '❌' : '❓'}</span>
                     <div>
                       <div style={{ fontSize:10, color:'#6b7280', textTransform:'uppercase', letterSpacing:'0.06em' }}>{l}</div>
@@ -1086,7 +1095,7 @@ Return this exact structure (use null for missing, keep English for field values
                 {(p.keyIssues||[]).map((issue, i) => {
                   const col = issue.priority === 'High' ? '#ef4444' : issue.priority === 'Medium' ? '#f59e0b' : '#22c55e';
                   return (
-                    <div key={i} style={{ background:'#0a1220', borderRadius:8, padding:'11px 14px', borderLeft:`3px solid ${col}`, border:`1px solid #1a2333`, borderLeftColor:col }}>
+                    <div key={i} style={{ background:'#f9fafb', borderRadius:8, padding:'11px 14px', borderLeft:`3px solid ${col}`, border:`1px solid #1a2333`, borderLeftColor:col }}>
                       <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
                         <span style={{ fontSize:11, fontWeight:700, color:col, textTransform:'uppercase', letterSpacing:'0.06em' }}>{issue.priority}</span>
                         <span style={{ fontSize:13, fontWeight:600, color:'#111827' }}>{issue.item}</span>
@@ -1116,7 +1125,7 @@ Return this exact structure (use null for missing, keep English for field values
           {clientJobs.length === 0
             ? <div style={{ color:'#9ca3af', fontSize:14, padding:20, textAlign:'center' }}>No jobs assigned yet.</div>
             : clientJobs.map(j => (
-              <div key={j.id} style={{ background:'#f5f6fa', borderRadius:10, padding:'13px 16px', border:'1px solid #e9eaf3', marginBottom:10 }}>
+              <div key={j.id} style={{ background:'#f5f6fa', borderRadius:10, padding:'13px 16px', border:'1px solid #e5e7eb', marginBottom:10 }}>
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
                   <span style={{ fontSize:14, fontWeight:600, color:'#111827' }}>{j.title}</span>
                   <StatusBadge status={j.status} />
@@ -1136,7 +1145,7 @@ Return this exact structure (use null for missing, keep English for field values
           {normalizeNotes(client.notes).length === 0
             ? <div style={{ color:'#9ca3af', fontSize:14, padding:20, textAlign:'center' }}>No notes yet.</div>
             : [...normalizeNotes(client.notes)].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)).map(n => (
-              <div key={n.id} style={{ background:'#f5f6fa', borderRadius:8, padding:'12px 14px', border:'1px solid #e9eaf3', marginBottom:8 }}>
+              <div key={n.id} style={{ background:'#f5f6fa', borderRadius:8, padding:'12px 14px', border:'1px solid #e5e7eb', marginBottom:8 }}>
                 <div style={{ fontSize:13, color:'#374151', whiteSpace:'pre-wrap', lineHeight:1.55 }}>{n.text}</div>
                 <div style={{ fontSize:11, color:'#9ca3af', marginTop:6 }}>{fmtDateTime(n.createdAt)}</div>
               </div>
@@ -1321,7 +1330,7 @@ Return this exact structure (use null for missing, keep English for field values
                   ['Sponsor',     importPreview.profile?.sponsor?.name],
                   ['Marriage Date', importPreview.profile?.marriage?.date],
                 ].map(([l,v]) => v ? (
-                  <div key={l} style={{ background:'#0a1220', borderRadius:8, padding:'9px 13px', border:'1px solid #1e3a5f' }}>
+                  <div key={l} style={{ background:'#f9fafb', borderRadius:8, padding:'9px 13px', border:'1px solid #1e3a5f' }}>
                     <div style={{ fontSize:10, color:'#6b7280', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:3 }}>{l}</div>
                     <div style={{ fontSize:13, color:'#111827', fontWeight:500 }}>{v}</div>
                   </div>
@@ -1332,7 +1341,7 @@ Return this exact structure (use null for missing, keep English for field values
                 <div style={{ marginBottom:14 }}>
                   <div style={{ fontSize:11, color:'#ef4444', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:8, fontWeight:700 }}>🚨 Key Issues Detected ({importPreview.profile.keyIssues.length})</div>
                   {importPreview.profile.keyIssues.map((issue,i) => (
-                    <div key={i} style={{ background:'#0a1220', borderRadius:7, padding:'8px 12px', borderLeft:'3px solid #ef4444', marginBottom:6, fontSize:12, color:'#374151' }}>
+                    <div key={i} style={{ background:'#f9fafb', borderRadius:7, padding:'8px 12px', borderLeft:'3px solid #ef4444', marginBottom:6, fontSize:12, color:'#374151' }}>
                       <strong style={{color:'#fca5a5'}}>{issue.priority}:</strong> {issue.item}
                     </div>
                   ))}
@@ -1681,7 +1690,7 @@ function Jobs({ jobs, clients, team, setJobs }) {
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
           <div><h1 style={{ fontSize:24, fontWeight:700, color:'#111827' }}>Jobs</h1><p style={{ color:'#6b7280', fontSize:14, marginTop:2 }}>{jobs.length} total</p></div>
           <div style={{ display:'flex', gap:10 }}>
-            <div style={{ display:'flex', background:'#f5f6fa', borderRadius:8, border:'1px solid #e9eaf3', overflow:'hidden' }}>
+            <div style={{ display:'flex', background:'#f5f6fa', borderRadius:8, border:'1px solid #e5e7eb', overflow:'hidden' }}>
               {['list','board'].map(v=><button key={v} onClick={()=>setView(v)} style={{ padding:'7px 14px', background: view===v?'#e5e7eb':'transparent', border:'none', color: view===v?'#e2e8f0':'#475569', fontSize:13, fontWeight:500, textTransform:'capitalize' }}>{v}</button>)}
             </div>
             <button onClick={openAdd} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:10, padding:'9px 16px', color:'#fff', fontWeight:700, fontSize:13 }}>+ New Job</button>
@@ -1704,7 +1713,7 @@ function Jobs({ jobs, clients, team, setJobs }) {
                     const member = getMember(j.assignedTo);
                     const jnotes = normalizeNotes(j.notes);
                     return (
-                      <div key={j.id} onClick={()=>setViewJob(j)} style={{ background:'#f5f6fa', border:'1px solid #e9eaf3', borderRadius:10, padding:14, cursor:'pointer', transition:'border-color 0.15s' }}
+                      <div key={j.id} onClick={()=>setViewJob(j)} style={{ background:'#f5f6fa', border:'1px solid #e5e7eb', borderRadius:10, padding:14, cursor:'pointer', transition:'border-color 0.15s' }}
                         onMouseEnter={e=>e.currentTarget.style.borderColor='#38bdf840'}
                         onMouseLeave={e=>e.currentTarget.style.borderColor='#e5e7eb'}>
                         <div style={{ fontSize:13, fontWeight:600, color:'#111827', marginBottom:5 }}>{j.title}</div>
@@ -1787,7 +1796,7 @@ function Jobs({ jobs, clients, team, setJobs }) {
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:24 }}>
         <div><h1 style={{ fontSize:24, fontWeight:700, color:'#111827' }}>Jobs</h1><p style={{ color:'#6b7280', fontSize:14, marginTop:2 }}>{jobs.length} total jobs</p></div>
         <div style={{ display:'flex', gap:10 }}>
-          <div style={{ display:'flex', background:'#f5f6fa', borderRadius:8, border:'1px solid #e9eaf3', overflow:'hidden' }}>
+          <div style={{ display:'flex', background:'#f5f6fa', borderRadius:8, border:'1px solid #e5e7eb', overflow:'hidden' }}>
             {['list','board'].map(v=><button key={v} onClick={()=>setView(v)} style={{ padding:'7px 14px', background: view===v?'#e5e7eb':'transparent', border:'none', color: view===v?'#e2e8f0':'#475569', fontSize:13, fontWeight:500, textTransform:'capitalize' }}>{v}</button>)}
           </div>
           <button onClick={openAdd} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:10, padding:'9px 16px', color:'#fff', fontWeight:700, fontSize:13 }}>+ New Job</button>
@@ -2082,7 +2091,7 @@ function Team({ team, jobs, clients, setTeam }) {
                   ) : (
                     <button
                       onClick={() => setDrillMember(m)}
-                      style={{ marginTop:10, width:'100%', background:'transparent', border:'1px solid #e9eaf3', borderRadius:8, padding:'6px 0', color:'#9ca3af', fontSize:11, cursor:'pointer' }}
+                      style={{ marginTop:10, width:'100%', background:'transparent', border:'1px solid #e5e7eb', borderRadius:8, padding:'6px 0', color:'#9ca3af', fontSize:11, cursor:'pointer' }}
                     >
                       View details
                     </button>
@@ -2103,7 +2112,7 @@ function Team({ team, jobs, clients, setTeam }) {
         return (
           <Modal title={`${drillMember.name} — All Cases`} onClose={() => setDrillMember(null)} wide>
             {/* Member summary bar */}
-            <div style={{ display:'flex', alignItems:'center', gap:14, marginBottom:20, padding:'12px 16px', background:'#f5f6fa', borderRadius:10, border:'1px solid #e9eaf3' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:14, marginBottom:20, padding:'12px 16px', background:'#f5f6fa', borderRadius:10, border:'1px solid #e5e7eb' }}>
               <Avatar name={drillMember.name} color={drillMember.color} size={40} />
               <div style={{ flex:1 }}>
                 <div style={{ fontWeight:600, color:'#111827', fontSize:15 }}>{drillMember.name}</div>
@@ -2374,7 +2383,7 @@ function Leads({ leads, setLeads, clients, setClients, jobs, setJobs, team, agen
           <div style={{ fontSize:13, color:'#6b7280', marginTop:3 }}>{leads.length} total leads · {leads.filter(l=>l.stage==='Converted').length} converted</div>
         </div>
         <div style={{ display:'flex', gap:10 }}>
-          <input value={filter} onChange={e=>setFilter(e.target.value)} placeholder="Search leads…" style={{ background:'#f5f6fa', border:'1px solid #e9eaf3', borderRadius:8, padding:'8px 12px', color:'#111827', fontSize:13, width:200, outline:'none' }}/>
+          <input value={filter} onChange={e=>setFilter(e.target.value)} placeholder="Search leads…" style={{ background:'#f5f6fa', border:'1px solid #e5e7eb', borderRadius:8, padding:'8px 12px', color:'#111827', fontSize:13, width:200, outline:'none' }}/>
           <button onClick={openAdd} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', color:'#ffffff', border:'none', borderRadius:8, padding:'9px 18px', fontWeight:700, fontSize:13 }}>+ Add Lead</button>
         </div>
       </div>
@@ -2400,7 +2409,7 @@ function Leads({ leads, setLeads, clients, setClients, jobs, setJobs, team, agen
             </div>
             <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
               {byStage[stage].map(lead => (
-                <div key={lead.id} style={{ background:'#f5f6fa', border:'1px solid #e9eaf3', borderRadius:10, padding:'12px 14px', cursor:'pointer' }}
+                <div key={lead.id} style={{ background:'#f5f6fa', border:'1px solid #e5e7eb', borderRadius:10, padding:'12px 14px', cursor:'pointer' }}
                   onClick={() => openEdit(lead)}>
                   <div style={{ fontWeight:600, color:'#111827', fontSize:13, marginBottom:4 }}>{lead.name}</div>
                   {lead.visaInterest && <div style={{ fontSize:11, color:'#6366f1', marginBottom:4 }}>{lead.visaInterest}</div>}
@@ -2542,7 +2551,7 @@ function CalendarPage({ appointments, setAppointments, jobs, clients, team }) {
 
       <div style={{ display:'grid', gridTemplateColumns:'1fr 300px', gap:20 }}>
         {/* Calendar grid */}
-        <div style={{ background:'#f5f6fa', border:'1px solid #e9eaf3', borderRadius:12, overflow:'hidden' }}>
+        <div style={{ background:'#f5f6fa', border:'1px solid #e5e7eb', borderRadius:12, overflow:'hidden' }}>
           <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', background:'#e9eaf3' }}>
             {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d=>(
               <div key={d} style={{ padding:'10px 0', textAlign:'center', fontSize:11, fontWeight:600, color:'#6b7280', textTransform:'uppercase', letterSpacing:'0.06em' }}>{d}</div>
@@ -2580,7 +2589,7 @@ function CalendarPage({ appointments, setAppointments, jobs, clients, team }) {
               const cl = clients.find(c=>c.id===a.clientId);
               const d = daysUntil(a.date);
               return (
-                <div key={a.id} style={{ background:'#f5f6fa', border:'1px solid #e9eaf3', borderRadius:10, padding:'12px 14px', cursor:'pointer' }}
+                <div key={a.id} style={{ background:'#f5f6fa', border:'1px solid #e5e7eb', borderRadius:10, padding:'12px 14px', cursor:'pointer' }}
                   onClick={()=>{setForm({...a});setEditAppt(a.id);setShowForm(true);}}>
                   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
                     <div style={{ fontWeight:600, color:'#111827', fontSize:13 }}>{a.title}</div>
@@ -2726,7 +2735,7 @@ function Invoices({ invoices, setInvoices, clients, jobs }) {
       </div>
 
       {/* Table */}
-      <div style={{ background:'#f5f6fa', border:'1px solid #e9eaf3', borderRadius:12, overflow:'hidden' }}>
+      <div style={{ background:'#f5f6fa', border:'1px solid #e5e7eb', borderRadius:12, overflow:'hidden' }}>
         <table style={{ width:'100%', borderCollapse:'collapse' }}>
           <thead>
             <tr style={{ background:'#e9eaf3' }}>
@@ -2882,7 +2891,7 @@ function Reports({ clients, jobs, leads, invoices, team }) {
 
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20, marginBottom:24 }}>
         {/* Revenue chart */}
-        <div style={{ background:'#f5f6fa', border:'1px solid #e9eaf3', borderRadius:12, padding:'20px' }}>
+        <div style={{ background:'#f5f6fa', border:'1px solid #e5e7eb', borderRadius:12, padding:'20px' }}>
           <div style={{ fontSize:13, fontWeight:600, color:'#111827', marginBottom:16 }}>Revenue (Last 6 Months)</div>
           <div style={{ display:'flex', alignItems:'flex-end', gap:8, height:120 }}>
             {revenueByMonth.map(mo => (
@@ -2896,7 +2905,7 @@ function Reports({ clients, jobs, leads, invoices, team }) {
         </div>
 
         {/* Cases by type */}
-        <div style={{ background:'#f5f6fa', border:'1px solid #e9eaf3', borderRadius:12, padding:'20px' }}>
+        <div style={{ background:'#f5f6fa', border:'1px solid #e5e7eb', borderRadius:12, padding:'20px' }}>
           <div style={{ fontSize:13, fontWeight:600, color:'#111827', marginBottom:16 }}>Top Case Types</div>
           <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
             {topTypes.map(([type, count]) => (
@@ -2914,7 +2923,7 @@ function Reports({ clients, jobs, leads, invoices, team }) {
       </div>
 
       {/* Team performance table */}
-      <div style={{ background:'#f5f6fa', border:'1px solid #e9eaf3', borderRadius:12, overflow:'hidden' }}>
+      <div style={{ background:'#f5f6fa', border:'1px solid #e5e7eb', borderRadius:12, overflow:'hidden' }}>
         <div style={{ padding:'16px 20px', borderBottom:'1px solid #e9eaf3' }}>
           <div style={{ fontSize:13, fontWeight:600, color:'#111827' }}>Team Performance</div>
         </div>
@@ -3002,7 +3011,7 @@ function AgentsPage({ agents, setAgents, leads, jobs, invoices }) {
           const commission = agentRevenue * (agent.commissionRate||10)/100;
 
           return (
-            <div key={agent.id} style={{ background:'#f5f6fa', border:'1px solid #e9eaf3', borderRadius:12, padding:'18px 20px' }}>
+            <div key={agent.id} style={{ background:'#f5f6fa', border:'1px solid #e5e7eb', borderRadius:12, padding:'18px 20px' }}>
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:12 }}>
                 <div>
                   <div style={{ fontWeight:700, color:'#111827', fontSize:15 }}>{agent.name}</div>
