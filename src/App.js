@@ -58,8 +58,7 @@ const LANG_ZH = {
   'Option':'选项','Action':'行动','Details':'详情',
   'High':'高','Medium':'中','Low':'低',
   'Add Option':'+ 添加选项',
-  // Notes
-  'NOTES':'七、备注',
+  // Notes section
   'Add a note... (Ctrl+Enter to save)':'添加备注... (Ctrl+Enter 保存)',
   'No notes yet':'暂无备注',
   // Address / employment history
@@ -725,7 +724,7 @@ function ClientSnapshot({ client, jobs, visible, anchorRef }) {
 
 /* ─── DASHBOARD ─────────────────────────────────────────────────────────────── */
 function Dashboard({ clients, jobs, team, onGoTo }) {
-  const { t, lang } = useLang();
+  const { t } = useLang();
   const [selectedJob, setSelectedJob] = useState(null);
 
   const active = clients.filter(c=>c.status==='Active').length;
@@ -967,7 +966,7 @@ function Dashboard({ clients, jobs, team, onGoTo }) {
 
 /* ─── CLIENT DETAIL MODAL (tabbed + AI import) ────────────────────────────── */
 function ClientDetailModal({ client, jobs, onClose, onEdit, onSaveProfile }) {
-  const { t, lang } = useLang();
+  const { t } = useLang();
   const [tab, setTab]               = useState('profile');
   const [importing, setImporting]   = useState(false);
   const [importPreview, setImportPreview] = useState(null);
@@ -1591,7 +1590,7 @@ Return this exact structure (use null for missing, keep English for field values
 
 /* ─── CLIENTS ────────────────────────────────────────────────────────────────── */
 function Clients({ clients, jobs, setClients }) {
-  const { t, lang } = useLang();
+  const { t } = useLang();
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState('All');
   const [filterStatus, setFilterStatus] = useState('All');
@@ -1792,7 +1791,7 @@ function Clients({ clients, jobs, setClients }) {
 
 /* ─── JOBS ────────────────────────────────────────────────────────────────────── */
 function Jobs({ jobs, clients, team, setJobs }) {
-  const { t, lang } = useLang();
+  const { t } = useLang();
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('All');
   const [filterAssigned, setFilterAssigned] = useState('All');
@@ -3495,7 +3494,6 @@ function LoginScreen({ onLogin }) {
   );
 }
 
-export default 
 /* ─── LANGUAGE TOGGLE ───────────────────────────────────────────────────────── */
 function LangToggle() {
   const { lang } = useLang();
@@ -3518,7 +3516,7 @@ function LangToggle() {
 }
 
 function App() {
-  const { lang, t } = useLang();
+  const { t } = useLang();
   const [clients, setClients]           = useState(INIT_CLIENTS);
   const [jobs, setJobs]                 = useState(INIT_JOBS);
   const [team, setTeam]                 = useState(INIT_TEAM);
@@ -3744,3 +3742,5 @@ function App() {
     </>
   );
 }
+
+export default App;
