@@ -3316,7 +3316,6 @@ export default function App() {
   const [isManager, setIsManager]       = useState(() => sessionStorage.getItem('ozsky_role') === 'manager');
   const [sidebarOpen, setSidebarOpen]   = useState(false);
   const [toast, setToast]               = useState(null);
-  const showToast = (message, type='error') => setToast({ message, type });
 
   // Listen for DB errors from sbFetch
   useEffect(() => {
