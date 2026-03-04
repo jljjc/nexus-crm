@@ -724,7 +724,7 @@ function ClientSnapshot({ client, jobs, visible, anchorRef }) {
 
 /* ─── DASHBOARD ─────────────────────────────────────────────────────────────── */
 function Dashboard({ clients, jobs, team, onGoTo }) {
-  const { t } = useLang();
+  const { t } = useLang(); // eslint-disable-line no-unused-vars
   const [selectedJob, setSelectedJob] = useState(null);
 
   const active = clients.filter(c=>c.status==='Active').length;
@@ -1590,7 +1590,7 @@ Return this exact structure (use null for missing, keep English for field values
 
 /* ─── CLIENTS ────────────────────────────────────────────────────────────────── */
 function Clients({ clients, jobs, setClients }) {
-  const { t } = useLang();
+  const { t } = useLang(); // eslint-disable-line no-unused-vars
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState('All');
   const [filterStatus, setFilterStatus] = useState('All');
@@ -1791,7 +1791,7 @@ function Clients({ clients, jobs, setClients }) {
 
 /* ─── JOBS ────────────────────────────────────────────────────────────────────── */
 function Jobs({ jobs, clients, team, setJobs }) {
-  const { t } = useLang();
+  const { t } = useLang(); // eslint-disable-line no-unused-vars
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('All');
   const [filterAssigned, setFilterAssigned] = useState('All');
@@ -3681,14 +3681,15 @@ function App() {
             </div>
             {/* User chip */}
             <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+              <LangToggle />
               <div style={{ display:'flex', alignItems:'center', gap:7, padding:'5px 12px', background: isManager?'#f5f3ff':'#eef2ff', borderRadius:99, border:`1px solid ${isManager?'#ddd6fe':'#c7d2fe'}` }}>
                 <span style={{ fontSize:13 }}>{isManager?'👑':'👤'}</span>
-                <span style={{ fontSize:12.5, fontWeight:600, color: isManager?'#7c3aed':'#4338ca' }}>{isManager?'Manager':'Staff'}</span>
+                <span style={{ fontSize:12.5, fontWeight:600, color: isManager?'#7c3aed':'#4338ca' }}>{isManager ? t('Manager') : t('Staff')}</span>
               </div>
               <button onClick={logout} style={{ background:'none', border:'1px solid #e5e7eb', borderRadius:8, padding:'5px 12px', fontSize:12, fontWeight:600, color:'#9ca3af', transition:'all 0.15s' }}
                 onMouseEnter={e=>{e.currentTarget.style.borderColor='#f87171';e.currentTarget.style.color='#ef4444';}}
                 onMouseLeave={e=>{e.currentTarget.style.borderColor='#e5e7eb';e.currentTarget.style.color='#9ca3af';}}>
-                Sign out
+                {t('Sign out')}
               </button>
             </div>
           </header>
