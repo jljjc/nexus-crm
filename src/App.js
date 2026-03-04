@@ -1652,8 +1652,63 @@ function Jobs({ jobs, clients, team, setJobs }) {
   const addNote = (text) => setForm(f => ({ ...f, notes: [makeNote(text), ...normalizeNotes(f.notes)] }));
   const deleteNote = (nid) => setForm(f => ({ ...f, notes: normalizeNotes(f.notes).filter(n=>n.id!==nid) }));
 
-  const JobForm = () => (
-    <>
+
+
+  /* Board view */
+  if (view === 'board') {
+    return (
+      <div className="animate-fade">
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
+          <div><h1 style={{ fontSize:24, fontWeight:700, color:'#111827' }}>Jobs</h1><p style={{ color:'#6b7280', fontSize:14, marginTop:2 }}>{jobs.length} total</p></div>
+          <div style={{ display:'flex', gap:10 }}>
+            <div style={{ display:'flex', background:'#f5f6fa', borderRadius:8, border:'1px solid #e5e7eb', overflow:'hidden' }}>
+              {['list','board'].map(v=><button key={v} onClick={()=>setView(v)} style={{ padding:'7px 14px', background: view===v?'#e5e7eb':'transparent', border:'none', color: view===v?'#e2e8f0':'#475569', fontSize:13, fontWeight:500, textTransform:'capitalize' }}>{v}</button>)}
+            </div>
+            <button onClick={openAdd} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:10, padding:'9px 16px', color:'#fff', fontWeight:700, fontSize:13 }}>+ New Job</button>
+          </div>
+        </div>
+        <div style={{ display:'flex', gap:14, overflowX:'auto', paddingBottom:12 }}>
+          {JOB_STATUSES.map(status => {
+            const colJobs = filtered.filter(j=>j.status===status);
+            const s = STATUS_STYLES[status];
+            return (
+              <div key={status} style={{ minWidth:260, flex:1 }}>
+                <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12, padding:'8px 12px', background:s.bg, borderRadius:8 }}>
+                  <span style={{ width:8, height:8, borderRadius:'50%', background:s.dot }} />
+                  <span style={{ fontSize:13, fontWeight:600, color:s.text }}>{status}</span>
+                  <span style={{ marginLeft:'auto', fontSize:12, color:s.text, fontFamily:"'JetBrains Mono',monospace", background:'#00000030', borderRadius:10, padding:'1px 7px' }}>{colJobs.length}</span>
+                </div>
+                <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+                  {colJobs.map(j => {
+                    const client = getClient(j.clientId);
+                    const member = getMember(j.assignedTo);
+                    const jnotes = normalizeNotes(j.notes);
+                    return (
+                      <div key={j.id} onClick={()=>setViewJob(j)} style={{ background:'#f5f6fa', border:'1px solid #e5e7eb', borderRadius:10, padding:14, cursor:'pointer', transition:'border-color 0.15s' }}
+                        onMouseEnter={e=>e.currentTarget.style.borderColor='#38bdf840'}
+                        onMouseLeave={e=>e.currentTarget.style.borderColor='#e5e7eb'}>
+                        <div style={{ fontSize:13, fontWeight:600, color:'#111827', marginBottom:5 }}>{j.title}</div>
+                        <div style={{ fontSize:11, color:'#6b7280', marginBottom:8 }}>{client?.name} · {j.type}</div>
+                        <ProgressBar value={j.progress} />
+                        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:10 }}>
+                          <PriorityBadge priority={j.priority} />
+                          <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                            {jnotes.length > 0 && <span style={{ fontSize:11, color:'#6366f1' }}>📝{jnotes.length}</span>}
+                            {member && <Avatar name={member.name} color={member.color} size={24} />}
+                          </div>
+                        </div>
+                        {j.dueDate && <div style={{ fontSize:11, color: isOverdue(j.dueDate)?'#f87171':'#475569', marginTop:8 }}>Due {fmtDate(j.dueDate)}</div>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        {modal && (
+          <Modal title={modal==='add'?'New Job':'Edit Job'} onClose={closeModal} wide>
+                <>
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
         <FormField label="Job Title" required>
           <input style={inputStyle} value={form.title||''} onChange={e=>setForm(f=>({...f,title:e.target.value}))} placeholder="e.g. Visa Application" />
@@ -1713,63 +1768,7 @@ function Jobs({ jobs, clients, team, setJobs }) {
         </div>
       )}
     </>
-  );
-
-  /* Board view */
-  if (view === 'board') {
-    return (
-      <div className="animate-fade">
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
-          <div><h1 style={{ fontSize:24, fontWeight:700, color:'#111827' }}>Jobs</h1><p style={{ color:'#6b7280', fontSize:14, marginTop:2 }}>{jobs.length} total</p></div>
-          <div style={{ display:'flex', gap:10 }}>
-            <div style={{ display:'flex', background:'#f5f6fa', borderRadius:8, border:'1px solid #e5e7eb', overflow:'hidden' }}>
-              {['list','board'].map(v=><button key={v} onClick={()=>setView(v)} style={{ padding:'7px 14px', background: view===v?'#e5e7eb':'transparent', border:'none', color: view===v?'#e2e8f0':'#475569', fontSize:13, fontWeight:500, textTransform:'capitalize' }}>{v}</button>)}
-            </div>
-            <button onClick={openAdd} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:10, padding:'9px 16px', color:'#fff', fontWeight:700, fontSize:13 }}>+ New Job</button>
-          </div>
-        </div>
-        <div style={{ display:'flex', gap:14, overflowX:'auto', paddingBottom:12 }}>
-          {JOB_STATUSES.map(status => {
-            const colJobs = filtered.filter(j=>j.status===status);
-            const s = STATUS_STYLES[status];
-            return (
-              <div key={status} style={{ minWidth:260, flex:1 }}>
-                <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12, padding:'8px 12px', background:s.bg, borderRadius:8 }}>
-                  <span style={{ width:8, height:8, borderRadius:'50%', background:s.dot }} />
-                  <span style={{ fontSize:13, fontWeight:600, color:s.text }}>{status}</span>
-                  <span style={{ marginLeft:'auto', fontSize:12, color:s.text, fontFamily:"'JetBrains Mono',monospace", background:'#00000030', borderRadius:10, padding:'1px 7px' }}>{colJobs.length}</span>
-                </div>
-                <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-                  {colJobs.map(j => {
-                    const client = getClient(j.clientId);
-                    const member = getMember(j.assignedTo);
-                    const jnotes = normalizeNotes(j.notes);
-                    return (
-                      <div key={j.id} onClick={()=>setViewJob(j)} style={{ background:'#f5f6fa', border:'1px solid #e5e7eb', borderRadius:10, padding:14, cursor:'pointer', transition:'border-color 0.15s' }}
-                        onMouseEnter={e=>e.currentTarget.style.borderColor='#38bdf840'}
-                        onMouseLeave={e=>e.currentTarget.style.borderColor='#e5e7eb'}>
-                        <div style={{ fontSize:13, fontWeight:600, color:'#111827', marginBottom:5 }}>{j.title}</div>
-                        <div style={{ fontSize:11, color:'#6b7280', marginBottom:8 }}>{client?.name} · {j.type}</div>
-                        <ProgressBar value={j.progress} />
-                        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:10 }}>
-                          <PriorityBadge priority={j.priority} />
-                          <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-                            {jnotes.length > 0 && <span style={{ fontSize:11, color:'#6366f1' }}>📝{jnotes.length}</span>}
-                            {member && <Avatar name={member.name} color={member.color} size={24} />}
-                          </div>
-                        </div>
-                        {j.dueDate && <div style={{ fontSize:11, color: isOverdue(j.dueDate)?'#f87171':'#475569', marginTop:8 }}>Due {fmtDate(j.dueDate)}</div>}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-        {modal && (
-          <Modal title={modal==='add'?'New Job':'Edit Job'} onClose={closeModal} wide>
-            <JobForm />
+  
             <div style={{display:'flex',justifyContent:'flex-end',gap:10,marginTop:18}}>
               <button onClick={closeModal} style={{background:'#e5e7eb',border:'none',borderRadius:8,padding:'9px 18px',color:'#6b7280',fontWeight:500}}>Cancel</button>
               <button onClick={save} style={{background:'linear-gradient(135deg,#6366f1,#8b5cf6)',border:'none',borderRadius:8,padding:'9px 20px',color:'#ffffff',fontWeight:700}}>Save Job</button>
@@ -1893,7 +1892,67 @@ function Jobs({ jobs, clients, team, setJobs }) {
       </div>
       {modal && (
         <Modal title={modal==='add'?'New Job':'Edit Job'} onClose={closeModal} wide>
-          <JobForm />
+              <>
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
+        <FormField label="Job Title" required>
+          <input style={inputStyle} value={form.title||''} onChange={e=>setForm(f=>({...f,title:e.target.value}))} placeholder="e.g. Visa Application" />
+        </FormField>
+        <FormField label="Job Type">
+          <select style={selectStyle} value={form.type} onChange={e=>setForm(f=>({...f,type:e.target.value}))}>
+            {JOB_TYPES.map(t=><option key={t}>{t}</option>)}
+          </select>
+        </FormField>
+        <FormField label="Client" required>
+          <select style={selectStyle} value={form.clientId} onChange={e=>setForm(f=>({...f,clientId:e.target.value}))}>
+            {clients.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </FormField>
+        <FormField label="Assign To">
+          <select style={selectStyle} value={form.assignedTo} onChange={e=>setForm(f=>({...f,assignedTo:e.target.value}))}>
+            {team.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+        </FormField>
+        <FormField label="Status">
+          <select style={selectStyle} value={form.status} onChange={e=>setForm(f=>({...f,status:e.target.value}))}>
+            {JOB_STATUSES.map(s=><option key={s}>{s}</option>)}
+          </select>
+        </FormField>
+        <FormField label="Priority">
+          <select style={selectStyle} value={form.priority} onChange={e=>setForm(f=>({...f,priority:e.target.value}))}>
+            {PRIORITIES.map(p=><option key={p}>{p}</option>)}
+          </select>
+        </FormField>
+        <FormField label="Due Date">
+          <input type="date" style={inputStyle} value={form.dueDate||''} onChange={e=>setForm(f=>({...f,dueDate:e.target.value}))} />
+        </FormField>
+        <FormField label={`Progress: ${form.progress||0}%`}>
+          <input type="range" min={0} max={100} step={5} value={form.progress||0} onChange={e=>setForm(f=>({...f,progress:e.target.value}))} style={{ width:'100%', accentColor:'#6366f1', marginTop:8 }} />
+        </FormField>
+      </div>
+      <div style={{ borderTop:'1px solid #f0f1f5', marginTop:8, paddingTop:16 }}>
+        <NotesPanel notes={normalizeNotes(form.notes)} onAddNote={addNote} onDeleteNote={deleteNote} />
+      </div>
+      {(DOC_CHECKLISTS[form.type]||[]).length > 0 && (
+        <div style={{ borderTop:'1px solid #f0f1f5', marginTop:8, paddingTop:16 }}>
+          <div style={{ fontSize:11, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:12 }}>Document Checklist – {form.type}</div>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+            {(DOC_CHECKLISTS[form.type]||[]).map(doc => {
+              const checked = (form.docs||{})[doc] || false;
+              return (
+                <label key={doc} style={{ display:'flex', alignItems:'center', gap:8, background: checked?'#f0fdf4':'#f9fafb', borderRadius:7, padding:'7px 12px', cursor:'pointer', border:`1px solid ${checked?'#05966940':'#e5e7eb'}`, transition:'all 0.15s' }}>
+                  <input type="checkbox" checked={checked} onChange={e=>setForm(f=>({...f, docs:{...(f.docs||{}), [doc]:e.target.checked}}))} style={{ accentColor:'#34d399', width:14, height:14 }} />
+                  <span style={{ fontSize:12, color: checked?'#34d399':'#94a3b8' }}>{doc}</span>
+                </label>
+              );
+            })}
+          </div>
+          <div style={{ fontSize:11, color:'#6b7280', marginTop:10 }}>
+            {Object.values(form.docs||{}).filter(Boolean).length} / {(DOC_CHECKLISTS[form.type]||[]).length} documents received
+          </div>
+        </div>
+      )}
+    </>
+  
           <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:18 }}>
             <button onClick={closeModal} style={{ background:'#e5e7eb', border:'none', borderRadius:8, padding:'9px 18px', color:'#6b7280', fontWeight:500 }}>Cancel</button>
             <button onClick={save} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, padding:'9px 20px', color:'#fff', fontWeight:700 }}>Save Job</button>
@@ -3110,6 +3169,33 @@ const SB_URL = process.env.REACT_APP_SB_URL;   // set in .env or Vercel environm
 const SB_KEY = process.env.REACT_APP_SB_KEY;   // set in .env or Vercel environment variables
 // ─────────────────────────────────────────────────────────────────────────────
 
+/* ─── TOAST NOTIFICATION ─────────────────────────────────────────────────────── */
+function Toast({ message, type, onClose }) {
+  useEffect(() => {
+    const t = setTimeout(onClose, 5000);
+    return () => clearTimeout(t);
+  }, [onClose]);
+  const colors = {
+    error:   { bg:'#fef2f2', border:'#fecaca', color:'#dc2626', icon:'❌' },
+    success: { bg:'#f0fdf4', border:'#86efac', color:'#16a34a', icon:'✅' },
+    warning: { bg:'#fffbeb', border:'#fde68a', color:'#d97706', icon:'⚠️' },
+  };
+  const c = colors[type] || colors.warning;
+  return createPortal(
+    <div style={{ position:'fixed', bottom:24, right:24, zIndex:9999, background:c.bg, border:`1px solid ${c.border}`, borderRadius:12, padding:'12px 16px', maxWidth:380, boxShadow:'0 8px 24px rgba(0,0,0,0.12)', display:'flex', alignItems:'flex-start', gap:10, animation:'fadeIn 0.25s ease both' }}>
+      <span style={{ fontSize:18, flexShrink:0 }}>{c.icon}</span>
+      <div style={{ flex:1 }}>
+        <div style={{ fontSize:13.5, fontWeight:600, color:c.color }}>{message}</div>
+      </div>
+      <button onClick={onClose} style={{ background:'none', border:'none', color:'#9ca3af', fontSize:18, cursor:'pointer', padding:0, lineHeight:1, flexShrink:0 }}>×</button>
+    </div>,
+    document.body
+  );
+}
+
+// Dispatch DB errors as custom events so App can show toasts
+const dbError = (msg) => window.dispatchEvent(new CustomEvent('ozsky-db-error', { detail: msg }));
+
 const sbFetch = async (path, method = 'GET', body = null) => {
   const headers = {
     'apikey':        SB_KEY,
@@ -3120,7 +3206,12 @@ const sbFetch = async (path, method = 'GET', body = null) => {
   const opts = { method, headers };
   if (body) opts.body = JSON.stringify(body);
   const res = await fetch(`${SB_URL}/rest/v1/${path}`, opts);
-  if (!res.ok) throw new Error(`Supabase ${method} /${path} → ${res.status}`);
+  if (!res.ok) {
+    const errText = await res.text().catch(()=>'');
+    const msg = `DB error on ${method} /${path.split('?')[0]}: ${res.status}${errText ? ' – ' + errText.slice(0,120) : ''}`;
+    dbError(msg);
+    throw new Error(msg);
+  }
   if (method === 'DELETE' || res.status === 204) return null;
   return res.json();
 };
@@ -3224,6 +3315,15 @@ export default function App() {
   const [authed, setAuthed]             = useState(() => sessionStorage.getItem('ozsky_auth') === '1');
   const [isManager, setIsManager]       = useState(() => sessionStorage.getItem('ozsky_role') === 'manager');
   const [sidebarOpen, setSidebarOpen]   = useState(false);
+  const [toast, setToast]               = useState(null);
+  const showToast = (message, type='error') => setToast({ message, type });
+
+  // Listen for DB errors from sbFetch
+  useEffect(() => {
+    const handler = (e) => setToast({ message: e.detail, type:'error' });
+    window.addEventListener('ozsky-db-error', handler);
+    return () => window.removeEventListener('ozsky-db-error', handler);
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -3406,6 +3506,9 @@ export default function App() {
           </main>
         </div>
       </div>
+
+      {/* ── TOAST ── */}
+      {toast && <Toast message={toast.message} type={toast.type} onClose={()=>setToast(null)} />}
 
       {/* ── MOBILE BOTTOM NAV ── */}
       <nav className="oz-mob-nav">
