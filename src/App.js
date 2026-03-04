@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import * as mammoth from 'mammoth';
 /* ─── STYLES ───────────────────────────────────────────────────────────────── */
 const GLOBAL_CSS = `
@@ -426,26 +427,57 @@ function Card({ children, style, onClick }) {
 }
 
 function Modal({ title, onClose, children, wide }) {
-  return (
+  // Lock body scroll while modal open
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
+  const overlay = (
     <div
-      style={{ position:'fixed', inset:0, background:'rgba(17,24,39,0.55)', backdropFilter:'blur(4px)', zIndex:1000, overflowY:'auto', padding:'24px 16px' }}
+      style={{
+        position:'fixed', top:0, left:0, width:'100%', height:'100%',
+        background:'rgba(17,24,39,0.55)', backdropFilter:'blur(4px)',
+        zIndex:9999, display:'flex', alignItems:'flex-start',
+        justifyContent:'center', overflowY:'auto', padding:'40px 16px 40px',
+      }}
       onClick={e => e.target===e.currentTarget && onClose()}
     >
       <div
         className="animate-fade"
-        style={{ background:'#fff', border:'1px solid #e5e7eb', borderRadius:16, width:'100%', maxWidth: wide?720:540, margin:'0 auto', boxShadow:'0 20px 60px rgba(0,0,0,0.18)' }}
+        style={{
+          background:'#fff', borderRadius:18, width:'100%',
+          maxWidth: wide ? 760 : 560,
+          boxShadow:'0 24px 80px rgba(0,0,0,0.22)',
+          flexShrink:0,
+        }}
         onClick={e => e.stopPropagation()}
       >
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'20px 24px 16px', borderBottom:'1px solid #f3f4f8', position:'sticky', top:0, background:'#fff', zIndex:1, borderRadius:'16px 16px 0 0' }}>
-          <h2 style={{ fontSize:17, fontWeight:700, color:'#111827' }}>{title}</h2>
-          <button onClick={onClose} style={{ background:'#f3f4f6', border:'none', borderRadius:8, width:32, height:32, color:'#9ca3af', fontSize:18, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', transition:'all 0.15s' }}>×</button>
+        {/* Sticky header */}
+        <div style={{
+          display:'flex', justifyContent:'space-between', alignItems:'center',
+          padding:'20px 26px 18px', borderBottom:'1px solid #f0f1f7',
+          position:'sticky', top:0, background:'#fff', zIndex:1,
+          borderRadius:'18px 18px 0 0',
+        }}>
+          <h2 style={{ fontSize:17, fontWeight:700, color:'#111827', margin:0 }}>{title}</h2>
+          <button
+            onClick={onClose}
+            style={{ background:'#f3f4f6', border:'none', borderRadius:8, width:32, height:32, color:'#9ca3af', fontSize:20, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', flexShrink:0, lineHeight:1 }}
+            onMouseEnter={e=>{e.currentTarget.style.background='#fee2e2';e.currentTarget.style.color='#ef4444';}}
+            onMouseLeave={e=>{e.currentTarget.style.background='#f3f4f6';e.currentTarget.style.color='#9ca3af';}}
+          >×</button>
         </div>
-        <div style={{ padding:'20px 24px 24px' }}>
+        {/* Body */}
+        <div style={{ padding:'22px 26px 28px' }}>
           {children}
         </div>
       </div>
     </div>
   );
+
+  return createPortal(overlay, document.body);
 }
 
 function FormField({ label, children, required }) {
