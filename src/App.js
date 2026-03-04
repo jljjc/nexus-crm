@@ -3033,6 +3033,16 @@ export default function App() {
     })();
   }, []);
 
+  // Auth gate — uses both `authed` (read) and `LoginScreen` (rendered)
+  if (!authed) {
+    return <LoginScreen onLogin={(role) => {
+      sessionStorage.setItem('ozsky_auth', '1');
+      sessionStorage.setItem('ozsky_role', role);
+      setAuthed(true);
+      setIsManager(role === 'manager');
+    }} />;
+  }
+
   const allNav = [
     { id:'dashboard', icon:'🏠', label:'Dashboard' },
     { id:'clients',   icon:'👤', label:'Clients',  count: clients.filter(c=>c.status==='Active').length },
