@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-
+import * as mammoth from 'mammoth';
 /* ─── STYLES ───────────────────────────────────────────────────────────────── */
 const GLOBAL_CSS = `
   @import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
@@ -616,6 +616,374 @@ function Dashboard({ clients, jobs, team, onGoTo }) {
   );
 }
 
+
+/* ─── CLIENT DETAIL MODAL (tabbed + AI import) ────────────────────────────── */
+function ClientDetailModal({ client, jobs, onClose, onEdit, onSaveProfile }) {
+  const [tab, setTab]               = useState('profile');
+  const [importing, setImporting]   = useState(false);
+  const [importPreview, setImportPreview] = useState(null);
+  const [applyMsg, setApplyMsg]     = useState('');
+  const fileRef                     = useRef(null);
+  const clientJobs                  = jobs.filter(j => j.clientId === client.id);
+  const p                           = client.profile || {};
+
+  /* ── AI document import ─────────────────────────────── */
+  const handleFile = async (e) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    setImporting(true); setImportPreview(null);
+    try {
+      const buf      = await file.arrayBuffer();
+      const { value: rawText } = await mammoth.default.extractRawText({ arrayBuffer: buf });
+
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 4000,
+          messages: [{ role:'user', content:
+`Extract client data from this Australian immigration document and return ONLY valid JSON, no markdown.
+
+Document:
+${rawText.slice(0,8000)}
+
+Return this exact structure (use null for missing, keep English for field values):
+{
+  "name":"","email":"","phone":"","nationality":"",
+  "profile":{
+    "sex":null,"dob":null,"birthplace":null,"passportNo":null,"passportExpiry":null,
+    "auAddress":null,"maritalStatus":null,"chinaId":null,
+    "visaHistory":[{"type":"","number":"","grantDate":"","expiry":""}],
+    "addressHistory":[{"from":"","to":"","address":""}],
+    "employmentHistory":[{"from":"","to":"","company":"","role":"","country":""}],
+    "character":{"form80":null,"afpCheck":null,"pcc":null},
+    "sponsor":{"name":null,"sex":null,"dob":null,"nationality":null,"passportNo":null,"address":null,"occupation":null,"priorMaritalStatus":null},
+    "marriage":{"date":null,"location":null,"registrationNo":null},
+    "keyIssues":[{"priority":"High","item":"","detail":""}],
+    "documents":[{"name":"","mainApplicant":"","sponsor":"","secondary":""}]
+  }
+}` }] })
+      });
+      const d = await res.json();
+      const txt = (d.content?.[0]?.text || '').replace(/```json|```/g,'').trim();
+      setImportPreview(JSON.parse(txt));
+    } catch(err) {
+      alert('Import failed: ' + err.message);
+    } finally {
+      setImporting(false);
+      e.target.value = '';
+    }
+  };
+
+  const applyImport = async () => {
+    if (!importPreview) return;
+    const merged = {
+      ...client,
+      ...(importPreview.email     ? { email: importPreview.email }         : {}),
+      ...(importPreview.phone     ? { phone: importPreview.phone }         : {}),
+      ...(importPreview.nationality ? { nationality: importPreview.nationality } : {}),
+      profile: { ...(client.profile||{}), ...(importPreview.profile||{}) }
+    };
+    await onSaveProfile(merged);
+    setApplyMsg('✅ Client record updated!');
+    setImportPreview(null);
+    setTimeout(() => setApplyMsg(''), 3000);
+  };
+
+  /* ── Section helpers ─────────────────────────────────── */
+  const S = ({ icon, title, children }) => (
+    <div style={{ marginBottom:20 }}>
+      <div style={{ fontSize:12, color:'#38bdf8', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:10, display:'flex', alignItems:'center', gap:6 }}>
+        <span>{icon}</span>{title}
+      </div>
+      {children}
+    </div>
+  );
+
+  const Field = ({ label, value, warn }) => (
+    <div style={{ background:'#0a1220', borderRadius:8, padding:'9px 13px', border: warn ? '1px solid #f59e0b33' : '1px solid #1a2333' }}>
+      <div style={{ fontSize:10, color:'#475569', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:3 }}>{label}</div>
+      <div style={{ fontSize:13, color: warn ? '#fbbf24' : '#e2e8f0', fontWeight:500, wordBreak:'break-word' }}>{value || '—'}</div>
+    </div>
+  );
+
+  const Table = ({ heads, rows }) => (
+    <div style={{ overflowX:'auto', borderRadius:8, border:'1px solid #1a2333' }}>
+      <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
+        <thead>
+          <tr style={{ background:'#0a1220' }}>
+            {heads.map(h => <th key={h} style={{ padding:'7px 12px', color:'#475569', fontWeight:600, textAlign:'left', whiteSpace:'nowrap', textTransform:'uppercase', fontSize:10, letterSpacing:'0.05em' }}>{h}</th>)}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.length === 0
+            ? <tr><td colSpan={heads.length} style={{ padding:'10px 12px', color:'#334155', textAlign:'center', fontSize:12 }}>No records</td></tr>
+            : rows.map((r, i) => (
+              <tr key={i} style={{ borderTop:'1px solid #1a2333', background: i%2===0 ? 'transparent' : '#0a1220' }}>
+                {r.map((cell, j) => <td key={j} style={{ padding:'7px 12px', color: cell?.startsWith?.('⚠️') ? '#fbbf24' : '#cbd5e1' }}>{cell || '—'}</td>)}
+              </tr>
+            ))
+          }
+        </tbody>
+      </table>
+    </div>
+  );
+
+  const tabs = [
+    { id:'profile',  label:'👤 Profile' },
+    { id:'jobs',     label:`📋 Jobs (${clientJobs.length})` },
+    { id:'notes',    label:`📝 Notes (${normalizeNotes(client.notes).length})` },
+    { id:'import',   label:'📥 Import Doc' },
+  ];
+
+  return (
+    <Modal title={`Client — ${client.name}`} onClose={onClose} wide>
+      {/* Tabs */}
+      <div style={{ display:'flex', gap:4, marginBottom:20, borderBottom:'1px solid #1e2d40', paddingBottom:0 }}>
+        {tabs.map(t => (
+          <button key={t.id} onClick={()=>setTab(t.id)} style={{ padding:'8px 16px', background:'none', border:'none', color: tab===t.id ? '#38bdf8' : '#475569', fontWeight: tab===t.id ? 700 : 400, fontSize:13, borderBottom: tab===t.id ? '2px solid #38bdf8' : '2px solid transparent', cursor:'pointer', marginBottom:-1 }}>{t.label}</button>
+        ))}
+      </div>
+
+      {/* ── PROFILE TAB ──────────────────────────────────── */}
+      {tab === 'profile' && (
+        <div style={{ maxHeight:'65vh', overflowY:'auto', paddingRight:4 }}>
+          {/* Header */}
+          <div style={{ display:'flex', alignItems:'center', gap:14, marginBottom:22, padding:'14px 16px', background:'linear-gradient(135deg,#0d1f33,#0a1220)', borderRadius:10, border:'1px solid #1e3a5f' }}>
+            <div style={{ width:52, height:52, borderRadius:'50%', background:'#1e3a5f', display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, fontWeight:700, color:'#38bdf8', flexShrink:0 }}>{initials(client.name)}</div>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:18, fontWeight:700, color:'#e2e8f0' }}>{client.name}</div>
+              <div style={{ fontSize:12, color:'#475569', marginTop:2 }}>{client.email} · {client.phone}</div>
+            </div>
+            <div style={{ display:'flex', gap:8 }}>
+              <StatusBadge status={client.status} />
+              <PriorityBadge priority={client.type === 'Migration' ? 'High' : 'Medium'} />
+            </div>
+          </div>
+
+          <S icon="👤" title="Main Applicant">
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8 }}>
+              <Field label="Full Name"       value={client.name} />
+              <Field label="Gender"          value={p.sex} />
+              <Field label="Date of Birth"   value={p.dob} />
+              <Field label="Birthplace"      value={p.birthplace} />
+              <Field label="Nationality"     value={client.nationality} />
+              <Field label="Passport No"     value={p.passportNo} />
+              <Field label="Passport Expiry" value={p.passportExpiry} />
+              <Field label="China ID"        value={p.chinaId} />
+              <Field label="Email"           value={client.email} />
+              <Field label="Mobile"          value={client.phone} />
+              <Field label="AU Address"      value={p.auAddress} />
+              <Field label="Marital Status"  value={p.maritalStatus} />
+            </div>
+          </S>
+
+          {(p.visaHistory?.length > 0) && (
+            <S icon="📋" title="Visa History">
+              <Table heads={['Type','Number','Granted','Expiry']} rows={(p.visaHistory||[]).map(v=>[v.type,v.number,v.grantDate,v.expiry])} />
+            </S>
+          )}
+
+          {(p.addressHistory?.length > 0) && (
+            <S icon="🏠" title="Address History (AU)">
+              <Table heads={['From','To','Address']} rows={(p.addressHistory||[]).map(r=>[r.from,r.to,r.address])} />
+            </S>
+          )}
+
+          {(p.employmentHistory?.length > 0) && (
+            <S icon="💼" title="Employment History">
+              <Table heads={['From','To','Company','Role','Country']} rows={(p.employmentHistory||[]).map(r=>[r.from,r.to,r.company,r.role,r.country])} />
+            </S>
+          )}
+
+          {p.character && (
+            <S icon="✅" title="Character / Police Checks">
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8 }}>
+                {[['Form 80', p.character.form80], ['AFP Police Check', p.character.afpCheck], ['China PCC', p.character.pcc]].map(([l,v])=>(
+                  <div key={l} style={{ background:'#0a1220', borderRadius:8, padding:'9px 13px', border:'1px solid #1a2333', display:'flex', alignItems:'center', gap:8 }}>
+                    <span style={{ fontSize:16 }}>{v === true ? '✅' : v === false ? '❌' : '❓'}</span>
+                    <div>
+                      <div style={{ fontSize:10, color:'#475569', textTransform:'uppercase', letterSpacing:'0.06em' }}>{l}</div>
+                      <div style={{ fontSize:12, color:'#e2e8f0', fontWeight:500, marginTop:2 }}>{v === true ? 'Provided' : v === false ? 'Missing' : 'Unknown'}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </S>
+          )}
+
+          {p.sponsor?.name && (
+            <S icon="🧑" title="Sponsor">
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8 }}>
+                <Field label="Name"           value={p.sponsor.name} />
+                <Field label="Gender"         value={p.sponsor.sex} />
+                <Field label="Date of Birth"  value={p.sponsor.dob} />
+                <Field label="Nationality"    value={p.sponsor.nationality} />
+                <Field label="Passport No"    value={p.sponsor.passportNo} />
+                <Field label="Occupation"     value={p.sponsor.occupation} />
+                <Field label="AU Address"     value={p.sponsor.address} />
+                <Field label="Prior Marital"  value={p.sponsor.priorMaritalStatus} />
+              </div>
+            </S>
+          )}
+
+          {p.marriage?.date && (
+            <S icon="💍" title="Marriage / Relationship">
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8 }}>
+                <Field label="Date of Marriage"   value={p.marriage.date} />
+                <Field label="Location"           value={p.marriage.location} />
+                <Field label="Registration No"    value={p.marriage.registrationNo} />
+              </div>
+            </S>
+          )}
+
+          {(p.documents?.length > 0) && (
+            <S icon="📁" title="Documents Checklist">
+              <Table heads={['Document','Main Applicant','Sponsor','Secondary']} rows={(p.documents||[]).map(d=>[d.name, d.mainApplicant, d.sponsor, d.secondary])} />
+            </S>
+          )}
+
+          {(p.keyIssues?.length > 0) && (
+            <S icon="🚨" title="Key Issues & Action Items">
+              <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                {(p.keyIssues||[]).map((issue, i) => {
+                  const col = issue.priority === 'High' ? '#ef4444' : issue.priority === 'Medium' ? '#f59e0b' : '#22c55e';
+                  return (
+                    <div key={i} style={{ background:'#0a1220', borderRadius:8, padding:'11px 14px', borderLeft:`3px solid ${col}`, border:`1px solid #1a2333`, borderLeftColor:col }}>
+                      <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
+                        <span style={{ fontSize:11, fontWeight:700, color:col, textTransform:'uppercase', letterSpacing:'0.06em' }}>{issue.priority}</span>
+                        <span style={{ fontSize:13, fontWeight:600, color:'#e2e8f0' }}>{issue.item}</span>
+                      </div>
+                      <div style={{ fontSize:12, color:'#94a3b8', lineHeight:1.5 }}>{issue.detail}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </S>
+          )}
+
+          {!p.dob && !p.passportNo && !p.visaHistory?.length && (
+            <div style={{ textAlign:'center', padding:'40px 20px', color:'#334155' }}>
+              <div style={{ fontSize:32, marginBottom:12 }}>📥</div>
+              <div style={{ fontSize:14, marginBottom:8 }}>No detailed profile yet</div>
+              <div style={{ fontSize:12 }}>Upload a client information card to auto-fill this section</div>
+              <button onClick={()=>setTab('import')} style={{ marginTop:14, padding:'9px 18px', background:'#38bdf8', border:'none', borderRadius:8, color:'#080c14', fontWeight:700, fontSize:13, cursor:'pointer' }}>Import Document →</button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── JOBS TAB ─────────────────────────────────────── */}
+      {tab === 'jobs' && (
+        <div style={{ maxHeight:'65vh', overflowY:'auto' }}>
+          {clientJobs.length === 0
+            ? <div style={{ color:'#334155', fontSize:14, padding:20, textAlign:'center' }}>No jobs assigned yet.</div>
+            : clientJobs.map(j => (
+              <div key={j.id} style={{ background:'#0f1623', borderRadius:10, padding:'13px 16px', border:'1px solid #1e2d40', marginBottom:10 }}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
+                  <span style={{ fontSize:14, fontWeight:600, color:'#e2e8f0' }}>{j.title}</span>
+                  <StatusBadge status={j.status} />
+                </div>
+                <div style={{ fontSize:12, color:'#475569', marginBottom:8 }}>{j.type} · Due {fmtDate(j.dueDate)||'—'}</div>
+                <ProgressBar value={j.progress} />
+                {j.priority && <PriorityBadge priority={j.priority} />}
+              </div>
+            ))
+          }
+        </div>
+      )}
+
+      {/* ── NOTES TAB ────────────────────────────────────── */}
+      {tab === 'notes' && (
+        <div style={{ maxHeight:'65vh', overflowY:'auto' }}>
+          {normalizeNotes(client.notes).length === 0
+            ? <div style={{ color:'#334155', fontSize:14, padding:20, textAlign:'center' }}>No notes yet.</div>
+            : [...normalizeNotes(client.notes)].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)).map(n => (
+              <div key={n.id} style={{ background:'#0f1623', borderRadius:8, padding:'12px 14px', border:'1px solid #1e2d40', marginBottom:8 }}>
+                <div style={{ fontSize:13, color:'#cbd5e1', whiteSpace:'pre-wrap', lineHeight:1.55 }}>{n.text}</div>
+                <div style={{ fontSize:11, color:'#334155', marginTop:6 }}>{fmtDateTime(n.createdAt)}</div>
+              </div>
+            ))
+          }
+        </div>
+      )}
+
+      {/* ── IMPORT TAB ───────────────────────────────────── */}
+      {tab === 'import' && (
+        <div style={{ maxHeight:'65vh', overflowY:'auto' }}>
+          {applyMsg && <div style={{ padding:'10px 14px', background:'#052e16', border:'1px solid #166534', borderRadius:8, color:'#4ade80', fontSize:13, marginBottom:14 }}>{applyMsg}</div>}
+
+          {!importPreview && (
+            <div style={{ textAlign:'center', padding:'40px 24px', border:'2px dashed #1e2d40', borderRadius:12 }}>
+              <div style={{ fontSize:40, marginBottom:12 }}>📄</div>
+              <div style={{ fontSize:15, fontWeight:600, color:'#e2e8f0', marginBottom:6 }}>Upload Client Information Card</div>
+              <div style={{ fontSize:13, color:'#475569', marginBottom:20 }}>Supports <strong style={{color:'#94a3b8'}}>.docx</strong> files — AI will extract all fields automatically</div>
+              <input ref={fileRef} type="file" accept=".docx" onChange={handleFile} style={{ display:'none' }} />
+              <button
+                onClick={() => fileRef.current?.click()}
+                disabled={importing}
+                style={{ padding:'11px 24px', background: importing ? '#1e2d40' : '#38bdf8', border:'none', borderRadius:9, color: importing ? '#475569' : '#080c14', fontWeight:700, fontSize:14, cursor: importing ? 'default' : 'pointer' }}
+              >
+                {importing ? '⏳ Analysing document...' : '📥 Select .docx File'}
+              </button>
+              <div style={{ marginTop:16, fontSize:11, color:'#334155' }}>Powered by Claude AI · Your files are not stored</div>
+            </div>
+          )}
+
+          {importPreview && (
+            <div>
+              <div style={{ padding:'10px 14px', background:'#052e16', border:'1px solid #166534', borderRadius:8, color:'#4ade80', fontSize:13, marginBottom:16 }}>
+                ✅ Document analysed — review the extracted data below, then click <strong>Apply to Record</strong>
+              </div>
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:8, marginBottom:16 }}>
+                {[
+                  ['Name',        importPreview.name],
+                  ['Email',       importPreview.email],
+                  ['Phone',       importPreview.phone],
+                  ['Nationality', importPreview.nationality],
+                  ['DOB',         importPreview.profile?.dob],
+                  ['Passport No', importPreview.profile?.passportNo],
+                  ['Passport Exp',importPreview.profile?.passportExpiry],
+                  ['AU Address',  importPreview.profile?.auAddress],
+                  ['Sponsor',     importPreview.profile?.sponsor?.name],
+                  ['Marriage Date', importPreview.profile?.marriage?.date],
+                ].map(([l,v]) => v ? (
+                  <div key={l} style={{ background:'#0a1220', borderRadius:8, padding:'9px 13px', border:'1px solid #1e3a5f' }}>
+                    <div style={{ fontSize:10, color:'#475569', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:3 }}>{l}</div>
+                    <div style={{ fontSize:13, color:'#e2e8f0', fontWeight:500 }}>{v}</div>
+                  </div>
+                ) : null)}
+              </div>
+
+              {importPreview.profile?.keyIssues?.length > 0 && (
+                <div style={{ marginBottom:14 }}>
+                  <div style={{ fontSize:11, color:'#ef4444', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:8, fontWeight:700 }}>🚨 Key Issues Detected ({importPreview.profile.keyIssues.length})</div>
+                  {importPreview.profile.keyIssues.map((issue,i) => (
+                    <div key={i} style={{ background:'#0a1220', borderRadius:7, padding:'8px 12px', borderLeft:'3px solid #ef4444', marginBottom:6, fontSize:12, color:'#cbd5e1' }}>
+                      <strong style={{color:'#fca5a5'}}>{issue.priority}:</strong> {issue.item}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div style={{ display:'flex', gap:10 }}>
+                <button onClick={()=>setImportPreview(null)} style={{ padding:'9px 18px', background:'#1e2d40', border:'none', borderRadius:8, color:'#94a3b8', fontWeight:500, cursor:'pointer' }}>← Re-upload</button>
+                <button onClick={applyImport} style={{ flex:1, padding:'10px 20px', background:'#38bdf8', border:'none', borderRadius:8, color:'#080c14', fontWeight:700, fontSize:14, cursor:'pointer' }}>✅ Apply to Client Record</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Footer */}
+      <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:18, borderTop:'1px solid #1e2d40', paddingTop:14 }}>
+        <button onClick={onClose} style={{ padding:'9px 18px', background:'#1e2d40', border:'none', borderRadius:8, color:'#94a3b8', fontWeight:500, cursor:'pointer' }}>Close</button>
+        <button onClick={onEdit}  style={{ padding:'9px 20px', background:'#38bdf8', border:'none', borderRadius:8, color:'#080c14', fontWeight:700, cursor:'pointer' }}>✏️ Edit Client</button>
+      </div>
+    </Modal>
+  );
+}
+
 /* ─── CLIENTS ────────────────────────────────────────────────────────────────── */
 function Clients({ clients, jobs, setClients }) {
   const [search, setSearch] = useState('');
@@ -644,17 +1012,25 @@ function Clients({ clients, jobs, setClients }) {
   const openEdit = (c) => { setForm({ ...c, notes: normalizeNotes(c.notes) }); setModal(c); };
   const closeModal = () => setModal(null);
 
-  const save = () => {
+  const save = async () => {
     if (!form.name.trim()) return;
     if (modal === 'add') {
-      setClients(prev => [...prev, { ...form, id: 'c'+uid() }]);
+      const newClient = { ...form, id: 'c'+uid() };
+      setClients(prev => [...prev, newClient]);
+      try { await sbInsert('clients', { id: newClient.id, data: newClient }); } catch(e) { console.warn('Save error:', e); }
     } else {
       setClients(prev => prev.map(c => c.id === form.id ? form : c));
+      try { await sbUpdate('clients', form.id, { data: form }); } catch(e) { console.warn('Save error:', e); }
     }
     closeModal();
   };
 
-  const del = (id) => { if (window.confirm('Delete this client?')) setClients(prev=>prev.filter(c=>c.id!==id)); };
+  const del = async (id) => {
+    if (window.confirm('Delete this client?')) {
+      setClients(prev=>prev.filter(c=>c.id!==id));
+      try { await sbDelete('clients', id); } catch(e) { console.warn('Delete error:', e); }
+    }
+  };
   const clientJobCount = id => jobs.filter(j=>j.clientId===id).length;
 
   const addNote = (text) => setForm(f => ({ ...f, notes: [makeNote(text), ...normalizeNotes(f.notes)] }));
@@ -792,60 +1168,17 @@ function Clients({ clients, jobs, setClients }) {
         </Modal>
       )}
       {viewClient && (
-        <Modal title={`Client Profile – ${viewClient.name}`} onClose={()=>setViewClient(null)} wide>
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20 }}>
-            <div>
-              <div style={{ display:'flex', alignItems:'center', gap:14, marginBottom:18 }}>
-                <div style={{ width:54, height:54, borderRadius:'50%', background:'#1e3a5f', display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, fontWeight:700, color:'#38bdf8' }}>{initials(viewClient.name)}</div>
-                <div>
-                  <div style={{ fontSize:18, fontWeight:700, color:'#e2e8f0' }}>{viewClient.name}</div>
-                  <div style={{ fontSize:13, color:'#475569', marginTop:2 }}>{viewClient.email}</div>
-                </div>
-              </div>
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
-                {[['Phone', viewClient.phone||'—'], ['Nationality', viewClient.nationality||'—'], ['Type', viewClient.type], ['Status', viewClient.status], ['Created', fmtDate(viewClient.createdAt)]].map(([l,v])=>(
-                  <div key={l} style={{ background:'#0f1623', borderRadius:8, padding:'10px 14px' }}>
-                    <div style={{ fontSize:10, color:'#475569', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:4 }}>{l}</div>
-                    <div style={{ fontSize:13, color:'#e2e8f0', fontWeight:500 }}>{v}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div>
-              <div style={{ fontSize:11, color:'#64748b', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:10 }}>Jobs ({jobs.filter(j=>j.clientId===viewClient.id).length})</div>
-              <div style={{ display:'flex', flexDirection:'column', gap:8, maxHeight:220, overflowY:'auto' }}>
-                {jobs.filter(j=>j.clientId===viewClient.id).length === 0 && <div style={{ color:'#334155', fontSize:13 }}>No jobs yet</div>}
-                {jobs.filter(j=>j.clientId===viewClient.id).map(j=>(
-                  <div key={j.id} style={{ background:'#0f1623', borderRadius:8, padding:'10px 14px', border:'1px solid #1e2d40' }}>
-                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:4 }}>
-                      <span style={{ fontSize:13, fontWeight:600, color:'#e2e8f0' }}>{j.title}</span>
-                      <StatusBadge status={j.status} small />
-                    </div>
-                    <div style={{ fontSize:11, color:'#475569', marginBottom:6 }}>{j.type} · Due {fmtDate(j.dueDate)||'—'}</div>
-                    <ProgressBar value={j.progress} />
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-          {normalizeNotes(viewClient.notes).length > 0 && (
-            <div style={{ marginTop:18, borderTop:'1px solid #1e2d40', paddingTop:16 }}>
-              <div style={{ fontSize:11, color:'#64748b', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:10 }}>Notes ({normalizeNotes(viewClient.notes).length})</div>
-              <div style={{ display:'flex', flexDirection:'column', gap:8, maxHeight:160, overflowY:'auto' }}>
-                {[...normalizeNotes(viewClient.notes)].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)).map(n=>(
-                  <div key={n.id} style={{ background:'#0f1623', borderRadius:8, padding:'10px 14px' }}>
-                    <div style={{ fontSize:13, color:'#cbd5e1', whiteSpace:'pre-wrap' }}>{n.text}</div>
-                    <div style={{ fontSize:11, color:'#334155', marginTop:4 }}>{fmtDate(n.createdAt)}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:18 }}>
-            <button onClick={()=>setViewClient(null)} style={{ background:'#1e2d40', border:'none', borderRadius:8, padding:'9px 18px', color:'#94a3b8', fontWeight:500 }}>Close</button>
-            <button onClick={()=>{ setViewClient(null); openEdit(viewClient); }} style={{ background:'#38bdf8', border:'none', borderRadius:8, padding:'9px 20px', color:'#080c14', fontWeight:700 }}>Edit Client</button>
-          </div>
-        </Modal>
+        <ClientDetailModal
+          client={viewClient}
+          jobs={jobs}
+          onClose={() => setViewClient(null)}
+          onEdit={() => { setViewClient(null); openEdit(viewClient); }}
+          onSaveProfile={async (merged) => {
+            setClients(prev => prev.map(c => c.id === merged.id ? merged : c));
+            setViewClient(merged);
+            try { await sbUpdate('clients', merged.id, { data: merged }); } catch(e) { console.warn('Profile save error:', e); }
+          }}
+        />
       )}
     </div>
   );
@@ -881,17 +1214,26 @@ function Jobs({ jobs, clients, team, setJobs }) {
   const openEdit = (j) => { setForm({ ...j, notes: normalizeNotes(j.notes) }); setModal(j); };
   const closeModal = () => setModal(null);
 
-  const save = () => {
+  const save = async () => {
     if (!form.title.trim()) return;
     if (modal === 'add') {
-      setJobs(prev => [...prev, { ...form, id: 'j'+uid(), progress: parseInt(form.progress)||0 }]);
+      const newJob = { ...form, id: 'j'+uid(), progress: parseInt(form.progress)||0 };
+      setJobs(prev => [...prev, newJob]);
+      try { await sbInsert('jobs', { id: newJob.id, data: newJob }); } catch(e) { console.warn('Save error:', e); }
     } else {
-      setJobs(prev => prev.map(j => j.id === form.id ? {...form, progress:parseInt(form.progress)||0} : j));
+      const updated = {...form, progress:parseInt(form.progress)||0};
+      setJobs(prev => prev.map(j => j.id === form.id ? updated : j));
+      try { await sbUpdate('jobs', form.id, { data: updated }); } catch(e) { console.warn('Save error:', e); }
     }
     closeModal();
   };
 
-  const del = id => { if(window.confirm('Delete this job?')) setJobs(prev=>prev.filter(j=>j.id!==id)); };
+  const del = async (id) => {
+    if(window.confirm('Delete this job?')) {
+      setJobs(prev=>prev.filter(j=>j.id!==id));
+      try { await sbDelete('jobs', id); } catch(e) { console.warn('Delete error:', e); }
+    }
+  };
 
   const addNote = (text) => setForm(f => ({ ...f, notes: [makeNote(text), ...normalizeNotes(f.notes)] }));
   const deleteNote = (nid) => setForm(f => ({ ...f, notes: normalizeNotes(f.notes).filter(n=>n.id!==nid) }));
@@ -1243,7 +1585,11 @@ function Team({ team, jobs, clients, setTeam }) {
   };
 
   const openEdit = m => { setForm({...m}); setEditing(m.id); };
-  const save = () => { setTeam(prev => prev.map(m => m.id === form.id ? form : m)); setEditing(null); };
+  const save = async () => {
+    setTeam(prev => prev.map(m => m.id === form.id ? form : m));
+    try { await sbUpdate('team', form.id, { data: form }); } catch(e) { console.warn('Save error:', e); }
+    setEditing(null);
+  };
 
   /* Shared job-row renderer used both in cards and drill-down modal */
   const JobRow = ({ j, idx, compact }) => {
@@ -1534,27 +1880,174 @@ function Team({ team, jobs, clients, setTeam }) {
 /* ═══════════════════════════════════════════════════════════════════════════════
    ROOT APP
 ═══════════════════════════════════════════════════════════════════════════════ */
+// ─── SUPABASE CONFIG ──────────────────────────────────────────────────────────
+const SB_URL = 'YOUR_SUPABASE_URL';       // ← e.g. https://xxxxx.supabase.co
+const SB_KEY = 'YOUR_SUPABASE_ANON_KEY';  // ← paste your anon/public key here
+// ─────────────────────────────────────────────────────────────────────────────
+
+const sbFetch = async (path, method = 'GET', body = null) => {
+  const headers = {
+    'apikey':        SB_KEY,
+    'Authorization': `Bearer ${SB_KEY}`,
+    'Content-Type':  'application/json',
+  };
+  if (method === 'POST') headers['Prefer'] = 'return=representation';
+  const opts = { method, headers };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(`${SB_URL}/rest/v1/${path}`, opts);
+  if (!res.ok) throw new Error(`Supabase ${method} /${path} → ${res.status}`);
+  if (method === 'DELETE' || res.status === 204) return null;
+  return res.json();
+};
+
+const sbSelect = (table)          => sbFetch(`${table}?select=*`);
+const sbInsert = (table, data)    => sbFetch(table, 'POST', data);
+const sbUpdate = (table, id, obj) => sbFetch(`${table}?id=eq.${id}`, 'PATCH', obj);
+const sbDelete = (table, id)      => sbFetch(`${table}?id=eq.${id}`, 'DELETE');
+
+// ─── PASSWORD CONFIG ──────────────────────────────────────────────────────────
+const APP_PASSWORD = 'ozsky2024';   // ← Change this to your preferred password
+// ─────────────────────────────────────────────────────────────────────────────
+
+function LoginScreen({ onLogin }) {
+  const [pw, setPw]         = useState('');
+  const [error, setError]   = useState('');
+  const [shake, setShake]   = useState(false);
+  const [show, setShow]     = useState(false);
+  const inputRef            = useRef(null);
+
+  useEffect(() => { inputRef.current?.focus(); }, []);
+
+  const attempt = () => {
+    if (pw === APP_PASSWORD) {
+      onLogin();
+    } else {
+      setError('Incorrect password. Please try again.');
+      setShake(true);
+      setPw('');
+      setTimeout(() => setShake(false), 500);
+      setTimeout(() => inputRef.current?.focus(), 50);
+    }
+  };
+
+  const handleKey = (e) => { if (e.key === 'Enter') attempt(); };
+
+  return (
+    <div style={{ minHeight:'100vh', background:'#080c14', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:"'Inter','Segoe UI',sans-serif" }}>
+      <div style={{ width:360, padding:'40px 36px', background:'#0d1825', borderRadius:16, border:'1px solid #1a2333', boxShadow:'0 24px 64px rgba(0,0,0,0.6)', animation: shake ? 'shake 0.4s ease' : 'none' }}>
+        <style>{`
+          @keyframes shake {
+            0%,100%{transform:translateX(0)}
+            20%{transform:translateX(-8px)}
+            40%{transform:translateX(8px)}
+            60%{transform:translateX(-5px)}
+            80%{transform:translateX(5px)}
+          }
+        `}</style>
+
+        {/* Logo */}
+        <div style={{ textAlign:'center', marginBottom:28 }}>
+          <img src={LOGO_B64} alt="Ozsky International" style={{ width:130, height:'auto', objectFit:'contain', borderRadius:6 }} />
+        </div>
+
+        {/* Title */}
+        <div style={{ textAlign:'center', marginBottom:28 }}>
+          <div style={{ fontSize:20, fontWeight:700, color:'#e2e8f0', marginBottom:4 }}>Sign in</div>
+          <div style={{ fontSize:13, color:'#64748b' }}>Enter your password to access the CRM</div>
+        </div>
+
+        {/* Password field */}
+        <div style={{ marginBottom:16 }}>
+          <label style={{ display:'block', fontSize:12, fontWeight:600, color:'#94a3b8', marginBottom:6, textTransform:'uppercase', letterSpacing:'0.05em' }}>Password</label>
+          <div style={{ position:'relative' }}>
+            <input
+              ref={inputRef}
+              type={show ? 'text' : 'password'}
+              value={pw}
+              onChange={e => { setPw(e.target.value); setError(''); }}
+              onKeyDown={handleKey}
+              placeholder="Enter password"
+              style={{ width:'100%', padding:'11px 42px 11px 14px', background:'#131f2e', border:`1px solid ${error ? '#ef4444' : '#1e2d40'}`, borderRadius:9, color:'#e2e8f0', fontSize:15, outline:'none', boxSizing:'border-box', transition:'border-color 0.15s' }}
+              onFocus={e => { if (!error) e.target.style.borderColor = '#38bdf8'; }}
+              onBlur={e => { if (!error) e.target.style.borderColor = '#1e2d40'; }}
+            />
+            <button
+              onClick={() => setShow(!show)}
+              style={{ position:'absolute', right:12, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', color:'#475569', cursor:'pointer', fontSize:16, padding:2 }}
+              tabIndex={-1}
+            >
+              {show ? '🙈' : '👁️'}
+            </button>
+          </div>
+          {error && <div style={{ fontSize:12, color:'#ef4444', marginTop:6 }}>{error}</div>}
+        </div>
+
+        {/* Login button */}
+        <button
+          onClick={attempt}
+          style={{ width:'100%', padding:'12px', background:'#38bdf8', border:'none', borderRadius:9, color:'#080c14', fontSize:15, fontWeight:700, cursor:'pointer', transition:'background 0.15s', marginTop:4 }}
+          onMouseEnter={e => e.target.style.background = '#0ea5e9'}
+          onMouseLeave={e => e.target.style.background = '#38bdf8'}
+        >
+          Sign in →
+        </button>
+
+        {/* Footer */}
+        <div style={{ textAlign:'center', marginTop:24, fontSize:11, color:'#1e3048' }}>
+          Ozsky International · Internal CRM
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [clients, setClients] = useState(INIT_CLIENTS);
   const [jobs, setJobs]       = useState(INIT_JOBS);
   const [team, setTeam]       = useState(INIT_TEAM);
   const [view, setView]       = useState('dashboard');
   const [loaded, setLoaded]   = useState(false);
+  const [authed, setAuthed]   = useState(() => sessionStorage.getItem('ozsky_auth') === '1');
 
   useEffect(() => {
     (async () => {
       try {
-        const c = await window.storage?.get('ozsky_clients'); if (c?.value) setClients(JSON.parse(c.value));
-        const j = await window.storage?.get('ozsky_jobs');    if (j?.value) setJobs(JSON.parse(j.value));
-        const t = await window.storage?.get('ozsky_team');    if (t?.value) setTeam(JSON.parse(t.value));
-      } catch {}
+        const [cr, jr, tr] = await Promise.all([
+          sbSelect('clients'),
+          sbSelect('jobs'),
+          sbSelect('team'),
+        ]);
+        const c = cr?.map(r => r.data);
+        const j = jr?.map(r => r.data);
+        const t = tr?.map(r => r.data);
+
+        if (c?.length) {
+          setClients(c.map(r => ({ ...r, notes: r.notes || [] })));
+        } else {
+          // First run: seed the database with initial data
+          setClients(INIT_CLIENTS);
+          try { await Promise.all(INIT_CLIENTS.map(cl => sbInsert('clients', { id: cl.id, data: cl }))); } catch {}
+        }
+
+        if (j?.length) {
+          setJobs(j.map(r => ({ ...r, notes: r.notes || [] })));
+        } else {
+          setJobs(INIT_JOBS);
+          try { await Promise.all(INIT_JOBS.map(jb => sbInsert('jobs', { id: jb.id, data: jb }))); } catch {}
+        }
+
+        if (t?.length) {
+          setTeam(t);
+        } else {
+          setTeam(INIT_TEAM);
+          try { await Promise.all(INIT_TEAM.map(tm => sbInsert('team', { id: tm.id, data: tm }))); } catch {}
+        }
+      } catch (e) {
+        console.warn('Supabase not configured — using local data:', e.message);
+      }
       setLoaded(true);
     })();
   }, []);
-
-  useEffect(() => { if (loaded) { try { window.storage?.set('ozsky_clients', JSON.stringify(clients)); } catch{} } }, [clients, loaded]);
-  useEffect(() => { if (loaded) { try { window.storage?.set('ozsky_jobs',    JSON.stringify(jobs)); }    catch{} } }, [jobs, loaded]);
-  useEffect(() => { if (loaded) { try { window.storage?.set('ozsky_team',    JSON.stringify(team)); }    catch{} } }, [team, loaded]);
 
   const nav = [
     { id:'dashboard', icon:'◈',  label:'Dashboard' },
@@ -1562,6 +2055,10 @@ export default function App() {
     { id:'jobs',      icon:'📋', label:'Jobs',      count: jobs.filter(j=>j.status!=='Completed').length },
     { id:'team',      icon:'👥', label:'Team' },
   ];
+
+  if (!authed) {
+    return <LoginScreen onLogin={() => { sessionStorage.setItem('ozsky_auth','1'); setAuthed(true); }} />;
+  }
 
   return (
     <>
