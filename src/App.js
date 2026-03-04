@@ -122,16 +122,7 @@ const DOC_CHECKLISTS = {
   'Other':                                     ['Passport', 'Supporting Documents'],
 };
 
-const INIT_TEAM = [
-  { id: 't1', name: 'Liang Jiang',  email: 'l.jiang@ozs.com.au',        role: 'Senior Consultant',   color: '#38bdf8' },
-  { id: 't2', name: 'Mansi Mao',    email: 'm.mao@ozs.com.au',          role: 'Migration Agent',     color: '#34d399' },
-  { id: 't3', name: 'Mia Ma',       email: 'perth@ozs.com.au',          role: 'Student Advisor',     color: '#f59e0b' },
-  { id: 't4', name: 'Nicole Chen',  email: 'perthcq@ozs.com.au',        role: 'Case Manager',        color: '#a78bfa' },
-  { id: 't5', name: 'Cici Fu',      email: 'perth_assistant@ozs.com.au',role: 'Student Advisor',     color: '#fb923c' },
-  { id: 't6', name: 'Momo Qiu',     email: 'admin2.perth@ozs.com.au',   role: 'Admin Officer',       color: '#f472b6' },
-  { id: 't7', name: 'Sandy Xu',     email: 'ozskyperth@gmail.com',       role: 'Document Specialist', color: '#4ade80' },
-  { id: 't8', name: 'Zoya Chen',    email: 'perthozsky@gmail.com',       role: 'Compliance Officer',  color: '#60a5fa' },
-];
+const INIT_TEAM = [];
 
 /* Notes are stored as arrays: [{ id, text, createdAt }] newest-first */
 const makeNote = (text) => ({ id: 'n'+Math.random().toString(36).slice(2,8), text, createdAt: new Date().toISOString() });
@@ -143,16 +134,7 @@ const normalizeNotes = (notes) => {
 };
 
 
-const INIT_CLIENTS = [
-  { id: 'c1', name: 'Wei Zhang',       email: 'wei@email.com',      phone: '0412 345 678', type: 'Student',   status: 'Active',  nationality: 'Chinese',    notes: [{ id:'n1', text:'Masters at UNSW – needs CoE follow-up',           createdAt:'2025-01-15T09:00:00.000Z' }], createdAt: '2025-01-15' },
-  { id: 'c2', name: 'Amara Okonkwo',   email: 'amara@email.com',    phone: '0423 456 789', type: 'Migration', status: 'Active',  nationality: 'Nigerian',   notes: [{ id:'n2', text:'Skilled 189 pathway – skills assessment done',    createdAt:'2025-02-01T09:00:00.000Z' }], createdAt: '2025-02-01' },
-  { id: 'c3', name: 'Rafael Santos',   email: 'rafael@email.com',   phone: '0434 567 890', type: 'Student',   status: 'Active',  nationality: 'Brazilian',  notes: [{ id:'n3', text:'Bachelor of IT at UTS – 500 visa in progress',    createdAt:'2025-02-20T09:00:00.000Z' }], createdAt: '2025-02-20' },
-  { id: 'c4', name: 'Yuna Kim',        email: 'yuna@email.com',     phone: '0445 678 901', type: 'Both',      status: 'Active',  nationality: 'Korean',     notes: [{ id:'n4', text:'Completed study, now targeting 190 nomination',   createdAt:'2025-03-01T09:00:00.000Z' }], createdAt: '2025-03-01' },
-  { id: 'c5', name: 'Priya Sharma',    email: 'priya@email.com',    phone: '0456 789 012', type: 'Migration', status: 'Active',  nationality: 'Indian',     notes: [{ id:'n5', text:'Nurse – ANMAC assessment then 190 visa',          createdAt:'2025-03-10T09:00:00.000Z' }], createdAt: '2025-03-10' },
-  { id: 'c6', name: 'James Liu',       email: 'james@email.com',    phone: '0467 890 123', type: 'Migration', status: 'Active',  nationality: 'Chinese',    notes: [{ id:'n6', text:'IT engineer, ACS assessment underway',            createdAt:'2025-03-15T09:00:00.000Z' }], createdAt: '2025-03-15' },
-  { id: 'c7', name: 'Sofia Garcia',    email: 'sofia@email.com',    phone: '0478 901 234', type: 'Student',   status: 'Active',  nationality: 'Colombian',  notes: [{ id:'n7', text:'Scholarship application to Monash',               createdAt:'2025-03-18T09:00:00.000Z' }], createdAt: '2025-03-18' },
-  { id: 'c8', name: 'Chen Wei',        email: 'chenw@email.com',    phone: '0489 012 345', type: 'Migration', status: 'Active',  nationality: 'Chinese',    notes: [{ id:'n8', text:'482 TSS sponsored by employer – urgent',          createdAt:'2025-03-20T09:00:00.000Z' }], createdAt: '2025-03-20' },
-];
+const INIT_CLIENTS = [];
 
 const INIT_JOBS = [
   // t1 – Liang Jiang (Senior Consultant)
@@ -1881,8 +1863,8 @@ function Team({ team, jobs, clients, setTeam }) {
    ROOT APP
 ═══════════════════════════════════════════════════════════════════════════════ */
 // ─── SUPABASE CONFIG ──────────────────────────────────────────────────────────
-const SB_URL = 'YOUR_SUPABASE_URL';       // ← e.g. https://xxxxx.supabase.co
-const SB_KEY = 'YOUR_SUPABASE_ANON_KEY';  // ← paste your anon/public key here
+const SB_URL = process.env.REACT_APP_SB_URL;   // set in .env or Vercel environment variables
+const SB_KEY = process.env.REACT_APP_SB_KEY;   // set in .env or Vercel environment variables
 // ─────────────────────────────────────────────────────────────────────────────
 
 const sbFetch = async (path, method = 'GET', body = null) => {
@@ -2021,27 +2003,9 @@ export default function App() {
         const j = jr?.map(r => r.data);
         const t = tr?.map(r => r.data);
 
-        if (c?.length) {
-          setClients(c.map(r => ({ ...r, notes: r.notes || [] })));
-        } else {
-          // First run: seed the database with initial data
-          setClients(INIT_CLIENTS);
-          try { await Promise.all(INIT_CLIENTS.map(cl => sbInsert('clients', { id: cl.id, data: cl }))); } catch {}
-        }
-
-        if (j?.length) {
-          setJobs(j.map(r => ({ ...r, notes: r.notes || [] })));
-        } else {
-          setJobs(INIT_JOBS);
-          try { await Promise.all(INIT_JOBS.map(jb => sbInsert('jobs', { id: jb.id, data: jb }))); } catch {}
-        }
-
-        if (t?.length) {
-          setTeam(t);
-        } else {
-          setTeam(INIT_TEAM);
-          try { await Promise.all(INIT_TEAM.map(tm => sbInsert('team', { id: tm.id, data: tm }))); } catch {}
-        }
+        if (c?.length) setClients(c.map(r => ({ ...r, notes: r.notes || [] })));
+        if (j?.length) setJobs(j.map(r => ({ ...r, notes: r.notes || [] })));
+        if (t?.length) setTeam(t);
       } catch (e) {
         console.warn('Supabase not configured — using local data:', e.message);
       }
