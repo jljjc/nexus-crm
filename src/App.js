@@ -1483,7 +1483,7 @@ function Clients({ clients, jobs, setClients }) {
                     <div style={{ display:'flex', alignItems:'center', gap:10 }}>
                       <div style={{ width:34, height:34, borderRadius:'50%', background:'#e5e7eb', display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, fontWeight:600, color:'#6b7280' }}>{initials(c.name)}</div>
                       <div>
-                        <div onClick={()=>setViewClient(c)} style={{ fontWeight:600, color:'#6366f1', fontSize:14, cursor:'pointer', fontWeight:600 }}>{c.name}</div>
+                        <div onClick={()=>setViewClient(c)} style={{ fontWeight:600, color:'#6366f1', fontSize:14, cursor:'pointer' }}>{c.name}</div>
                         <div style={{ fontSize:12, color:'#6b7280' }}>{c.email}</div>
                       </div>
                     </div>
