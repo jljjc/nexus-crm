@@ -900,7 +900,9 @@ function Dashboard({ clients, jobs, team, onGoTo }) {
                     <StatusBadge status={j.status} small />
                   </div>
                   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                    <div style={{ flex:1 }}><ProgressBar value={j.progress} status={j.status} status={j.status} /></div>
+<div style={{ flex: 1 }}>
+  <ProgressBar value={j.progress} status={j.status} />
+</div>                    <div style={{ flex:1 }}><ProgressBar value={j.progress} status={j.status}/></div>
                     {member && <div style={{ display:'flex', alignItems:'center', gap:5, marginLeft:10, flexShrink:0 }}><Avatar name={member.name} color={member.color} size={20} /><span style={{ fontSize:11, color:'#1f2937' }}>{member.name.split(' ')[0]}</span></div>}
                   </div>
                 </div>
@@ -1532,7 +1534,7 @@ Return this exact structure (use null for missing fields, keep English for value
               style={{ ...inputStyle, minHeight:180, fontFamily:"'JetBrains Mono',monospace", fontSize:12.5, resize:'vertical', background:'#f9fafb', lineHeight:1.6 }}
             />
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:10 }}>
-              <span style={{ fontSize:12, color:'#1f2937' }}>{wchat.length > 0 ? `${wchat.length.toLocaleString()} chars · ~${Math.ceil(wchat.length/4)} tokens` : 'Max ~6000 chars will be analysed'}</span>
+              <span style={{ fontSize:12, color:'#1f2937' }}>{wchat.length > 0 ? `${wchat.length.toLocaleString()} chars · ${Math.ceil(wchat.length/4)} tokens` : 'Max 6000 chars will be analysed'}</span>
               <div style={{ display:'flex', gap:10 }}>
                 {wchat && <button onClick={()=>{setWchat('');setWchatResult(null);}} style={{ padding:'8px 14px', background:'#f3f4f6', border:'1.5px solid #cbd5e1', borderRadius:8, fontSize:12, color:'#1f2937', fontWeight:600 }}>Clear</button>}
                 <button
