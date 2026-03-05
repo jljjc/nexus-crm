@@ -1,26 +1,365 @@
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import * as mammoth from 'mammoth';
+
+/* ─── i18n LANGUAGE SYSTEM ──────────────────────────────────────────────────── */
+const LANG_ZH = {
+  // Nav
+  'Dashboard':'仪表板','Clients':'客户','Jobs':'案件','Leads':'潜在客户',
+  'Calendar':'日历','Invoices':'发票','Agents':'推荐代理','Team':'团队','Reports':'报告',
+  // Top bar / auth
+  'Sign out':'退出登录','Staff':'员工','Manager':'经理',
+  // Clients page
+  'Add Client':'+ 添加客户','Search clients...':'搜索客户...',
+  'All Types':'所有类型','All Status':'所有状态',
+  'CLIENT':'客户','TYPE':'类型','STATUS':'状态','JOBS':'案件',
+  'NATIONALITY':'国籍','NOTES':'备注','CREATED':'创建日期',
+  'Edit':'编辑','Del':'删除',
+  'total clients':'位客户',
+  // Client modal tabs
+  '👤 Profile':'👤 档案','📋 Jobs':'📋 案件','📝 Notes':'📝 备注',
+  '💬 WeChat':'💬 微信','📥 Import Doc':'📥 导入文档',
+  // Profile sections
+  'Client —':'客户 —',
+  'PERSONAL INFORMATION':'一、基本信息',
+  'Full Name':'姓名','Gender':'性别','Date of Birth':'出生日期',
+  'Birthplace':'出生地','Nationality':'国籍','Passport No':'护照号码',
+  'Passport Expiry':'护照有效期','China ID':'身份证号',
+  'Email':'邮箱','Mobile':'手机','AU Address':'澳洲地址',
+  'Marital Status':'婚姻状况','QQ':'QQ','EA File No':'EA 档案号',
+  'Consultant':'负责顾问','Visa Target':'签证目标',
+  // Service agreement
+  'SERVICE AGREEMENT':'二、服务合同',
+  'Contract Date':'合同签署日期','Total Fee':'服务费合计',
+  'Payment 1':'第一期付款','Payment 2':'第二期付款',
+  'Paid':'已付','Pending':'待付',
+  // Visa history
+  'VISA HISTORY':'三、签证历史',
+  'Visa Type':'签证类型','Application No':'申请编号',
+  'Lodged':'递签日期','Granted':'下签日期','Expiry':'有效期',
+  'Approved':'已获批','In Progress':'进行中','Refused':'被拒',
+  'No records':'暂无记录',
+  // Skills assessment
+  'SKILLS ASSESSMENT':'四、职业评估',
+  'Occupation':'职业','Application ID':'申请编号',
+  'Submitted':'递交日期','Outcome':'评估结果',
+  'Unsuccessful':'不通过','Successful':'通过',
+  'Reason':'驳回原因','Appeal Deadline':'上诉截止日',
+  'Further Docs Requested':'追加材料请求',
+  'Add Assessment':'+ 添加评估',
+  // Case timeline
+  'CASE TIMELINE':'五、大事记',
+  'Date':'日期','Event':'事件',
+  'Completed':'已完成','Failed':'失败','Urgent':'紧急','Maintained':'维持原决定',
+  'Add Event':'+ 添加事件',
+  // Current status
+  'CURRENT STATUS & NEXT STEPS':'六、当前状态与建议行动',
+  'Status Summary':'状态摘要','Options to Consider':'可选路径',
+  'Option':'选项','Action':'行动','Details':'详情',
+  'High':'高','Medium':'中','Low':'低',
+  'Add Option':'+ 添加选项',
+  // Notes section
+  'Add a note... (Ctrl+Enter to save)':'添加备注... (Ctrl+Enter 保存)',
+  'No notes yet':'暂无备注',
+  // Address / employment history
+  'Address History (AU)':'地址历史（澳洲）',
+  'Employment History':'工作经历',
+  'From':'开始','To':'结束','Address':'地址',
+  'Company':'公司','Role':'职位','Country':'国家',
+  // Character checks
+  'Character / Police Checks':'品行 / 无犯罪记录',
+  'Form 80':'Form 80','AFP Police Check':'澳大利亚联邦警察无犯罪',
+  'China PCC':'中国无犯罪证明',
+  'Provided':'已提供','Missing':'未提供','Unknown':'未知',
+  // Documents
+  'Documents Checklist':'文件清单',
+  'Document':'文件','Main Applicant':'主申请人','Sponsor':'担保人','Secondary':'随迁人员',
+  // Key Issues
+  'Key Issues & Action Items':'关键问题与待办事项',
+  // Form fields & buttons
+  'Full Name *':'姓名 *','Save Client':'保存客户','Cancel':'取消',
+  'Client Type':'客户类型','Phone':'电话',
+  'Add New Client':'添加新客户','Edit Client':'编辑客户',
+  // Jobs page
+  'New Job':'新案件','Save Job':'保存案件',
+  'Job Title':'案件标题','Job Type':'案件类型','Client':'客户',
+  'Assign To':'分配给','Priority':'优先级','Due Date':'截止日期',
+  'Progress':'进度','CASE NOTES':'案件备注',
+  'DOCUMENT CHECKLIST':'文件清单',
+  'Edit Job':'编辑案件','Open in Jobs →':'在案件页打开 →',
+  // Dashboard
+  'Active Clients':'活跃客户','Jobs In Progress':'进行中案件',
+  'Urgent Jobs':'紧急案件',
+  'of':'共','total jobs':'个案件总计','jobs finished':'个案件已完成',
+  'need immediate attention':'需要立即处理',
+  'Recent Activity':'近期动态','Upcoming Deadlines':'即将到期',
+  'View all →':'查看全部 →','View team →':'查看团队 →',
+  // WeChat
+  'Paste WeChat Chat Export':'粘贴微信聊天记录',
+  'Analyse with AI':'AI 智能分析',
+  'Analysing...':'分析中...',
+  'Analysis Complete':'分析完成',
+  'Summary':'摘要','Action Items':'待办事项',
+  'Client Requests':'客户需求','Important Dates':'重要日期',
+  'Topics':'话题标签',
+  'Save Summary to Client Notes':'保存摘要到客户备注',
+  'Saved':'已保存','Clear':'清除',
+  // Edit profile tab
+  '✏️ Edit Client':'✏️ 编辑客户',
+  'Edit Profile':'编辑档案',
+  'Profile':'档案',
+  'Notes':'备注',
+  'WeChat':'微信',
+  'Import Doc':'导入文档',
+  'Payment':'付款',
+};
+
+// Language context – stored in sessionStorage so it persists across pages
+const getLang = () => sessionStorage.getItem('ozsky_lang') || 'en';
+const setLang  = (l) => { sessionStorage.setItem('ozsky_lang', l); window.dispatchEvent(new Event('ozsky-lang-change')); };
+
+// Hook: returns a translation function and current lang
+function useLang() {
+  const [lang, setLangState] = useState(getLang);
+  useEffect(() => {
+    const handler = () => setLangState(getLang());
+    window.addEventListener('ozsky-lang-change', handler);
+    return () => window.removeEventListener('ozsky-lang-change', handler);
+  }, []);
+  const t = (key) => lang === 'zh' ? (LANG_ZH[key] ?? key) : key;
+  return { lang, t };
+}
+
 /* ─── STYLES ───────────────────────────────────────────────────────────────── */
 const GLOBAL_CSS = `
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Inter', 'Sora', sans-serif; background: #0f172a; color: #e2e8f0; overflow-x: hidden; line-height: 1.5; }
-  ::-webkit-scrollbar { width: 6px; height: 6px; }
-  ::-webkit-scrollbar-track { background: #1e293b; }
-  ::-webkit-scrollbar-thumb { background: #334c6e; border-radius: 4px; }
-  ::-webkit-scrollbar-thumb:hover { background: #4a6585; }
-  button { cursor: pointer; font-family: inherit; transition: opacity 0.15s, transform 0.1s; }
-  button:active { transform: scale(0.97); }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #eef0f6;
+    color: #0f172a;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 99px; }
+
+  button { cursor: pointer; font-family: inherit; }
   input, select, textarea { font-family: inherit; }
-  input:focus, select:focus, textarea:focus { outline: none; border-color: #38bdf8 !important; box-shadow: 0 0 0 3px rgba(56,189,248,0.12); }
-  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-  @keyframes slideIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
-  @keyframes tooltipIn { from { opacity: 0; transform: translateY(6px) scale(0.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
-  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
-  .animate-fade { animation: fadeIn 0.3s ease forwards; }
-  .animate-slide { animation: slideIn 0.25s ease forwards; }
-  .tooltip-anim { animation: tooltipIn 0.18s ease forwards; }
-  .card-hover:hover { transform: translateY(-2px); transition: transform 0.2s; }
+
+  @keyframes fadeIn  { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes slideIn { from { opacity:0; transform:translateX(-12px); } to { opacity:1; transform:translateX(0); } }
+  @keyframes slideUp { from { opacity:0; transform:translateY(22px) scale(0.99); } to { opacity:1; transform:translateY(0) scale(1); } }
+  @keyframes tooltipIn { from { opacity:0; transform:translateY(6px) scale(0.97); } to { opacity:1; transform:translateY(0) scale(1); } }
+  @keyframes pulse  { 0%,100%{opacity:1;} 50%{opacity:0.45;} }
+  @keyframes shake  { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-8px)} 40%{transform:translateX(8px)} 60%{transform:translateX(-4px)} 80%{transform:translateX(4px)} }
+  @keyframes drawIn { from{transform:translateX(-100%)} to{transform:translateX(0)} }
+
+  .animate-fade  { animation: fadeIn  0.32s cubic-bezier(.16,1,.3,1) both; }
+  .animate-slide { animation: slideIn 0.28s ease both; }
+  .tooltip-anim  { animation: tooltipIn 0.18s ease both; }
+
+  /* ── SIDEBAR ─────────────────────────────────── */
+  .oz-sidebar {
+    width: 236px; min-height: 100vh; background: #1c1f3a;
+    display: flex; flex-direction: column; flex-shrink: 0;
+    position: sticky; top: 0; height: 100vh;
+    box-shadow: 2px 0 20px rgba(0,0,0,0.15);
+    z-index: 50; transition: transform 0.3s cubic-bezier(.16,1,.3,1);
+  }
+  .oz-nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 13px; border-radius: 9px; border: none;
+    width: 100%; text-align: left; font-size: 13.5px; font-weight: 500;
+    margin-bottom: 1px; color: #b8c4d8; background: transparent;
+    transition: all 0.15s; cursor: pointer;
+  }
+  .oz-nav-item:hover { background: rgba(255,255,255,0.1); color: #e2e8f0; }
+  .oz-nav-item.active {
+    background: linear-gradient(120deg, rgba(99,102,241,0.28), rgba(167,139,250,0.18));
+    color: #c4b5fd; font-weight: 600;
+    box-shadow: inset 3px 0 0 #818cf8;
+  }
+  .oz-nav-badge {
+    margin-left: auto; font-size: 10px; padding: 1px 7px; border-radius: 99px;
+    font-family: 'JetBrains Mono', monospace; font-weight: 600;
+    background: rgba(255,255,255,0.09); color: #9ba5c0;
+  }
+  .oz-nav-item.active .oz-nav-badge { background: rgba(129,140,248,0.3); color: #c4b5fd; }
+
+  /* ── TOPBAR ─────────────────────────────────── */
+  .oz-topbar {
+    position: sticky; top: 0; z-index: 40;
+    background: rgba(255,255,255,0.92); backdrop-filter: blur(12px);
+    border-bottom: 1px solid #e9eaf3;
+    height: 58px; display: flex; align-items: center; padding: 0 28px; gap: 14px;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.05);
+  }
+
+  /* ── CARDS ─────────────────────────────────── */
+  .oz-card {
+    background: #fff; border-radius: 14px;
+    border: 1px solid #e9eaf3;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 4px 12px rgba(0,0,0,0.04);
+    transition: box-shadow 0.2s, transform 0.15s;
+  }
+  .oz-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.10); }
+
+  /* ── KPI CARDS ─────────────────────────────── */
+  .oz-kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px,1fr)); gap: 14px; margin-bottom: 28px; }
+  .oz-kpi {
+    background: #fff; border-radius: 14px; padding: 18px 20px;
+    border: 1px solid #e9eaf3; box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+    transition: box-shadow 0.2s;
+  }
+  .oz-kpi:hover { box-shadow: 0 6px 20px rgba(0,0,0,0.09); transform: translateY(-1px); }
+  .oz-kpi-label { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #4b5563; margin-bottom: 8px; }
+  .oz-kpi-val   { font-size: 30px; font-weight: 800; color: #111827; line-height: 1; }
+  .oz-kpi-sub   { font-size: 12px; color: #4b5563; margin-top: 5px; }
+
+  /* ── TABLE ─────────────────────────────────── */
+  .oz-table { width: 100%; border-collapse: collapse; }
+  .oz-table th {
+    padding: 10px 16px; text-align: left; font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.07em; color: #4b5563;
+    background: #f9fafb; border-bottom: 1px solid #e9eaf3; white-space: nowrap;
+  }
+  .oz-table td { padding: 13px 16px; border-bottom: 1px solid #f3f4f8; font-size: 13.5px; color: #374151; vertical-align: middle; }
+  .oz-table tbody tr:hover td { background: #fafbff; }
+  .oz-table tbody tr:last-child td { border-bottom: none; }
+
+  /* ── BUTTONS ─────────────────────────────── */
+  .oz-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 9px 18px; border-radius: 9px; font-size: 13px; font-weight: 600;
+    border: none; transition: all 0.15s; cursor: pointer;
+  }
+  .oz-btn-primary {
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    color: #fff; box-shadow: 0 2px 10px rgba(99,102,241,0.35);
+  }
+  .oz-btn-primary:hover { opacity: 0.92; transform: translateY(-1px); box-shadow: 0 4px 16px rgba(99,102,241,0.45); }
+  .oz-btn-ghost {
+    background: #f3f4f8; color: #374151;
+    border: 1px solid #e5e7eb;
+  }
+  .oz-btn-ghost:hover { background: #ebebf5; color: #374151; }
+  .oz-btn-danger { background: #fef2f2; color: #ef4444; border: 1px solid #fecaca; }
+  .oz-btn-danger:hover { background: #fee2e2; }
+
+  /* ── INPUTS ─────────────────────────────── */
+  .oz-input {
+    width: 100%; background: #f9fafb; border: 1.5px solid #e5e7eb;
+    border-radius: 9px; padding: 9px 13px; color: #0f172a;
+    font-size: 14px; outline: none;
+    transition: border-color 0.18s, box-shadow 0.18s, background 0.18s;
+  }
+  .oz-input:focus { border-color: #6366f1; background: #fff; box-shadow: 0 0 0 3px rgba(99,102,241,0.12); }
+  .oz-input::placeholder { color: #b0b7c3; }
+
+  /* ── MODAL ─────────────────────────────── */
+  .oz-overlay {
+    position: fixed; inset: 0; background: rgba(17,24,39,0.5);
+    backdrop-filter: blur(4px); z-index: 200;
+    display: flex; align-items: center; justify-content: center; padding: 20px;
+    animation: fadeIn 0.15s ease both;
+  }
+  .oz-modal {
+    background: #fff; border-radius: 18px; width: 100%; max-width: 640px;
+    max-height: 92vh; overflow-y: auto;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.22);
+    animation: slideUp 0.28s cubic-bezier(.16,1,.3,1) both;
+  }
+  .oz-modal-wide { max-width: 900px; }
+  .oz-modal-hd {
+    padding: 22px 26px 18px; border-bottom: 1px solid #f3f4f8;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .oz-modal-title { font-size: 17px; font-weight: 700; color: #111827; }
+  .oz-modal-body  { padding: 22px 26px 28px; }
+  .oz-close-btn {
+    background: #f3f4f8; border: none; border-radius: 8px;
+    width: 32px; height: 32px; font-size: 16px; color: #4b5563;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s, color 0.15s;
+  }
+  .oz-close-btn:hover { background: #fee2e2; color: #ef4444; }
+
+  /* ── FORM ─────────────────────────────── */
+  .oz-label {
+    display: block; font-size: 11.5px; font-weight: 700; color: #374151;
+    text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px;
+  }
+  .oz-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .oz-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+  .oz-full   { grid-column: 1/-1; }
+
+  /* ── BADGES ─────────────────────────────── */
+  .oz-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 10px; border-radius: 99px; font-size: 11.5px; font-weight: 600;
+  }
+  .oz-tag {
+    display: inline-flex; align-items: center;
+    padding: 2px 9px; border-radius: 7px; font-size: 11px; font-weight: 600;
+  }
+
+  /* ── SECTION HEADER ─────────────────────── */
+  .oz-page-hd { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
+  .oz-page-title { font-size: 22px; font-weight: 800; color: #111827; }
+  .oz-page-sub   { font-size: 13px; color: #4b5563; margin-top: 3px; }
+
+  /* ── MOBILE ─────────────────────────────── */
+  .oz-hamburger {
+    display: none; background: none; border: none; padding: 4px 6px;
+    font-size: 22px; color: #374151; line-height: 1;
+  }
+  .oz-mob-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+    z-index: 49; backdrop-filter: blur(2px);
+  }
+  .oz-mob-nav {
+    display: none; position: fixed; bottom: 0; left: 0; right: 0; z-index: 60;
+    background: #1c1f3a; border-top: 1px solid #2d3157;
+    padding: 4px 4px 8px; justify-content: space-around;
+  }
+  .oz-mob-btn {
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    background: none; border: none; padding: 6px 8px; border-radius: 10px;
+    color: #9ba5c0; font-size: 9.5px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.04em; min-width: 52px; transition: all 0.15s;
+  }
+  .oz-mob-btn:hover, .oz-mob-btn.active { color: #c4b5fd; background: rgba(129,140,248,0.2); }
+  .oz-mob-btn .micon { font-size: 19px; }
+
+  /* ── RESPONSIVE ─────────────────────────── */
+  @media (max-width: 880px) {
+    .oz-sidebar { position: fixed; left: 0; top: 0; height: 100vh; transform: translateX(-100%); z-index: 50; }
+    .oz-sidebar.open { transform: translateX(0); animation: drawIn 0.3s cubic-bezier(.16,1,.3,1); }
+    .oz-mob-overlay.open { display: block; }
+    .oz-hamburger { display: block; }
+    .oz-mob-nav { display: flex; }
+    .oz-topbar { padding: 0 16px; }
+    .oz-grid-2 { grid-template-columns: 1fr; }
+    .oz-grid-3 { grid-template-columns: 1fr 1fr; }
+    .oz-kpi-grid { grid-template-columns: 1fr 1fr; }
+    .oz-main-content { padding: 18px 14px 80px !important; }
+    .oz-page-hd { flex-direction: column; align-items: flex-start; }
+  }
+  @media (max-width: 560px) {
+    .oz-kpi-grid { grid-template-columns: 1fr; }
+    .oz-grid-3 { grid-template-columns: 1fr; }
+    .oz-modal { border-radius: 18px 18px 0 0; margin: auto 0 0; max-height: 95vh; }
+    .oz-overlay { align-items: flex-end; padding: 0; }
+    .oz-table thead { display: none; }
+    .oz-table tr { display: block; border: 1px solid #e9eaf3; border-radius: 12px; margin-bottom: 10px; background:#fff; }
+    .oz-table td { display: flex; justify-content: space-between; align-items: center; border:none; padding: 9px 14px; }
+    .oz-table td[data-label]::before { content: attr(data-label); font-weight:700; color:#9ca3af; font-size:10.5px; text-transform:uppercase; letter-spacing:0.05em; }
+  }
 `;
 
 /* ─── CONSTANTS ─────────────────────────────────────────────────────────────── */
@@ -71,15 +410,15 @@ const CLIENT_TYPES = ['Student', 'Migration', 'Both'];
 const CLIENT_STATUSES = ['Active', 'Pending', 'Completed', 'Inactive'];
 
 const STATUS_STYLES = {
-  'New':           { bg: '#0ea5e920', text: '#38bdf8', dot: '#38bdf8' },
+  'New':           { bg: '#0ea5e920', text: '#6366f1', dot: '#6366f1' },
   'In Progress':   { bg: '#f59e0b20', text: '#fbbf24', dot: '#f59e0b' },
   'Awaiting Docs': { bg: '#a78bfa20', text: '#c4b5fd', dot: '#a78bfa' },
   'Under Review':  { bg: '#fb923c20', text: '#fdba74', dot: '#fb923c' },
   'Completed':     { bg: '#10b98120', text: '#34d399', dot: '#10b981' },
-  'On Hold':       { bg: '#a0b0c820', text: '#a0b0c8', dot: '#7a8fa8' },
+  'On Hold':       { bg: '#94a3b820', text: '#94a3b8', dot: '#64748b' },
   'Active':        { bg: '#10b98120', text: '#34d399', dot: '#10b981' },
   'Pending':       { bg: '#f59e0b20', text: '#fbbf24', dot: '#f59e0b' },
-  'Inactive':      { bg: '#a0b0c820', text: '#a0b0c8', dot: '#7a8fa8' },
+  'Inactive':      { bg: '#94a3b820', text: '#94a3b8', dot: '#64748b' },
 };
 
 const PRIORITY_STYLES = {
@@ -89,7 +428,7 @@ const PRIORITY_STYLES = {
   'Urgent': { bg: '#7f1d1d',   text: '#fca5a5' },
 };
 
-const TEAM_COLORS = ['#38bdf8','#34d399','#f59e0b','#a78bfa','#fb923c','#f472b6','#4ade80','#60a5fa'];
+const TEAM_COLORS = ['#6366f1','#34d399','#f59e0b','#a78bfa','#fb923c','#f472b6','#4ade80','#60a5fa'];
 
 /* Document checklists per job type */
 const DOC_CHECKLISTS = {
@@ -127,7 +466,7 @@ const DOC_CHECKLISTS = {
 };
 
 const INIT_TEAM = [
-  { id:'t1', name:'Liang Jiang',   role:'Senior Consultant',   email:'liang@ozsky.com.au',   phone:'0411 111 001', color:'#38bdf8' },
+  { id:'t1', name:'Liang Jiang',   role:'Senior Consultant',   email:'liang@ozsky.com.au',   phone:'0411 111 001', color:'#6366f1' },
   { id:'t2', name:'Mansi Mao',     role:'Migration Agent',     email:'mansi@ozsky.com.au',   phone:'0411 111 002', color:'#34d399' },
   { id:'t3', name:'Mia Ma',        role:'Student Advisor',     email:'mia@ozsky.com.au',     phone:'0411 111 003', color:'#f59e0b' },
   { id:'t4', name:'Nicole Chen',   role:'Case Manager',        email:'nicole@ozsky.com.au',  phone:'0411 111 004', color:'#a78bfa' },
@@ -164,54 +503,52 @@ const fmtDateTime = (iso) => {
 };
 const isOverdue = (d) => d && new Date(d) < new Date() ? true : false;
 
+
+
+/* ─── CONTRACT GENERATION ─────────────────────────────────────────────────── */
 const generateClientContractFile = async (client, jobs = []) => {
-  const visaTypes = [...new Set((jobs || []).map(j => j.type).filter(Boolean))];
-  const activeJobs = (jobs || []).filter(j => j.status !== 'Completed');
+  const visaTypes = [...new Set((jobs||[]).map(j=>j.type).filter(Boolean))];
+  const activeJobs = (jobs||[]).filter(j=>j.status!=='Completed');
   const serviceDescription = activeJobs.length
-    ? activeJobs.map(j => `${j.title}${j.type ? ` (${j.type})` : ''}`).join('; ')
+    ? activeJobs.map(j=>`${j.title}${j.type?` (${j.type})`:''}`).join('; ')
     : 'Migration consultation and related services';
 
   const res = await fetch('/api/generate-contract', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      clientName: client?.name || '',
+      clientName:    client?.name || '',
       clientAddress: client?.profile?.auAddress || '',
-      clientEmail: client?.email || '',
-      clientPhone: client?.phone || '',
-      visaTypes: visaTypes.length ? visaTypes : [client?.type || 'Migration Service'],
+      clientEmail:   client?.email || '',
+      clientPhone:   client?.phone || '',
+      visaTypes:     visaTypes.length ? visaTypes : [client?.type || 'Migration Service'],
       serviceDescription,
-      totalFee: '',
-      gstIncluded: true,
-      paymentMode: 'single',
-      payment1Amount: '',
-      payment1Desc: 'Initial professional service fee',
-      payment2Amount: '',
-      payment2Desc: '',
-      contractDate: new Date().toLocaleDateString('en-AU'),
-      consultant: 'Liang Jiang',
-      marn: '1800784',
+      totalFee:      client?.profile?.serviceAgreement?.totalFee || '',
+      gstIncluded:   true,
+      paymentMode:   'single',
+      payment1Amount: client?.profile?.serviceAgreement?.totalFee || '',
+      payment1Desc:  'Professional migration service fee',
+      contractDate:  new Date().toLocaleDateString('en-AU'),
+      consultant:    'Liang Jiang',
+      marn:          '1800784',
       disbursements: [],
     }),
   });
 
   if (!res.ok) {
-    const msg = await res.text().catch(() => 'Unable to generate contract.');
+    const msg = await res.text().catch(()=>'');
     throw new Error(msg || 'Unable to generate contract.');
   }
-
   const blob = await res.blob();
-  const url = window.URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  const safeName = (client?.name || 'client').replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '') || 'client';
-  a.href = url;
-  a.download = `${safeName}-service-agreement.docx`;
+  const url  = window.URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `${(client?.name||'client').replace(/[^a-z0-9]+/gi,'-').replace(/^-+|-+$/g,'')}-service-agreement.docx`;
   document.body.appendChild(a);
   a.click();
   a.remove();
   window.URL.revokeObjectURL(url);
 };
-
 
 /* ─── LOGO ───────────────────────────────────────────────────────────────────── */
 const LOGO_B64 = "data:image/jpeg;base64,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UUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFAElFFFaAf//S/ENv9a9MPant/rXph7V+mHy4HrSUp60lABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFAElFFFaAf//T/ENv9a9MPant/rXph7V+mHy4HrSUp60lABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFAElFFFaAf//U/ENv9a9MPant/rXph7V+mHy4HrSUp60lABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFAElFFFaAf//V/ENv9a9MPant/rXph7V+mHy4HrSUp60lABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFAElFFFaAf//W/ENv9a9MPant/rXph7V+mHy4HrSUp60lABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFAElFFFaAf//X/ENv9a9MPant/rXph7V+mHy4HrSUp60lABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFAElFFFaAf//Q/ENv9a9MPant/rXph7V+mHy4HrSUp60lABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFAElFFFaAf//R/ENv9a9MPant/rXph7V+mHy4HrSUp60lABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFAElFFFaAf//S/ENv9a9MPant/rXph7V+mHy4HrSUp60lABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFAElFFFaAf//T/ENv9a9MPant/rXph7V+mHy4HrSUp60lABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFAElFFFaAf//U/ENv9a9MPant/rXph7V+mHy4HrSUp60lABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFAElFFFaAf//V/ENv9a9MPant/rXph7V+mHy4HrSUp60lABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFAElFFFaAf//W/ENv9a9MPant/rXph7V+mHy4HrSUp60lABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFAElFFFaAf//X/ENv9a9MPant/rXph7V+mHy4HrSUp60lABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFAElFFFaAf//Q/ENv9a9MPant/rXph7V+mHy4HrSUp60lABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFAElFFFaAf//R/ENv9a9MPant/rXph7V+mHy4HrSUp60lABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFAElFFFaAf//S/ENv9a9MPant/rXph7V+mHy4HrSUp60lABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFAElFFFaAf//T/ENv9a9MPant/rXph7V+mHy4HrSUp60lABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFAElFFFaAf//U/ENv9a9MPant/rXph7V+mHy4HrSUp60lABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFAElFFFaAf//V/ENv9a9MPant/rXph7V+mHy4HrSUp60lABRRRQAU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ooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigCSiiitAP//X/ENv9a9MPant/rXph7V+mHy4HrSUp60lABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFAElFFFaAf//Q/ENv9a9MPant/rXph7V+mHy4HrSUp60lABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFAElFFFaAf//R/ENv9a9MPant/rXph7V+mHy4HrSUp60lABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFAElFFFaAf//S/ENv9a9MPant/rXph7V+mHy4HrSUp60lABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFAElFFFaAf//T/ENv9a9MPant/rXph7V+mHy4HrSUp60lABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFAElFFFaAf//U/ENv9a9MPant/rXph7V+mHy4HrSUp60lABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFAElFFFaAf//V/ENv9a9MPant/rXph7V+mHy4HrSUp60lABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFAElFFFaAf//W/ENv9a9MPant/rXph7V+mHy4HrSUp60lABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFAElFFFaAf//X/ENv9a9MPant/rXph7V+mHy4HrSUp60lABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFAElFFFaAf//Q/ENv9a9MPant/rXph7V+mHy4HrSUp60lABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFAElFFFaAf//R/ENv9a9MPant/rXph7V+mHy4HrSUp60lABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFAElFFFaAf//S/ENv9a9MPant/rXph7V+mHy4HrSUp60lABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFAElFFFaAf//T/ENv9a9MPant/rXph7V+mHy4HrSUp60lABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFAElFFFaAf//U/ENv9a9MPant/rXph7V+mHy4HrSUp60lABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFAElFFFaAf//V/ENv9a9MPant/rXph7V+mHy4HrSUp60lABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFAElFFFaAf//W/ENv9a9MPant/rXph7V+mHy4HrSUp60lABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFAElFFFaAf//X/ENv9a9MPant/rXph7V+mHy4HrSUp60lABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFAElFFFaAf//Q/ENv9a9MPant/rXph7V+mHy4HrSUp60lABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUA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";
@@ -219,7 +556,7 @@ const LOGO_B64 = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAASABIAAD/4Q+DRXhpZgA
 /* ─── COMPONENTS ─────────────────────────────────────────────────────────────── */
 
 function StatusBadge({ status, small }) {
-  const s = STATUS_STYLES[status] || { bg:'#1e293b', text:'#a0b0c8', dot:'#7a8fa8' };
+  const s = STATUS_STYLES[status] || { bg:'#1e293b', text:'#94a3b8', dot:'#64748b' };
   return (
     <span style={{ display:'inline-flex', alignItems:'center', gap:5, padding: small ? '2px 8px':'3px 10px', borderRadius:20, fontSize: small?11:12, fontWeight:500, background:s.bg, color:s.text, whiteSpace:'nowrap' }}>
       <span style={{ width:6, height:6, borderRadius:'50%', background:s.dot, flexShrink:0 }} />
@@ -246,7 +583,7 @@ function Avatar({ name, color, size=32 }) {
 }
 
 function ProgressBar({ value }) {
-  const color = value >= 100 ? '#10b981' : value >= 60 ? '#38bdf8' : value >= 30 ? '#f59e0b' : '#fb923c';
+  const color = value >= 100 ? '#10b981' : value >= 60 ? '#6366f1' : value >= 30 ? '#f59e0b' : '#fb923c';
   return (
     <div style={{ height:4, borderRadius:4, background:'#1e293b', overflow:'hidden' }}>
       <div style={{ height:'100%', width:`${Math.min(value, 100)}%`, background:color, borderRadius:4, transition:'width 0.3s ease' }} />
@@ -256,48 +593,78 @@ function ProgressBar({ value }) {
 
 function Card({ children, style, onClick }) {
   return (
-    <div onClick={onClick} style={{ background:'#1e293b', border:'1px solid #2e4460', borderRadius:12, padding:20, ...style, cursor: onClick ? 'pointer' : 'default', transition:'border-color 0.2s, transform 0.15s' }}
+    <div onClick={onClick} style={{ background:'#ffffff', border:'1.5px solid #d1d5db', borderRadius:12, padding:20, ...style, cursor: onClick ? 'pointer' : 'default', transition:'border-color 0.2s, transform 0.15s' }}
       onMouseEnter={e => onClick && (e.currentTarget.style.borderColor='#38bdf830', e.currentTarget.style.transform='translateY(-1px)')}
-      onMouseLeave={e => onClick && (e.currentTarget.style.borderColor='#2e4460', e.currentTarget.style.transform='translateY(0)')}>
+      onMouseLeave={e => onClick && (e.currentTarget.style.borderColor='#e5e7eb', e.currentTarget.style.transform='translateY(0)')}>
       {children}
     </div>
   );
 }
 
-function Modal({ title, onClose, children, footer, wide }) {
-  return (
-    <div style={{ position:'fixed', inset:0, background:'rgba(4,10,24,0.85)', backdropFilter:'blur(4px)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:20 }} onClick={e => e.target===e.currentTarget && onClose()}>
-      <div className="animate-fade" onClick={e => e.stopPropagation()} style={{ background:'#1a2c42', border:'1px solid #2e5070', borderRadius:16, width:'100%', maxWidth: wide?720:520, maxHeight:'90vh', display:'flex', flexDirection:'column', boxShadow:'0 25px 70px rgba(0,0,0,0.7)' }}>
+function Modal({ title, onClose, children, wide }) {
+  // Lock body scroll while modal open
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
+  const overlay = (
+    <div
+      style={{
+        position:'fixed', top:0, left:0, width:'100%', height:'100%',
+        background:'rgba(17,24,39,0.55)', backdropFilter:'blur(4px)',
+        zIndex:9999, display:'flex', alignItems:'flex-start',
+        justifyContent:'center', overflowY:'auto', padding:'40px 16px 40px',
+      }}
+      onClick={e => e.target===e.currentTarget && onClose()}
+    >
+      <div
+        className="animate-fade"
+        style={{
+          background:'#fff', borderRadius:18, width:'100%',
+          maxWidth: wide ? 760 : 560,
+          boxShadow:'0 24px 80px rgba(0,0,0,0.22)',
+          flexShrink:0,
+        }}
+        onClick={e => e.stopPropagation()}
+      >
         {/* Sticky header */}
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'18px 24px 16px', borderBottom:'1px solid #2e4460', flexShrink:0, borderRadius:'16px 16px 0 0', background:'#1a2c42' }}>
-          <h2 style={{ fontSize:17, fontWeight:700, color:'#f1f5f9', margin:0 }}>{title}</h2>
-          <button onClick={onClose} style={{ background:'#253650', border:'1px solid #2e4460', borderRadius:8, width:32, height:32, color:'#a0b0c8', fontSize:18, display:'flex', alignItems:'center', justifyContent:'center', lineHeight:1, flexShrink:0 }}>×</button>
+        <div style={{
+          display:'flex', justifyContent:'space-between', alignItems:'center',
+          padding:'20px 26px 18px', borderBottom:'1.5px solid #e2e8f0',
+          position:'sticky', top:0, background:'#fff', zIndex:1,
+          borderRadius:'18px 18px 0 0',
+        }}>
+          <h2 style={{ fontSize:17, fontWeight:700, color:'#111827', margin:0 }}>{title}</h2>
+          <button
+            onClick={onClose}
+            style={{ background:'#f3f4f6', border:'none', borderRadius:8, width:32, height:32, color:'#1f2937', fontSize:20, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', flexShrink:0, lineHeight:1 }}
+            onMouseEnter={e=>{e.currentTarget.style.background='#fee2e2';e.currentTarget.style.color='#ef4444';}}
+            onMouseLeave={e=>{e.currentTarget.style.background='#f3f4f6';e.currentTarget.style.color='#9ca3af';}}
+          >×</button>
         </div>
-        {/* Scrollable body */}
-        <div style={{ padding:'20px 24px', overflowY:'auto', flex:1, minHeight:0 }}>
+        {/* Body */}
+        <div style={{ padding:'22px 26px 28px' }}>
           {children}
         </div>
-        {/* Sticky footer */}
-        {footer && (
-          <div style={{ padding:'14px 24px', borderTop:'1px solid #2e4460', flexShrink:0, background:'#162032', borderRadius:'0 0 16px 16px' }}>
-            {footer}
-          </div>
-        )}
       </div>
     </div>
   );
+
+  return createPortal(overlay, document.body);
 }
 
 function FormField({ label, children, required }) {
   return (
     <div style={{ marginBottom:16 }}>
-      <label style={{ display:'block', fontSize:12, fontWeight:600, color:'#7a8fa8', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:6 }}>{label}{required && <span style={{color:'#f87171'}}>*</span>}</label>
+      <label style={{ display:'block', fontSize:12, fontWeight:600, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:6 }}>{label}{required && <span style={{color:'#f87171'}}>*</span>}</label>
       {children}
     </div>
   );
 }
 
-const inputStyle = { width:'100%', background:'#1a2d45', border:'1px solid #334c6e', borderRadius:8, padding:'9px 12px', color:'#f1f5f9', fontSize:14, outline:'none', transition:'border-color 0.2s' };
+const inputStyle = { width:'100%', background:'#ffffff', border:'2px solid #c7d2e0', borderRadius:9, padding:'9px 12px', color:'#1f2937', fontSize:14, outline:'none', transition:'all 0.18s' };
 const selectStyle = { ...inputStyle, cursor:'pointer' };
 const textareaStyle = { ...inputStyle, resize:'vertical', minHeight:72 };
 
@@ -314,7 +681,7 @@ function NotesPanel({ notes, onAddNote, onDeleteNote }) {
 
   return (
     <div style={{ marginTop:8 }}>
-      <div style={{ fontSize:12, fontWeight:600, color:'#7a8fa8', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:10 }}>Case Notes ({sorted.length})</div>
+      <div style={{ fontSize:12, fontWeight:600, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:10 }}>Case Notes ({sorted.length})</div>
       {/* Add note */}
       <div style={{ display:'flex', gap:8, marginBottom:14 }}>
         <textarea
@@ -324,17 +691,17 @@ function NotesPanel({ notes, onAddNote, onDeleteNote }) {
           placeholder="Add a note… (Ctrl+Enter to save)"
           style={{ ...textareaStyle, minHeight:60, flex:1, fontSize:13 }}
         />
-        <button onClick={handleAdd} style={{ background:'#38bdf8', border:'none', borderRadius:8, padding:'0 14px', color:'#0f172a', fontWeight:700, fontSize:13, alignSelf:'stretch', minWidth:60 }}>Add</button>
+        <button onClick={handleAdd} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, padding:'0 14px', color:'#fff', fontWeight:700, fontSize:13, alignSelf:'stretch', minWidth:60 }}>Add</button>
       </div>
       {/* Notes list */}
       <div style={{ display:'flex', flexDirection:'column', gap:8, maxHeight:260, overflowY:'auto' }}>
-        {sorted.length === 0 && <div style={{ fontSize:13, color:'#475569', textAlign:'center', padding:'16px 0' }}>暂无备注</div>}
+        {sorted.length === 0 && <div style={{ fontSize:13, color:'#1f2937', textAlign:'center', padding:'16px 0' }}>No notes yet</div>}
         {sorted.map((n, i) => (
-          <div key={n.id} style={{ background:'#0f172a', border:'1px solid #2e4460', borderRadius:8, padding:'10px 12px', position:'relative' }}>
-            {i === 0 && <span style={{ position:'absolute', top:8, right:36, fontSize:10, background:'#38bdf820', color:'#38bdf8', borderRadius:6, padding:'1px 6px' }}>Latest</span>}
-            <div style={{ fontSize:13, color:'#e2e8f0', lineHeight:1.5, marginBottom:6, paddingRight:24 }}>{n.text}</div>
-            <div style={{ fontSize:11, color:'#475569' }}>🕐 {fmtDateTime(n.createdAt)}</div>
-            <button onClick={()=>onDeleteNote(n.id)} style={{ position:'absolute', top:8, right:8, background:'none', border:'none', color:'#475569', fontSize:14, lineHeight:1, padding:2 }} title="Delete note">×</button>
+          <div key={n.id} style={{ background:'#ffffff', border:'1.5px solid #d1d5db', borderRadius:8, padding:'10px 12px', position:'relative' }}>
+            {i === 0 && <span style={{ position:'absolute', top:8, right:36, fontSize:10, background:'#eef2ff', color:'#6366f1', borderRadius:6, padding:'1px 6px' }}>Latest</span>}
+            <div style={{ fontSize:13, color:'#1f2937', lineHeight:1.5, marginBottom:6, paddingRight:24 }}>{n.text}</div>
+            <div style={{ fontSize:11, color:'#1f2937' }}>🕐 {fmtDateTime(n.createdAt)}</div>
+            <button onClick={()=>onDeleteNote(n.id)} style={{ position:'absolute', top:8, right:8, background:'none', border:'none', color:'#1f2937', fontSize:14, lineHeight:1, padding:2 }} title="Delete note">×</button>
           </div>
         ))}
       </div>
@@ -353,46 +720,46 @@ function ClientSnapshot({ client, jobs, visible, anchorRef }) {
   return (
     <div className="tooltip-anim" style={{
       position:'fixed', zIndex:2000,
-      background:'#1e293b', border:'1px solid #334c6e',
+      background:'#ffffff', border:'1.5px solid #d1d5db',
       borderRadius:14, padding:18, width:300,
       boxShadow:'0 20px 60px #000000cc',
       pointerEvents:'none',
     }}>
       {/* Header */}
-      <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:14, paddingBottom:12, borderBottom:'1px solid #2e4460' }}>
-        <div style={{ width:44, height:44, borderRadius:'50%', background:'#2e4460', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, fontWeight:700, color:'#a0b0c8', flexShrink:0 }}>{initials(client.name)}</div>
+      <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:14, paddingBottom:12, borderBottom:'2px solid #e2e8f0' }}>
+        <div style={{ width:44, height:44, borderRadius:'50%', background:'#e5e7eb', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, fontWeight:700, color:'#1f2937', flexShrink:0 }}>{initials(client.name)}</div>
         <div>
-          <div style={{ fontWeight:700, color:'#f1f5f9', fontSize:15 }}>{client.name}</div>
-          <div style={{ fontSize:12, color:'#7a8fa8', marginTop:2 }}>{client.email}</div>
-          {client.phone && <div style={{ fontSize:11, color:'#475569', marginTop:1 }}>{client.phone}</div>}
+          <div style={{ fontWeight:700, color:'#111827', fontSize:15 }}>{client.name}</div>
+          <div style={{ fontSize:12, color:'#1f2937', marginTop:2 }}>{client.email}</div>
+          {client.phone && <div style={{ fontSize:11, color:'#1f2937', marginTop:1 }}>{client.phone}</div>}
         </div>
       </div>
       {/* Stats row */}
       <div style={{ display:'flex', gap:8, marginBottom:12 }}>
         <StatusBadge status={client.status} small />
         <span style={{ fontSize:12, color: client.type==='Student'?'#60a5fa':client.type==='Migration'?'#a78bfa':'#34d399', background: client.type==='Student'?'#1e40af20':client.type==='Migration'?'#6d28d920':'#05966920', padding:'2px 10px', borderRadius:20, fontWeight:500 }}>{client.type}</span>
-        {client.nationality && <span style={{ fontSize:12, color:'#7a8fa8', background:'#2e4460', padding:'2px 10px', borderRadius:20 }}>{client.nationality}</span>}
+        {client.nationality && <span style={{ fontSize:12, color:'#1f2937', background:'#e5e7eb', padding:'2px 10px', borderRadius:20 }}>{client.nationality}</span>}
       </div>
       {/* Jobs */}
       <div style={{ marginBottom:12 }}>
-        <div style={{ fontSize:11, color:'#475569', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:6 }}>Active Jobs ({activeJobs.length})</div>
-        {activeJobs.length === 0 && <div style={{ fontSize:12, color:'#475569' }}>No active jobs</div>}
+        <div style={{ fontSize:11, color:'#1f2937', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:6 }}>Active Jobs ({activeJobs.length})</div>
+        {activeJobs.length === 0 && <div style={{ fontSize:12, color:'#1f2937' }}>No active jobs</div>}
         {activeJobs.slice(0,3).map(j => (
           <div key={j.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:4 }}>
-            <span style={{ fontSize:12, color:'#a0b0c8', flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginRight:8 }}>{j.title}</span>
+            <span style={{ fontSize:12, color:'#1f2937', flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginRight:8 }}>{j.title}</span>
             <StatusBadge status={j.status} small />
           </div>
         ))}
-        {activeJobs.length > 3 && <div style={{ fontSize:11, color:'#475569' }}>+{activeJobs.length-3} more</div>}
+        {activeJobs.length > 3 && <div style={{ fontSize:11, color:'#1f2937' }}>+{activeJobs.length-3} more</div>}
       </div>
-      {/* 最新备注 */}
+      {/* Latest note */}
       {latestNote && (
-        <div style={{ background:'#0f172a', borderRadius:8, padding:'8px 10px', borderLeft:'3px solid #38bdf840' }}>
-          <div style={{ fontSize:11, color:'#475569', marginBottom:4 }}>📝 最新备注 · {fmtDateTime(latestNote.createdAt)}</div>
-          <div style={{ fontSize:12, color:'#a0b0c8', lineHeight:1.4 }}>{latestNote.text.length > 90 ? latestNote.text.slice(0,90)+'…' : latestNote.text}</div>
+        <div style={{ background:'#ffffff', borderRadius:8, padding:'8px 10px', borderLeft:'3px solid #38bdf840' }}>
+          <div style={{ fontSize:11, color:'#1f2937', marginBottom:4 }}>📝 Latest note · {fmtDateTime(latestNote.createdAt)}</div>
+          <div style={{ fontSize:12, color:'#1f2937', lineHeight:1.4 }}>{latestNote.text.length > 90 ? latestNote.text.slice(0,90)+'…' : latestNote.text}</div>
         </div>
       )}
-      <div style={{ marginTop:10, fontSize:11, color:'#475569' }}>Client since {fmtDate(client.createdAt)} · {clientJobs.length} total jobs</div>
+      <div style={{ marginTop:10, fontSize:11, color:'#1f2937' }}>Client since {fmtDate(client.createdAt)} · {clientJobs.length} total jobs</div>
     </div>
   );
 }
@@ -403,6 +770,7 @@ function ClientSnapshot({ client, jobs, visible, anchorRef }) {
 
 /* ─── DASHBOARD ─────────────────────────────────────────────────────────────── */
 function Dashboard({ clients, jobs, team, onGoTo }) {
+  const { t } = useLang(); // eslint-disable-line no-unused-vars
   const [selectedJob, setSelectedJob] = useState(null);
 
   const active = clients.filter(c=>c.status==='Active').length;
@@ -413,10 +781,17 @@ function Dashboard({ clients, jobs, team, onGoTo }) {
   const recentJobs = [...jobs].sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).slice(0,5);
   const getClient = id => clients.find(c=>c.id===id);
   const getMember = id => team.find(t=>t.id===id);
-  const memberLoad = team.map(m => ({
-    ...m,
-    count: jobs.filter(j=>j.assignedTo===m.id && j.status!=='Completed').length
-  })).sort((a,b)=>b.count-a.count).slice(0,6);
+  // Always show Liang (t1) and Mansi (t2) first, then rest by workload
+  const memberLoad = (() => {
+    const withCount = team.map(m => ({
+      ...m,
+      count: jobs.filter(j=>j.assignedTo===m.id && j.status!=='Completed').length
+    }));
+    const priority = ['t1','t2']; // Liang, Mansi always top
+    const top = priority.map(id => withCount.find(m=>m.id===id)).filter(Boolean);
+    const rest = withCount.filter(m=>!priority.includes(m.id)).sort((a,b)=>b.count-a.count);
+    return [...top, ...rest].slice(0,6);
+  })();
 
   // Upcoming deadlines in next 14 days
   const now = new Date();
@@ -437,7 +812,7 @@ function Dashboard({ clients, jobs, team, onGoTo }) {
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
   const statCards = [
-    { label:'Active Clients',   value:active,     icon:'👥', color:'#38bdf8', sub:`of ${clients.length} total`,   onClick:()=>onGoTo('clients') },
+    { label:'Active Clients',   value:active,     icon:'👥', color:'#6366f1', sub:`of ${clients.length} total`,   onClick:()=>onGoTo('clients') },
     { label:'Jobs In Progress', value:inProgress, icon:'⚡', color:'#f59e0b', sub:`${jobs.length} total jobs`,     onClick:()=>onGoTo('jobs') },
     { label:'Urgent Jobs',      value:urgent,     icon:'🔴', color:'#f87171', sub:'need immediate attention',       onClick:()=>onGoTo('jobs') },
     { label:'Completed',        value:completed,  icon:'✅', color:'#34d399', sub:'jobs finished',                  onClick:()=>onGoTo('jobs') },
@@ -449,8 +824,8 @@ function Dashboard({ clients, jobs, team, onGoTo }) {
   return (
     <div className="animate-fade">
       <div style={{ marginBottom:28 }}>
-        <h1 style={{ fontSize:26, fontWeight:700, color:'#f1f5f9', marginBottom:4 }}>{greeting} 👋</h1>
-        <p style={{ color:'#7a8fa8', fontSize:14 }}>{new Date().toLocaleDateString('en-AU',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}</p>
+        <h1 style={{ fontSize:26, fontWeight:700, color:'#111827', marginBottom:4 }}>{greeting} 👋</h1>
+        <p style={{ color:'#1f2937', fontSize:14 }}>{new Date().toLocaleDateString('en-AU',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}</p>
       </div>
 
       {/* Stat cards – all clickable */}
@@ -458,9 +833,9 @@ function Dashboard({ clients, jobs, team, onGoTo }) {
         {statCards.map(s => (
           <Card key={s.label} onClick={s.onClick} style={{ position:'relative', overflow:'hidden' }}>
             <div style={{ position:'absolute', top:-10, right:-10, fontSize:48, opacity:0.08 }}>{s.icon}</div>
-            <div style={{ fontSize:13, color:'#7a8fa8', marginBottom:8 }}>{s.label}</div>
-            <div style={{ fontSize:36, fontWeight:700, color:s.color, marginBottom:4, fontFamily:"'JetBrains Mono',monospace" }}>{s.value}</div>
-            <div style={{ fontSize:12, color:'#475569' }}>{s.sub}</div>
+            <div style={{ fontSize:13, color:'#1f2937', marginBottom:8 }}>{s.label}</div>
+            <div style={{ fontSize:38, fontWeight:800, color:s.color, marginBottom:4, fontFamily:"'JetBrains Mono',monospace" }}>{s.value}</div>
+            <div style={{ fontSize:12, color:'#1f2937' }}>{s.sub}</div>
             <div style={{ position:'absolute', bottom:10, right:12, fontSize:11, color:s.color+'80' }}>click →</div>
           </Card>
         ))}
@@ -476,8 +851,8 @@ function Dashboard({ clients, jobs, team, onGoTo }) {
       {/* Pipeline summary bar */}
       <Card style={{ marginBottom:20, padding:'16px 20px' }}>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
-          <h3 style={{ fontSize:15, fontWeight:600, color:'#f1f5f9' }}>Pipeline Overview</h3>
-          <button onClick={()=>onGoTo('jobs')} style={{ background:'none', border:'none', color:'#38bdf8', fontSize:13, cursor:'pointer' }}>View all →</button>
+          <h3 style={{ fontSize:15, fontWeight:600, color:'#0f172a' }}>Pipeline Overview</h3>
+          <button onClick={()=>onGoTo('jobs')} style={{ background:'none', border:'none', color:'#6366f1', fontSize:13, cursor:'pointer' }}>View all →</button>
         </div>
         <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
           {pipeline.map(p => {
@@ -498,27 +873,27 @@ function Dashboard({ clients, jobs, team, onGoTo }) {
         {/* Recent Jobs – clickable rows */}
         <Card>
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
-            <h3 style={{ fontSize:15, fontWeight:600, color:'#f1f5f9' }}>Recent Jobs</h3>
-            <button onClick={()=>onGoTo('jobs')} style={{ background:'none', border:'none', color:'#38bdf8', fontSize:13, cursor:'pointer' }}>View all →</button>
+            <h3 style={{ fontSize:15, fontWeight:600, color:'#0f172a' }}>Recent Jobs</h3>
+            <button onClick={()=>onGoTo('jobs')} style={{ background:'none', border:'none', color:'#6366f1', fontSize:13, cursor:'pointer' }}>View all →</button>
           </div>
           <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
             {recentJobs.map(j => {
               const client = getClient(j.clientId);
               const member = getMember(j.assignedTo);
               return (
-                <div key={j.id} onClick={()=>setSelectedJob(j)} style={{ padding:'10px 12px', background:'#0f172a', borderRadius:8, border:'1px solid #2e4460', cursor:'pointer', transition:'border-color 0.15s' }}
+                <div key={j.id} onClick={()=>setSelectedJob(j)} style={{ padding:'10px 12px', background:'#ffffff', borderRadius:8, border:'1.5px solid #cbd5e1', cursor:'pointer', transition:'border-color 0.15s' }}
                   onMouseEnter={e=>e.currentTarget.style.borderColor='#38bdf860'}
-                  onMouseLeave={e=>e.currentTarget.style.borderColor='#2e4460'}>
+                  onMouseLeave={e=>e.currentTarget.style.borderColor='#e5e7eb'}>
                   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:6 }}>
                     <div>
-                      <div style={{ fontSize:13, fontWeight:600, color:'#f1f5f9', marginBottom:2 }}>{j.title}</div>
-                      <div style={{ fontSize:12, color:'#7a8fa8' }}>{client?.name} · {j.type}</div>
+                      <div style={{ fontSize:13, fontWeight:600, color:'#111827', marginBottom:2 }}>{j.title}</div>
+                      <div style={{ fontSize:12, color:'#1f2937' }}>{client?.name} · {j.type}</div>
                     </div>
                     <StatusBadge status={j.status} small />
                   </div>
                   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
                     <div style={{ flex:1 }}><ProgressBar value={j.progress} /></div>
-                    {member && <div style={{ display:'flex', alignItems:'center', gap:5, marginLeft:10, flexShrink:0 }}><Avatar name={member.name} color={member.color} size={20} /><span style={{ fontSize:11, color:'#7a8fa8' }}>{member.name.split(' ')[0]}</span></div>}
+                    {member && <div style={{ display:'flex', alignItems:'center', gap:5, marginLeft:10, flexShrink:0 }}><Avatar name={member.name} color={member.color} size={20} /><span style={{ fontSize:11, color:'#1f2937' }}>{member.name.split(' ')[0]}</span></div>}
                   </div>
                 </div>
               );
@@ -529,8 +904,8 @@ function Dashboard({ clients, jobs, team, onGoTo }) {
         {/* Team Workload – clickable */}
         <Card>
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
-            <h3 style={{ fontSize:15, fontWeight:600, color:'#f1f5f9' }}>Team Workload</h3>
-            <button onClick={()=>onGoTo('team')} style={{ background:'none', border:'none', color:'#38bdf8', fontSize:13, cursor:'pointer' }}>View team →</button>
+            <h3 style={{ fontSize:15, fontWeight:600, color:'#0f172a' }}>Team Workload</h3>
+            <button onClick={()=>onGoTo('team')} style={{ background:'none', border:'none', color:'#6366f1', fontSize:13, cursor:'pointer' }}>View team →</button>
           </div>
           <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
             {memberLoad.map(m => {
@@ -542,8 +917,8 @@ function Dashboard({ clients, jobs, team, onGoTo }) {
                   <Avatar name={m.name} color={m.color} size={30} />
                   <div style={{ flex:1 }}>
                     <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
-                      <span style={{ fontSize:13, color:'#e2e8f0' }}>{m.name}</span>
-                      <span style={{ fontSize:12, color:'#7a8fa8', fontFamily:"'JetBrains Mono',monospace" }}>{m.count} active</span>
+                      <span style={{ fontSize:13, color:'#1f2937' }}>{m.name}</span>
+                      <span style={{ fontSize:12, color:'#1f2937', fontFamily:"'JetBrains Mono',monospace" }}>{m.count} active</span>
                     </div>
                     <div style={{ height:4, borderRadius:4, background:'#1e293b', overflow:'hidden' }}>
                       <div style={{ height:'100%', width:`${pct}%`, background: pct>80?'#f87171':pct>50?'#f59e0b':m.color, borderRadius:4 }} />
@@ -560,8 +935,8 @@ function Dashboard({ clients, jobs, team, onGoTo }) {
       {upcoming.length > 0 && (
         <Card>
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
-            <h3 style={{ fontSize:15, fontWeight:600, color:'#f1f5f9' }}>📅 Upcoming Deadlines <span style={{ fontSize:12, color:'#7a8fa8', fontWeight:400 }}>(next 14 days)</span></h3>
-            <button onClick={()=>onGoTo('jobs')} style={{ background:'none', border:'none', color:'#38bdf8', fontSize:13, cursor:'pointer' }}>View all →</button>
+            <h3 style={{ fontSize:15, fontWeight:600, color:'#111827' }}>📅 Upcoming Deadlines <span style={{ fontSize:12, color:'#1f2937', fontWeight:400 }}>(next 14 days)</span></h3>
+            <button onClick={()=>onGoTo('jobs')} style={{ background:'none', border:'none', color:'#6366f1', fontSize:13, cursor:'pointer' }}>View all →</button>
           </div>
           <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
             {upcoming.map(j => {
@@ -569,16 +944,16 @@ function Dashboard({ clients, jobs, team, onGoTo }) {
               const daysLeft = Math.ceil((new Date(j.dueDate) - now) / 86400000);
               const urgency = daysLeft <= 3 ? '#f87171' : daysLeft <= 7 ? '#f59e0b' : '#34d399';
               return (
-                <div key={j.id} onClick={()=>setSelectedJob(j)} style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 14px', background:'#0f172a', borderRadius:8, border:'1px solid #2e4460', cursor:'pointer', transition:'border-color 0.15s' }}
+                <div key={j.id} onClick={()=>setSelectedJob(j)} style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 14px', background:'#ffffff', borderRadius:8, border:'1.5px solid #cbd5e1', cursor:'pointer', transition:'border-color 0.15s' }}
                   onMouseEnter={e=>e.currentTarget.style.borderColor='#38bdf860'}
-                  onMouseLeave={e=>e.currentTarget.style.borderColor='#2e4460'}>
+                  onMouseLeave={e=>e.currentTarget.style.borderColor='#e5e7eb'}>
                   <div style={{ minWidth:42, height:42, borderRadius:8, background:urgency+'20', border:`2px solid ${urgency}40`, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center' }}>
                     <div style={{ fontSize:14, fontWeight:700, color:urgency, lineHeight:1 }}>{daysLeft}</div>
                     <div style={{ fontSize:9, color:urgency+'99' }}>days</div>
                   </div>
                   <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ fontSize:13, fontWeight:600, color:'#f1f5f9', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{j.title}</div>
-                    <div style={{ fontSize:12, color:'#7a8fa8' }}>{client?.name} · Due {fmtDate(j.dueDate)}</div>
+                    <div style={{ fontSize:13, fontWeight:600, color:'#111827', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{j.title}</div>
+                    <div style={{ fontSize:12, color:'#1f2937' }}>{client?.name} · Due {fmtDate(j.dueDate)}</div>
                   </div>
                   <div style={{ display:'flex', gap:8, alignItems:'center', flexShrink:0 }}>
                     <PriorityBadge priority={j.priority} />
@@ -596,44 +971,44 @@ function Dashboard({ clients, jobs, team, onGoTo }) {
         <Modal title={`Job Details – ${selectedJob.title}`} onClose={()=>setSelectedJob(null)} wide>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20, marginBottom:20 }}>
             <div>
-              <div style={{ fontSize:11, color:'#7a8fa8', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:6 }}>Client</div>
-              <div style={{ fontSize:14, color:'#f1f5f9', fontWeight:600 }}>{selectedClient?.name || '—'}</div>
-              <div style={{ fontSize:12, color:'#7a8fa8' }}>{selectedClient?.email}</div>
+              <div style={{ fontSize:11, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:6 }}>Client</div>
+              <div style={{ fontSize:14, color:'#111827', fontWeight:600 }}>{selectedClient?.name || '—'}</div>
+              <div style={{ fontSize:12, color:'#1f2937' }}>{selectedClient?.email}</div>
             </div>
             <div>
-              <div style={{ fontSize:11, color:'#7a8fa8', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:6 }}>Assigned To</div>
+              <div style={{ fontSize:11, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:6 }}>Assigned To</div>
               <div style={{ display:'flex', alignItems:'center', gap:8 }}>
                 {selectedMember && <Avatar name={selectedMember.name} color={selectedMember.color} size={28} />}
-                <div style={{ fontSize:14, color:'#f1f5f9' }}>{selectedMember?.name || '—'}</div>
+                <div style={{ fontSize:14, color:'#111827' }}>{selectedMember?.name || '—'}</div>
               </div>
             </div>
             <div>
-              <div style={{ fontSize:11, color:'#7a8fa8', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:6 }}>Status / Priority</div>
+              <div style={{ fontSize:11, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:6 }}>Status / Priority</div>
               <div style={{ display:'flex', gap:8 }}><StatusBadge status={selectedJob.status} /><PriorityBadge priority={selectedJob.priority} /></div>
             </div>
             <div>
-              <div style={{ fontSize:11, color:'#7a8fa8', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:6 }}>Due Date</div>
-              <div style={{ fontSize:14, color: isOverdue(selectedJob.dueDate) && selectedJob.status!=='Completed' ? '#f87171':'#f1f5f9' }}>{fmtDate(selectedJob.dueDate)}</div>
+              <div style={{ fontSize:11, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:6 }}>Due Date</div>
+              <div style={{ fontSize:14, color: isOverdue(selectedJob.dueDate) && selectedJob.status!=='Completed' ? '#f87171':'#e2e8f0' }}>{fmtDate(selectedJob.dueDate)}</div>
             </div>
           </div>
           <div style={{ marginBottom:16 }}>
-            <div style={{ fontSize:11, color:'#7a8fa8', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:6 }}>Progress – {selectedJob.progress}%</div>
+            <div style={{ fontSize:11, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:6 }}>Progress – {selectedJob.progress}%</div>
             <ProgressBar value={selectedJob.progress} />
           </div>
           {normalizeNotes(selectedJob.notes).length > 0 && (
             <div style={{ marginBottom:16 }}>
-              <div style={{ fontSize:11, color:'#7a8fa8', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:10 }}>Notes ({normalizeNotes(selectedJob.notes).length})</div>
+              <div style={{ fontSize:11, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:10 }}>Notes ({normalizeNotes(selectedJob.notes).length})</div>
               {[...normalizeNotes(selectedJob.notes)].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)).slice(0,3).map(n => (
-                <div key={n.id} style={{ background:'#0f172a', border:'1px solid #2e4460', borderRadius:8, padding:'10px 12px', marginBottom:8 }}>
-                  <div style={{ fontSize:13, color:'#e2e8f0' }}>{n.text}</div>
-                  <div style={{ fontSize:11, color:'#475569', marginTop:4 }}>{fmtDateTime(n.createdAt)}</div>
+                <div key={n.id} style={{ background:'#ffffff', border:'1.5px solid #d1d5db', borderRadius:8, padding:'10px 12px', marginBottom:8 }}>
+                  <div style={{ fontSize:13, color:'#1f2937' }}>{n.text}</div>
+                  <div style={{ fontSize:11, color:'#1f2937', marginTop:4 }}>{fmtDateTime(n.createdAt)}</div>
                 </div>
               ))}
             </div>
           )}
-          <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:4, borderTop:'1px solid #2e4460', paddingTop:16 }}>
-            <button onClick={()=>setSelectedJob(null)} style={{ background:'#2e4460', border:'none', borderRadius:8, padding:'9px 18px', color:'#a0b0c8', fontWeight:500 }}>Close</button>
-            <button onClick={()=>{ setSelectedJob(null); onGoTo('jobs'); }} style={{ background:'#38bdf8', border:'none', borderRadius:8, padding:'9px 20px', color:'#0f172a', fontWeight:700 }}>Open in Jobs →</button>
+          <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:4, borderTop:'1.5px solid #e2e8f0', paddingTop:16 }}>
+            <button onClick={()=>setSelectedJob(null)} style={{ background:'#e5e7eb', border:'none', borderRadius:8, padding:'9px 18px', color:'#1f2937', fontWeight:500 }}>Close</button>
+            <button onClick={()=>{ setSelectedJob(null); onGoTo('jobs'); }} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, padding:'9px 20px', color:'#fff', fontWeight:700 }}>Open in Jobs →</button>
           </div>
         </Modal>
       )}
@@ -644,38 +1019,95 @@ function Dashboard({ clients, jobs, team, onGoTo }) {
 
 /* ─── CLIENT DETAIL MODAL (tabbed + AI import) ────────────────────────────── */
 function ClientDetailModal({ client, jobs, onClose, onEdit, onSaveProfile }) {
+  const { t } = useLang();
   const [tab, setTab]               = useState('profile');
   const [importing, setImporting]   = useState(false);
   const [importPreview, setImportPreview] = useState(null);
   const [applyMsg, setApplyMsg]     = useState('');
-  const [contractBusy, setContractBusy] = useState(false);
   const fileRef                     = useRef(null);
+  const [contractBusy, setContractBusy] = useState(false);
+
+  const handleGenerateContract = async () => {
+    try {
+      setContractBusy(true);
+      await generateClientContractFile(client, clientJobs);
+    } catch (err) {
+      window.alert('合同生成失败: ' + (err?.message || err));
+    } finally {
+      setContractBusy(false);
+    }
+  };
+
+  // WeChat import state
+  const [wchat, setWchat]           = useState('');
+  const [wchatParsing, setWchatParsing] = useState(false);
+  const [wchatResult, setWchatResult]   = useState(null);
+  const [wchatSaved, setWchatSaved]     = useState(false);
   const clientJobs                  = jobs.filter(j => j.clientId === client.id);
-  const activeJobs                  = clientJobs.filter(j => j.status !== 'Completed');
-  const latestNote                  = [...normalizeNotes(client.notes)].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt))[0];
+
+  /* ── WeChat chat import ─────────────────────────────── */
+  const parseWeChat = async () => {
+    if (!wchat.trim()) return;
+    setWchatParsing(true); setWchatResult(null); setWchatSaved(false);
+    try {
+      const res = await fetch('/api/claude', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          model:'claude-sonnet-4-20250514', max_tokens:3000,
+          messages:[{ role:'user', content:
+`You are an immigration CRM assistant. Analyse this WeChat conversation involving client "${client.name}" and extract a structured communication summary.
+
+WeChat Chat:
+${wchat.slice(0,6000)}
+
+Return ONLY valid JSON (no markdown, no explanation):
+{
+  "summary": "2-3 sentence overview of what was discussed",
+  "keyTopics": ["topic1","topic2"],
+  "clientRequests": ["what the client asked for or needed"],
+  "actionItems": ["things the agent/team needs to do"],
+  "importantDates": ["any dates mentioned e.g. visa expiry, appointment dates"],
+  "sentiment": "positive|neutral|concerned|urgent",
+  "language": "English|Mandarin|Mixed",
+  "messageCount": <number>,
+  "dateRange": "earliest to latest date found or null",
+  "tags": ["visa type mentioned","document mentioned","etc"]
+}`
+          }]
+        })
+      });
+      const data = await res.json();
+      const txt = (data.content||[]).map(c=>c.text||'').join('');
+      const clean = txt.replace(/```json|```/g,'').trim();
+      setWchatResult(JSON.parse(clean));
+    } catch(e) {
+      setWchatResult({ summary:'Parse error: '+e.message, keyTopics:[], clientRequests:[], actionItems:[], importantDates:[], sentiment:'neutral', language:'Unknown', messageCount:0, dateRange:null, tags:[] });
+    }
+    setWchatParsing(false);
+  };
+
+  const saveWchatNote = () => {
+    if (!wchatResult) return;
+    const noteText = [
+      '💬 WeChat Import',
+      `Summary: ${wchatResult.summary}`,
+      wchatResult.actionItems?.length ? `Action Items: ${wchatResult.actionItems.join('; ')}` : '',
+      wchatResult.clientRequests?.length ? `Client Requests: ${wchatResult.clientRequests.join('; ')}` : '',
+      wchatResult.importantDates?.length ? `Key Dates: ${wchatResult.importantDates.join(', ')}` : '',
+      wchatResult.dateRange ? `Chat Period: ${wchatResult.dateRange}` : '',
+    ].filter(Boolean).join('\n');
+    onSaveProfile({ ...client, notes: [makeNote(noteText), ...normalizeNotes(client.notes)] });
+    setWchatSaved(true);
+  };
   const p                           = client.profile || {};
 
   /* ── AI document import ─────────────────────────────── */
   const handleFile = async (e) => {
     const file = e.target.files?.[0]; if (!file) return;
     setImporting(true); setImportPreview(null);
-    const isPdf = file.name.toLowerCase().endsWith('.pdf') || file.type === 'application/pdf';
     try {
-      let msgContent;
-      if (isPdf) {
-        // PDF: send as base64 document to Claude
-        const buf = await file.arrayBuffer();
-        const base64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
-        msgContent = [
-          { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } },
-          { type: 'text', text: `Extract ALL client and visa information from this Australian immigration document and return ONLY valid JSON, no markdown.\n\nFocus especially on: visa grant dates, visa expiry dates, CoE numbers, application reference numbers, client personal details, and any visa status information.\n\nReturn this exact structure (use null for missing fields):\n{\n  "name":"","email":"","phone":"","nationality":"",\n  "profile":{\n    "sex":null,"dob":null,"birthplace":null,"passportNo":null,"passportExpiry":null,\n    "auAddress":null,"maritalStatus":null,"chinaId":null,\n    "qq":null,"eaFileNo":null,"responsibleConsultant":null,\n    "visaHistory":[{"type":"","appNo":"","lodgeDate":"","grantDate":"","expiry":"","status":"Granted"}],\n    "addressHistory":[{"from":"","to":"","address":""}],\n    "employmentHistory":[{"from":"","to":"","company":"","role":"","country":""}],\n    "character":{"form80":null,"afpCheck":null,"pcc":null},\n    "sponsor":{"name":null,"sex":null,"dob":null,"nationality":null,"passportNo":null,"address":null,"occupation":null,"priorMaritalStatus":null},\n    "marriage":{"date":null,"location":null,"registrationNo":null},\n    "keyIssues":[{"priority":"High","item":"","detail":""}],\n    "documents":[{"name":"","mainApplicant":"","sponsor":"","secondary":""}]\n  }\n}` }
-        ];
-      } else {
-        // DOCX: extract text with mammoth
-        const buf = await file.arrayBuffer();
-        const { value: rawText } = await mammoth.extractRawText({ arrayBuffer: buf });
-        msgContent = [{ type: 'text', text: `Extract client data from this Australian immigration document and return ONLY valid JSON, no markdown.\n\nDocument:\n${rawText.slice(0,8000)}\n\nReturn this exact structure (use null for missing, keep English for field values):\n{\n  "name":"","email":"","phone":"","nationality":"",\n  "profile":{\n    "sex":null,"dob":null,"birthplace":null,"passportNo":null,"passportExpiry":null,\n    "auAddress":null,"maritalStatus":null,"chinaId":null,\n    "qq":null,"eaFileNo":null,"responsibleConsultant":null,\n    "visaHistory":[{"type":"","appNo":"","lodgeDate":"","grantDate":"","expiry":"","status":""}],\n    "addressHistory":[{"from":"","to":"","address":""}],\n    "employmentHistory":[{"from":"","to":"","company":"","role":"","country":""}],\n    "character":{"form80":null,"afpCheck":null,"pcc":null},\n    "sponsor":{"name":null,"sex":null,"dob":null,"nationality":null,"passportNo":null,"address":null,"occupation":null,"priorMaritalStatus":null},\n    "marriage":{"date":null,"location":null,"registrationNo":null},\n    "keyIssues":[{"priority":"High","item":"","detail":""}],\n    "documents":[{"name":"","mainApplicant":"","sponsor":"","secondary":""}]\n  }\n}` }];
-      }
+      const buf      = await file.arrayBuffer();
+      const { value: rawText } = await mammoth.extractRawText({ arrayBuffer: buf });
 
       const res = await fetch('/api/claude', {
         method: 'POST',
@@ -683,8 +1115,28 @@ function ClientDetailModal({ client, jobs, onClose, onEdit, onSaveProfile }) {
         body: JSON.stringify({
           model: 'claude-sonnet-4-20250514',
           max_tokens: 4000,
-          messages: [{ role: 'user', content: msgContent }],
-        }),
+          messages: [{ role:'user', content:
+`Extract client data from this Australian immigration document and return ONLY valid JSON, no markdown.
+
+Document:
+${rawText.slice(0,8000)}
+
+Return this exact structure (use null for missing, keep English for field values):
+{
+  "name":"","email":"","phone":"","nationality":"",
+  "profile":{
+    "sex":null,"dob":null,"birthplace":null,"passportNo":null,"passportExpiry":null,
+    "auAddress":null,"maritalStatus":null,"chinaId":null,
+    "visaHistory":[{"type":"","number":"","grantDate":"","expiry":""}],
+    "addressHistory":[{"from":"","to":"","address":""}],
+    "employmentHistory":[{"from":"","to":"","company":"","role":"","country":""}],
+    "character":{"form80":null,"afpCheck":null,"pcc":null},
+    "sponsor":{"name":null,"sex":null,"dob":null,"nationality":null,"passportNo":null,"address":null,"occupation":null,"priorMaritalStatus":null},
+    "marriage":{"date":null,"location":null,"registrationNo":null},
+    "keyIssues":[{"priority":"High","item":"","detail":""}],
+    "documents":[{"name":"","mainApplicant":"","sponsor":"","secondary":""}]
+  }
+}` }] })
       });
       const d = await res.json();
       const txt = (d.content?.[0]?.text || '').replace(/```json|```/g,'').trim();
@@ -715,7 +1167,7 @@ function ClientDetailModal({ client, jobs, onClose, onEdit, onSaveProfile }) {
   /* ── Section helpers ─────────────────────────────────── */
   const S = ({ icon, title, children }) => (
     <div style={{ marginBottom:20 }}>
-      <div style={{ fontSize:12, color:'#38bdf8', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:10, display:'flex', alignItems:'center', gap:6 }}>
+      <div style={{ fontSize:12, color:'#6366f1', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:10, display:'flex', alignItems:'center', gap:6 }}>
         <span>{icon}</span>{title}
       </div>
       {children}
@@ -723,26 +1175,26 @@ function ClientDetailModal({ client, jobs, onClose, onEdit, onSaveProfile }) {
   );
 
   const Field = ({ label, value, warn }) => (
-    <div style={{ background:'#1a2d45', borderRadius:8, padding:'10px 14px', border: warn ? '1px solid #f59e0b50' : '1px solid #2e4460' }}>
-      <div style={{ fontSize:10, color:'#7a8fa8', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:3 }}>{label}</div>
-      <div style={{ fontSize:13, color: warn ? '#fbbf24' : '#f1f5f9', fontWeight:500, wordBreak:'break-word' }}>{value || '—'}</div>
+    <div style={{ background:'#f9fafb', borderRadius:8, padding:'9px 13px', border: warn ? '1px solid #f59e0b60' : '1px solid #e5e7eb' }}>
+      <div style={{ fontSize:10, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:3 }}>{label}</div>
+      <div style={{ fontSize:13, color: warn ? '#d97706' : '#111827', fontWeight:500, wordBreak:'break-word' }}>{value || '—'}</div>
     </div>
   );
 
   const Table = ({ heads, rows }) => (
-    <div style={{ overflowX:'auto', borderRadius:8, border:'1px solid #253650' }}>
+    <div style={{ overflowX:'auto', borderRadius:8, border:'1px solid #e5e7eb' }}>
       <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
         <thead>
-          <tr style={{ background:'#162032' }}>
-            {heads.map(h => <th key={h} style={{ padding:'7px 12px', color:'#7a8fa8', fontWeight:600, textAlign:'left', whiteSpace:'nowrap', textTransform:'uppercase', fontSize:10, letterSpacing:'0.05em' }}>{h}</th>)}
+          <tr style={{ background:'#f8fafc' }}>
+            {heads.map(h => <th key={h} style={{ padding:'7px 12px', color:'#1f2937', fontWeight:600, textAlign:'left', whiteSpace:'nowrap', textTransform:'uppercase', fontSize:10, letterSpacing:'0.05em' }}>{h}</th>)}
           </tr>
         </thead>
         <tbody>
           {rows.length === 0
-            ? <tr><td colSpan={heads.length} style={{ padding:'10px 12px', color:'#475569', textAlign:'center', fontSize:12 }}>No records</td></tr>
+            ? <tr><td colSpan={heads.length} style={{ padding:'10px 12px', color:'#1f2937', textAlign:'center', fontSize:12 }}>No records</td></tr>
             : rows.map((r, i) => (
-              <tr key={i} style={{ borderTop:'1px solid #253650', background: i%2===0 ? 'transparent' : '#162032' }}>
-                {r.map((cell, j) => <td key={j} style={{ padding:'7px 12px', color: cell?.startsWith?.('⚠️') ? '#fbbf24' : '#e2e8f0' }}>{cell || '—'}</td>)}
+              <tr key={i} style={{ borderTop:'1px solid #e9eaf3', background: i%2===0 ? '#fff' : '#f9fafb' }}>
+                {r.map((cell, j) => <td key={j} style={{ padding:'7px 12px', color: cell?.startsWith?.('⚠️') || cell?.startsWith?.('❌') ? '#d97706' : '#374151' }}>{cell || '—'}</td>)}
               </tr>
             ))
           }
@@ -751,176 +1203,153 @@ function ClientDetailModal({ client, jobs, onClose, onEdit, onSaveProfile }) {
     </div>
   );
 
-  const handleGenerateContract = async () => {
-    try {
-      setContractBusy(true);
-      await generateClientContractFile(client, clientJobs);
-    } catch (err) {
-      window.alert('Contract generation failed: ' + (err?.message || err));
-    } finally {
-      setContractBusy(false);
-    }
-  };
-
   const tabs = [
-    { id:'profile',  label:'👤 档案' },
-    { id:'jobs',     label:`📋 案件 (${clientJobs.length})` },
-    { id:'notes',    label:`📝 备注 (${normalizeNotes(client.notes).length})` },
-    { id:'import',   label:'📥 导入文档' },
+    { id:'profile',  label:'👤 Profile' },
+    { id:'jobs',     label:`📋 Jobs (${clientJobs.length})` },
+    { id:'notes',    label:`📝 ${t('Notes')||'Notes'} (${normalizeNotes(client.notes).length})` },
+    { id:'wechat',   label:`💬 ${t('WeChat')||'WeChat'}` },
+    { id:'import',   label:`📥 ${t('Import Doc')||'Import Doc'}` },
   ];
 
   return (
-    <Modal title={`客户 — ${client.name}`} onClose={onClose} wide
-      footer={
-        <div style={{ display:'flex', justifyContent:'space-between', gap:10 }}>
-          <button onClick={handleGenerateContract} disabled={contractBusy}
-            style={{ padding:'9px 18px', background: contractBusy?'#253650':'linear-gradient(135deg,#0f766e,#0d9488)', border:'none', borderRadius:8, color: contractBusy?'#64748b':'#fff', fontSize:13, fontWeight:600, cursor:contractBusy?'not-allowed':'pointer' }}>
-            {contractBusy ? '生成中…' : '📄 生成合同'}
-          </button>
-          <div style={{ display:'flex', gap:10 }}>
-            <button onClick={onClose} style={{ padding:'9px 18px', background:'#253650', border:'1px solid #2e4460', borderRadius:8, color:'#a0b0c8', fontSize:13 }}>关闭</button>
-            <button onClick={onEdit} style={{ padding:'9px 20px', background:'#38bdf8', border:'none', borderRadius:8, color:'#0f172a', fontSize:13, fontWeight:700 }}>✏️ 编辑</button>
-          </div>
-        </div>
-      }
-    >
+    <Modal title={`${t('Client —')} ${client.name}`} onClose={onClose} wide>
       {/* Tabs */}
-      <div style={{ display:'flex', gap:4, marginBottom:20, borderBottom:'1px solid #2e4460', paddingBottom:0 }}>
+      <div style={{ display:'flex', gap:4, marginBottom:20, borderBottom:'2px solid #e2e8f0', paddingBottom:0 }}>
         {tabs.map(t => (
-          <button key={t.id} onClick={()=>setTab(t.id)} style={{ padding:'8px 16px', background:'none', border:'none', color: tab===t.id ? '#38bdf8' : '#7a8fa8', fontWeight: tab===t.id ? 700 : 400, fontSize:13, borderBottom: tab===t.id ? '2px solid #38bdf8' : '2px solid transparent', cursor:'pointer', marginBottom:-1 }}>{t.label}</button>
+          <button key={t.id} onClick={()=>setTab(t.id)} style={{ padding:'8px 16px', background:'none', border:'none', color: tab===t.id ? '#6366f1' : '#6b7280', fontWeight: tab===t.id ? 700 : 400, fontSize:13, borderBottom: tab===t.id ? '2px solid #6366f1' : '2px solid transparent', cursor:'pointer', marginBottom:-1 }}>{t.label}</button>
         ))}
       </div>
 
       {/* ── PROFILE TAB ──────────────────────────────────── */}
       {tab === 'profile' && (
-        <div style={{ paddingRight:4 }}>
-          {/* Header */}
-          <div style={{ display:'flex', alignItems:'center', gap:14, marginBottom:22, padding:'14px 16px', background:'linear-gradient(135deg,#0d1f33,#162032)', borderRadius:10, border:'1px solid #1e3a5f' }}>
-            <div style={{ width:52, height:52, borderRadius:'50%', background:'#1e3a5f', display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, fontWeight:700, color:'#38bdf8', flexShrink:0 }}>{initials(client.name)}</div>
-            <div style={{ flex:1 }}>
-              <div style={{ fontSize:18, fontWeight:700, color:'#f1f5f9' }}>{client.name}</div>
-              <div style={{ fontSize:12, color:'#7a8fa8', marginTop:2 }}>{client.email} · {client.phone}</div>
+        <div style={{ paddingRight:2 }}>
+
+          {/* ── SNAPSHOT HEADER CARD ─────────────────────── */}
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:20, padding:'16px 20px', background:'linear-gradient(135deg,#1c1f3a,#2d3563)', borderRadius:14, color:'#fff' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:14 }}>
+              <div style={{ width:56, height:56, borderRadius:'50%', background:'rgba(255,255,255,0.15)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:22, fontWeight:800, color:'#fff', flexShrink:0, border:'2px solid rgba(255,255,255,0.3)' }}>{initials(client.name)}</div>
+              <div>
+                <div style={{ fontSize:10, color:'rgba(255,255,255,0.6)', textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:2 }}>CLIENT SNAPSHOT CARD</div>
+                <div style={{ fontSize:20, fontWeight:800, letterSpacing:'0.02em' }}>{client.name}</div>
+                {p.nameChinese && <div style={{ fontSize:14, color:'rgba(255,255,255,0.7)', marginTop:1 }}>{p.nameChinese}</div>}
+                {p.dob && <div style={{ fontSize:12, color:'rgba(255,255,255,0.6)', marginTop:3 }}>DOB: {p.dob}</div>}
+              </div>
             </div>
-            <div style={{ display:'flex', gap:8, flexWrap:'wrap', justifyContent:'flex-end' }}>
+            <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:6 }}>
               <StatusBadge status={client.status} />
-              <span style={{ fontSize:12, color: client.type==='Student'?'#60a5fa':client.type==='Migration'?'#a78bfa':'#34d399', background: client.type==='Student'?'#1e40af20':client.type==='Migration'?'#6d28d920':'#05966920', padding:'3px 10px', borderRadius:20, fontWeight:600 }}>{client.type}</span>
-              {client.nationality && <span style={{ fontSize:12, color:'#a0b0c8', background:'#2e4460', padding:'3px 10px', borderRadius:20, fontWeight:500 }}>{client.nationality}</span>}
+              <button onClick={onEdit} style={{ background:'rgba(255,255,255,0.15)', border:'1px solid rgba(255,255,255,0.3)', borderRadius:8, padding:'5px 12px', color:'#fff', fontSize:11, fontWeight:600, cursor:'pointer' }}>✏️ {t('Edit Profile')}</button>
             </div>
           </div>
 
-          <S icon="📸" title="概况">
+          {/* ── 一、PERSONAL INFORMATION ────────────────── */}
+          <S icon="👤" title={`一、${t('PERSONAL INFORMATION')}`}>
             <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8 }}>
-              <Field label="客户时间" value={fmtDate(client.createdAt)} />
-              <Field label="案件总数" value={String(clientJobs.length)} />
-              <Field label="进行中" value={String(activeJobs.length)} />
-              <Field label="邮箱" value={client.email} />
-              <Field label="电话" value={client.phone} />
-              <Field label="国籍" value={client.nationality} />
-            </div>
-            <div style={{ marginTop:8, background:'#162032', borderRadius:8, padding:'10px 13px', border:'1px solid #253650' }}>
-              <div style={{ fontSize:10, color:'#7a8fa8', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:4 }}>最新备注</div>
-              <div style={{ fontSize:13, color:'#f1f5f9', fontWeight:500, lineHeight:1.5 }}>{latestNote?.text || '暂无备注'}</div>
-              {latestNote && <div style={{ fontSize:11, color:'#7a8fa8', marginTop:6 }}>{fmtDateTime(latestNote.createdAt)}</div>}
+              <Field label={t('Full Name')}       value={client.name} />
+              <Field label={t('Gender')}          value={p.sex} />
+              <Field label={t('Date of Birth')}   value={p.dob} />
+              <Field label={t('Birthplace')}      value={p.birthplace} />
+              <Field label={t('Nationality')}     value={client.nationality} />
+              <Field label={t('Email')}           value={client.email} />
+              <Field label={t('Mobile')}          value={client.phone} />
+              <Field label="QQ"                   value={p.qq} />
+              <Field label={t('EA File No')}      value={p.eaFileNo} />
+              <Field label={t('Passport No')}     value={p.passportNo} />
+              <Field label={t('Passport Expiry')} value={p.passportExpiry} warn={p.passportExpiry && new Date(p.passportExpiry) < new Date(Date.now()+6*30*24*3600*1000)} />
+              <Field label={t('China ID')}        value={p.chinaId} />
+              <Field label={t('AU Address')}      value={p.auAddress} />
+              <Field label={t('Marital Status')}  value={p.maritalStatus} />
+              <Field label={t('Consultant')}      value={p.consultant} />
             </div>
           </S>
 
-          <S icon="👤" title="主申请人">
-            <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8 }}>
-              <Field label="姓名"       value={client.name} />
-              <Field label="性别"          value={p.sex} />
-              <Field label="出生日期"   value={p.dob} />
-              <Field label="出生地"      value={p.birthplace} />
-              <Field label="国籍"     value={client.nationality} />
-              <Field label="邮箱"           value={client.email} />
-              <Field label="手机"          value={client.phone} />
-              <Field label="QQ"                  value={p.qq} />
-              <Field label="EA档案号"  value={p.eaFileNo} />
-              <Field label="护照号码"     value={p.passportNo} />
-              <Field label="护照有效期" value={p.passportExpiry} />
-              <Field label="身份证号"        value={p.chinaId} />
-              <Field label="澳洲地址"      value={p.auAddress} />
-              <Field label="婚姻状况"  value={p.maritalStatus} />
-              <Field label="负责顾问"    value={p.responsibleConsultant} />
-            </div>
+          {/* ── 二、SERVICE AGREEMENT ───────────────────── */}
+          {(p.serviceAgreement?.contractDate || p.serviceAgreement?.totalFee || p.visaTarget) && (
+            <S icon="📄" title={`二、${t('SERVICE AGREEMENT')}`}>
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8, marginBottom:10 }}>
+                <Field label={t('Visa Target')}    value={p.visaTarget || p.serviceAgreement?.visaTarget} />
+                <Field label={t('Contract Date')}  value={p.serviceAgreement?.contractDate} />
+                <Field label={t('Total Fee')}      value={p.serviceAgreement?.totalFee} />
+              </div>
+              {(p.serviceAgreement?.payments||[]).length > 0 && (
+                <Table
+                  heads={['#', t('Amount'), t('Status'), t('Details')]}
+                  rows={(p.serviceAgreement.payments||[]).map((pay,i)=>[
+                    `${t('Payment')} ${i+1}`,
+                    pay.amount,
+                    pay.status,
+                    pay.includes || pay.details || '—'
+                  ])}
+                />
+              )}
+              {p.serviceAgreement?.payment1Amount && (
+                <Table
+                  heads={['#', t('Amount'), t('Status'), t('Details')]}
+                  rows={[
+                    [`${t('Payment')} 1`, p.serviceAgreement.payment1Amount, t('Paid'), p.serviceAgreement.payment1Details||'—'],
+                    [`${t('Payment')} 2`, p.serviceAgreement.payment2Amount, t('Pending'), p.serviceAgreement.payment2Details||'—'],
+                  ]}
+                />
+              )}
+            </S>
+          )}
+
+          {/* ── 三、VISA HISTORY ────────────────────────── */}
+          <S icon="🛂" title={`三、${t('VISA HISTORY')}`}>
+            {(p.visaHistory||[]).length === 0
+              ? <div style={{ fontSize:12, color:'#1f2937', padding:'8px 0' }}>{t('No records')}</div>
+              : <Table
+                  heads={[t('Visa Type'), t('Application No'), t('Lodged'), t('Granted'), t('Status')]}
+                  rows={(p.visaHistory||[]).map(v=>[
+                    v.type, v.number, v.lodged||v.lodgeDate, v.grantDate||v.granted,
+                    v.status==='Approved'?`✅ ${t('Approved')}`:v.status==='In Progress'?`⏳ ${t('In Progress')}`:v.status==='Refused'?`❌ ${t('Refused')}`:v.status||'—'
+                  ])}
+                />
+            }
           </S>
 
-          {(p.visaHistory?.length > 0) && (
-            <S icon="📋" title="签证历史">
-              <Table heads={['签证类型 Type','申请编号 App No','递签日期 Lodged','下签日期 Granted','到期 Expiry','Status']} rows={(p.visaHistory||[]).map(v=>[v.type,v.number||v.appNo,v.lodgeDate,v.grantDate,v.expiry,v.status||'—'])} />
-            </S>
-          )}
-
-          {(p.addressHistory?.length > 0) && (
-            <S icon="🏠" title="澳洲地址历史">
-              <Table heads={['From','To','Address']} rows={(p.addressHistory||[]).map(r=>[r.from,r.to,r.address])} />
-            </S>
-          )}
-
-          {(p.employmentHistory?.length > 0) && (
-            <S icon="💼" title="工作经历">
-              <Table heads={['From','To','Company','Role','Country']} rows={(p.employmentHistory||[]).map(r=>[r.from,r.to,r.company,r.role,r.country])} />
-            </S>
-          )}
-
-          {p.character && (
-            <S icon="✅" title="品格证明">
-              <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8 }}>
-                {[['Form 80', p.character.form80], ['AFP查询', p.character.afpCheck], ['无犯罪证明 PCC', p.character.pcc]].map(([l,v])=>(
-                  <div key={l} style={{ background:'#162032', borderRadius:8, padding:'9px 13px', border:'1px solid #253650', display:'flex', alignItems:'center', gap:8 }}>
-                    <span style={{ fontSize:16 }}>{v === true ? '✅' : v === false ? '❌' : '❓'}</span>
-                    <div>
-                      <div style={{ fontSize:10, color:'#7a8fa8', textTransform:'uppercase', letterSpacing:'0.06em' }}>{l}</div>
-                      <div style={{ fontSize:12, color:'#f1f5f9', fontWeight:500, marginTop:2 }}>{v === true ? 'Provided' : v === false ? 'Missing' : 'Unknown'}</div>
+          {/* ── 四、SKILLS ASSESSMENT ───────────────────── */}
+          {(p.skillsAssessments||[]).length > 0 && (
+            <S icon="📊" title={`四、${t('SKILLS ASSESSMENT')}`}>
+              {(p.skillsAssessments||[]).map((sa, idx) => {
+                const isUnsuc = sa.outcome?.toLowerCase().includes('unsuccessful') || sa.outcome?.toLowerCase().includes('不通过');
+                const outColor = sa.outcome ? (isUnsuc ? '#ef4444' : '#16a34a') : '#6b7280';
+                return (
+                  <div key={idx} style={{ marginBottom:14, background:'#f9fafb', borderRadius:12, padding:'14px 16px', border:`1px solid ${isUnsuc?'#fecaca':'#e5e7eb'}`, borderLeft:`4px solid ${isUnsuc?'#ef4444':'#6366f1'}` }}>
+                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
+                      <div style={{ fontSize:13, fontWeight:700, color:'#111827' }}>{t('Application ID')}: {sa.applicationId}</div>
+                      {sa.outcome && <span style={{ fontSize:11, fontWeight:700, color:outColor, background:outColor+'15', padding:'3px 10px', borderRadius:20 }}>{isUnsuc?`❌ ${t('Unsuccessful')}`:`✅ ${t('Successful')}`}</span>}
+                    </div>
+                    <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8 }}>
+                      <Field label={t('Occupation')}   value={sa.occupation} />
+                      <Field label={t('Submitted')}    value={sa.submitted||sa.lodgeDate} />
+                      <Field label={t('Outcome')}      value={sa.outcome} warn={isUnsuc} />
+                      {sa.furtherDocs && <Field label={t('Further Docs Requested')} value={sa.furtherDocs} />}
+                      {sa.reason && <Field label={t('Reason')} value={sa.reason} warn />}
+                      {sa.appealDeadline && <Field label={t('Appeal Deadline')} value={sa.appealDeadline} warn={new Date(sa.appealDeadline) < new Date(Date.now()+30*24*3600*1000)} />}
                     </div>
                   </div>
-                ))}
-              </div>
+                );
+              })}
             </S>
           )}
 
-          {p.sponsor?.name && (
-            <S icon="🧑" title="担保人">
-              <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8 }}>
-                <Field label="姓名"           value={p.sponsor.name} />
-                <Field label="性别"         value={p.sponsor.sex} />
-                <Field label="出生日期"  value={p.sponsor.dob} />
-                <Field label="国籍"    value={p.sponsor.nationality} />
-                <Field label="护照号码"    value={p.sponsor.passportNo} />
-                <Field label="职业"     value={p.sponsor.occupation} />
-                <Field label="澳洲地址"     value={p.sponsor.address} />
-                <Field label="之前婚史"  value={p.sponsor.priorMaritalStatus} />
-              </div>
-            </S>
-          )}
-
-          {p.marriage?.date && (
-            <S icon="💍" title="婚姻/关系">
-              <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8 }}>
-                <Field label="结婚日期"   value={p.marriage.date} />
-                <Field label="地点"           value={p.marriage.location} />
-                <Field label="登记号"    value={p.marriage.registrationNo} />
-              </div>
-            </S>
-          )}
-
-          {(p.documents?.length > 0) && (
-            <S icon="📁" title="材料清单">
-              <Table heads={['Document','Main Applicant','Sponsor','Secondary']} rows={(p.documents||[]).map(d=>[d.name, d.mainApplicant, d.sponsor, d.secondary])} />
-            </S>
-          )}
-
-          {(p.keyIssues?.length > 0) && (
-            <S icon="🚨" title="重要事项">
-              <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-                {(p.keyIssues||[]).map((issue, i) => {
-                  const col = issue.priority === 'High' ? '#ef4444' : issue.priority === 'Medium' ? '#f59e0b' : '#22c55e';
+          {/* ── 五、CASE TIMELINE ───────────────────────── */}
+          {(p.caseTimeline||[]).length > 0 && (
+            <S icon="📅" title={`五、${t('CASE TIMELINE')}`}>
+              <div style={{ position:'relative', paddingLeft:20 }}>
+                <div style={{ position:'absolute', left:7, top:8, bottom:8, width:2, background:'linear-gradient(to bottom, #6366f1, #e5e7eb)', borderRadius:2 }} />
+                {(p.caseTimeline||[]).map((ev, i) => {
+                  const stCol = ev.status==='Completed'?'#16a34a':ev.status==='Failed'?'#dc2626':ev.status==='Urgent'?'#d97706':ev.status==='Maintained'?'#dc2626':'#6366f1';
                   return (
-                    <div key={i} style={{ background:'#162032', borderRadius:8, padding:'11px 14px', borderLeft:`3px solid ${col}`, border:`1px solid #253650`, borderLeftColor:col }}>
-                      <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
-                        <span style={{ fontSize:11, fontWeight:700, color:col, textTransform:'uppercase', letterSpacing:'0.06em' }}>{issue.priority}</span>
-                        <span style={{ fontSize:13, fontWeight:600, color:'#f1f5f9' }}>{issue.item}</span>
+                    <div key={i} style={{ display:'flex', gap:14, marginBottom:12, alignItems:'flex-start' }}>
+                      <div style={{ width:12, height:12, borderRadius:'50%', background:stCol, border:'2px solid #fff', boxShadow:`0 0 0 2px ${stCol}40`, flexShrink:0, marginTop:3, zIndex:1 }} />
+                      <div style={{ flex:1, background:'#fff', borderRadius:8, padding:'9px 13px', border:'1px solid #e5e7eb' }}>
+                        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:3 }}>
+                          <span style={{ fontSize:12, fontWeight:700, color:'#111827' }}>{ev.event}</span>
+                          <span style={{ fontSize:10, fontWeight:700, color:stCol, background:stCol+'15', padding:'2px 8px', borderRadius:20 }}>{ev.status}</span>
+                        </div>
+                        <div style={{ fontSize:11, color:'#1f2937' }}>{ev.date}</div>
                       </div>
-                      <div style={{ fontSize:12, color:'#a0b0c8', lineHeight:1.5 }}>{issue.detail}</div>
                     </div>
                   );
                 })}
@@ -928,29 +1357,68 @@ function ClientDetailModal({ client, jobs, onClose, onEdit, onSaveProfile }) {
             </S>
           )}
 
-          {!p.dob && !p.passportNo && !p.visaHistory?.length && (
-            <div style={{ textAlign:'center', padding:'40px 20px', color:'#475569' }}>
-              <div style={{ fontSize:32, marginBottom:12 }}>📥</div>
-              <div style={{ fontSize:14, marginBottom:8 }}>暂无详细档案</div>
-              <div style={{ fontSize:12 }}>上传客户信息卡自动填写此部分</div>
-              <button onClick={()=>setTab('import')} style={{ marginTop:14, padding:'9px 18px', background:'#38bdf8', border:'none', borderRadius:8, color:'#0f172a', fontWeight:700, fontSize:13, cursor:'pointer' }}>Import Document →</button>
+          {/* ── 六、CURRENT STATUS & NEXT STEPS ──────────── */}
+          {(p.currentStatus || (p.nextSteps||[]).length > 0) && (
+            <S icon="⚡" title={`六、${t('CURRENT STATUS & NEXT STEPS')}`}>
+              {p.currentStatus && (
+                <div style={{ background:'#fef2f2', border:'1px solid #fecaca', borderRadius:10, padding:'12px 16px', marginBottom:12 }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
+                    <span>⚠️</span>
+                    <span style={{ fontSize:13, fontWeight:700, color:'#dc2626' }}>{t('Status Summary')}</span>
+                  </div>
+                  <div style={{ fontSize:13, color:'#7f1d1d', lineHeight:1.6 }}>{p.currentStatus}</div>
+                </div>
+              )}
+              {(p.nextSteps||[]).length > 0 && (
+                <div>
+                  <div style={{ fontSize:11, color:'#1f2937', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:8 }}>{t('Options to Consider')}</div>
+                  {(p.nextSteps||[]).map((step, i) => {
+                    const col = step.priority==='High'?'#ef4444':step.priority==='Medium'?'#f59e0b':'#22c55e';
+                    return (
+                      <div key={i} style={{ display:'flex', gap:12, marginBottom:8, background:'#f9fafb', borderRadius:8, padding:'10px 14px', border:'1.5px solid #cbd5e1', borderLeft:`3px solid ${col}` }}>
+                        <div style={{ width:22, height:22, borderRadius:'50%', background:col+'20', border:`1px solid ${col}40`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:10, fontWeight:800, color:col, flexShrink:0 }}>{i+1}</div>
+                        <div style={{ flex:1 }}>
+                          <div style={{ fontSize:13, fontWeight:700, color:'#111827', marginBottom:3 }}>{step.action}</div>
+                          <div style={{ fontSize:12, color:'#1f2937', lineHeight:1.5 }}>{step.details}</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </S>
+          )}
+
+          {/* ── 七、NOTES ───────────────────────────────── */}
+          <S icon="📝" title={`七、${t('NOTES')}`}>
+            <NotesPanel notes={normalizeNotes(client.notes)} onAddNote={(text) => onSaveProfile({...client, notes:[makeNote(text),...normalizeNotes(client.notes)]})} onDeleteNote={(nid)=>onSaveProfile({...client,notes:normalizeNotes(client.notes).filter(n=>n.id!==nid)})} />
+          </S>
+
+          {/* empty state */}
+          {!p.dob && !p.passportNo && !(p.visaHistory?.length) && !(p.skillsAssessments?.length) && !(p.caseTimeline?.length) && (
+            <div style={{ textAlign:'center', padding:'30px 20px', color:'#1f2937', background:'#f9fafb', borderRadius:12, border:'2px dashed #e5e7eb' }}>
+              <div style={{ fontSize:32, marginBottom:10 }}>📥</div>
+              <div style={{ fontSize:14, fontWeight:600, color:'#1f2937', marginBottom:6 }}>No detailed profile yet</div>
+              <div style={{ fontSize:12, marginBottom:14 }}>Import a document or fill in manually via Edit</div>
+              <button onClick={()=>setTab('import')} style={{ padding:'9px 18px', background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, color:'#fff', fontWeight:700, fontSize:13, cursor:'pointer' }}>📥 Import Document →</button>
             </div>
           )}
         </div>
       )}
 
       {/* ── JOBS TAB ─────────────────────────────────────── */}
+      {/* ── JOBS TAB ─────────────────────────────────────── */}
       {tab === 'jobs' && (
-        <div>
+        <div style={{ maxHeight:'65vh', overflowY:'auto' }}>
           {clientJobs.length === 0
-            ? <div style={{ color:'#475569', fontSize:14, padding:20, textAlign:'center' }}>暂无关联案件。</div>
+            ? <div style={{ color:'#1f2937', fontSize:14, padding:20, textAlign:'center' }}>No jobs assigned yet.</div>
             : clientJobs.map(j => (
-              <div key={j.id} style={{ background:'#1e293b', borderRadius:10, padding:'13px 16px', border:'1px solid #2e4460', marginBottom:10 }}>
+              <div key={j.id} style={{ background:'#ffffff', borderRadius:10, padding:'13px 16px', border:'1.5px solid #cbd5e1', marginBottom:10 }}>
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
-                  <span style={{ fontSize:14, fontWeight:600, color:'#f1f5f9' }}>{j.title}</span>
+                  <span style={{ fontSize:14, fontWeight:600, color:'#111827' }}>{j.title}</span>
                   <StatusBadge status={j.status} />
                 </div>
-                <div style={{ fontSize:12, color:'#7a8fa8', marginBottom:8 }}>{j.type} · Due {fmtDate(j.dueDate)||'—'}</div>
+                <div style={{ fontSize:12, color:'#1f2937', marginBottom:8 }}>{j.type} · Due {fmtDate(j.dueDate)||'—'}</div>
                 <ProgressBar value={j.progress} />
                 {j.priority && <PriorityBadge priority={j.priority} />}
               </div>
@@ -961,45 +1429,181 @@ function ClientDetailModal({ client, jobs, onClose, onEdit, onSaveProfile }) {
 
       {/* ── NOTES TAB ────────────────────────────────────── */}
       {tab === 'notes' && (
-        <div>
+        <div style={{ maxHeight:'65vh', overflowY:'auto' }}>
           {normalizeNotes(client.notes).length === 0
-            ? <div style={{ color:'#475569', fontSize:14, padding:20, textAlign:'center' }}>暂无备注。</div>
+            ? <div style={{ color:'#1f2937', fontSize:14, padding:20, textAlign:'center' }}>No notes yet.</div>
             : [...normalizeNotes(client.notes)].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)).map(n => (
-              <div key={n.id} style={{ background:'#1e293b', borderRadius:8, padding:'12px 14px', border:'1px solid #2e4460', marginBottom:8 }}>
-                <div style={{ fontSize:13, color:'#e2e8f0', whiteSpace:'pre-wrap', lineHeight:1.55 }}>{n.text}</div>
-                <div style={{ fontSize:11, color:'#475569', marginTop:6 }}>{fmtDateTime(n.createdAt)}</div>
+              <div key={n.id} style={{ background:'#ffffff', borderRadius:8, padding:'12px 14px', border:'1.5px solid #cbd5e1', marginBottom:8 }}>
+                <div style={{ fontSize:13, color:'#1f2937', whiteSpace:'pre-wrap', lineHeight:1.55 }}>{n.text}</div>
+                <div style={{ fontSize:11, color:'#1f2937', marginTop:6 }}>{fmtDateTime(n.createdAt)}</div>
               </div>
             ))
           }
         </div>
       )}
 
+
+      {/* ── WECHAT TAB ───────────────────────────────────── */}
+      {tab === 'wechat' && (
+        <div style={{ maxHeight:'65vh', overflowY:'auto', paddingRight:4 }}>
+          {/* Header */}
+          <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:18, padding:'14px 16px', background:'linear-gradient(135deg,#f0fdf4,#dcfce7)', borderRadius:12, border:'1px solid #86efac' }}>
+            <div style={{ fontSize:28 }}>💬</div>
+            <div>
+              <div style={{ fontSize:15, fontWeight:700, color:'#15803d' }}>WeChat Communication Import</div>
+              <div style={{ fontSize:12, color:'#4ade80', marginTop:2 }}>Paste WeChat chat history — AI will extract key info, action items & summaries</div>
+            </div>
+          </div>
+
+          {/* Paste area */}
+          <div style={{ marginBottom:16 }}>
+            <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:7 }}>
+              Paste WeChat Chat Export
+              <span style={{ marginLeft:8, fontSize:10, fontWeight:500, color:'#1f2937', textTransform:'none', letterSpacing:0 }}>
+                (微信聊天记录 — 直接粘贴即可)
+              </span>
+            </label>
+            <textarea
+              value={wchat}
+              onChange={e => { setWchat(e.target.value); setWchatResult(null); setWchatSaved(false); }}
+              placeholder="Paste WeChat chat history here (Chinese/English supported). e.g. 2024-01-15 10:23 Client: Hi I need help with my student visa..."
+              style={{ ...inputStyle, minHeight:180, fontFamily:"'JetBrains Mono',monospace", fontSize:12.5, resize:'vertical', background:'#f9fafb', lineHeight:1.6 }}
+            />
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:10 }}>
+              <span style={{ fontSize:12, color:'#1f2937' }}>{wchat.length > 0 ? `${wchat.length.toLocaleString()} chars · ~${Math.ceil(wchat.length/4)} tokens` : 'Max ~6000 chars will be analysed'}</span>
+              <div style={{ display:'flex', gap:10 }}>
+                {wchat && <button onClick={()=>{setWchat('');setWchatResult(null);}} style={{ padding:'8px 14px', background:'#f3f4f6', border:'1.5px solid #cbd5e1', borderRadius:8, fontSize:12, color:'#1f2937', fontWeight:600 }}>Clear</button>}
+                <button
+                  onClick={parseWeChat}
+                  disabled={wchatParsing || !wchat.trim()}
+                  style={{ padding:'9px 20px', background: wchatParsing||!wchat.trim() ? '#e5e7eb' : 'linear-gradient(135deg,#22c55e,#16a34a)', border:'none', borderRadius:9, color: wchatParsing||!wchat.trim() ? '#9ca3af' : '#fff', fontWeight:700, fontSize:13, cursor: wchatParsing||!wchat.trim() ? 'default':'pointer', display:'flex', alignItems:'center', gap:7, transition:'all 0.15s' }}
+                >
+                  {wchatParsing ? <><span style={{ animation:'spin 1s linear infinite', display:'inline-block' }}>⏳</span> Analysing...</> : '🤖 Analyse with AI'}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* AI result */}
+          {wchatResult && (
+            <div style={{ background:'#fff', border:'1.5px solid #cbd5e1', borderRadius:14, overflow:'hidden', marginTop:4 }}>
+              {/* Result header */}
+              <div style={{ padding:'14px 18px', background:'linear-gradient(135deg,#f0fdf4,#dcfce7)', borderBottom:'1px solid #bbf7d0', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                <div>
+                  <div style={{ fontSize:14, fontWeight:700, color:'#15803d' }}>✅ Analysis Complete</div>
+                  {wchatResult.dateRange && <div style={{ fontSize:12, color:'#4ade80', marginTop:2 }}>📅 {wchatResult.dateRange} · {wchatResult.messageCount} messages · {wchatResult.language}</div>}
+                </div>
+                <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+                  {/* Sentiment badge */}
+                  {wchatResult.sentiment && (
+                    <span style={{ padding:'3px 10px', borderRadius:99, fontSize:11, fontWeight:700,
+                      background: wchatResult.sentiment==='urgent' ? '#fef2f2' : wchatResult.sentiment==='positive' ? '#f0fdf4' : wchatResult.sentiment==='concerned' ? '#fffbeb' : '#f0f9ff',
+                      color: wchatResult.sentiment==='urgent' ? '#dc2626' : wchatResult.sentiment==='positive' ? '#16a34a' : wchatResult.sentiment==='concerned' ? '#d97706' : '#0284c7'
+                    }}>
+                      {wchatResult.sentiment==='urgent'?'🚨':wchatResult.sentiment==='positive'?'😊':wchatResult.sentiment==='concerned'?'⚠️':'💬'} {wchatResult.sentiment}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div style={{ padding:'16px 18px' }}>
+                {/* Summary */}
+                <div style={{ marginBottom:14 }}>
+                  <div style={{ fontSize:11, fontWeight:700, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:6 }}>Summary</div>
+                  <div style={{ fontSize:13.5, color:'#1f2937', lineHeight:1.6, background:'#f9fafb', padding:'10px 14px', borderRadius:9, border:'1px solid #e5e7eb' }}>{wchatResult.summary}</div>
+                </div>
+
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:14 }}>
+                  {/* Action Items */}
+                  {wchatResult.actionItems?.length > 0 && (
+                    <div>
+                      <div style={{ fontSize:11, fontWeight:700, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:6 }}>🎯 Action Items</div>
+                      {wchatResult.actionItems.map((item,i) => (
+                        <div key={i} style={{ display:'flex', alignItems:'flex-start', gap:6, marginBottom:5 }}>
+                          <span style={{ width:18, height:18, borderRadius:99, background:'#fef2f2', border:'1px solid #fecaca', display:'flex', alignItems:'center', justifyContent:'center', fontSize:9, fontWeight:700, color:'#dc2626', flexShrink:0, marginTop:1 }}>{i+1}</span>
+                          <span style={{ fontSize:12.5, color:'#1f2937', lineHeight:1.5 }}>{item}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Client Requests */}
+                  {wchatResult.clientRequests?.length > 0 && (
+                    <div>
+                      <div style={{ fontSize:11, fontWeight:700, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:6 }}>💬 Client Requests</div>
+                      {wchatResult.clientRequests.map((req,i) => (
+                        <div key={i} style={{ display:'flex', alignItems:'flex-start', gap:6, marginBottom:5 }}>
+                          <span style={{ fontSize:13, flexShrink:0 }}>•</span>
+                          <span style={{ fontSize:12.5, color:'#1f2937', lineHeight:1.5 }}>{req}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Important Dates */}
+                {wchatResult.importantDates?.length > 0 && (
+                  <div style={{ marginBottom:14 }}>
+                    <div style={{ fontSize:11, fontWeight:700, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:6 }}>📅 Important Dates</div>
+                    <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+                      {wchatResult.importantDates.map((d,i) => (
+                        <span key={i} style={{ padding:'4px 10px', background:'#eff6ff', border:'1px solid #bfdbfe', borderRadius:8, fontSize:12, color:'#2563eb', fontWeight:500 }}>{d}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Topics / Tags */}
+                {wchatResult.tags?.length > 0 && (
+                  <div style={{ marginBottom:16 }}>
+                    <div style={{ fontSize:11, fontWeight:700, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:6 }}>🏷 Topics</div>
+                    <div style={{ display:'flex', flexWrap:'wrap', gap:5 }}>
+                      {wchatResult.tags.map((t,i) => (
+                        <span key={i} style={{ padding:'3px 9px', background:'#f5f3ff', border:'1px solid #ddd6fe', borderRadius:7, fontSize:11.5, color:'#7c3aed', fontWeight:500 }}>{t}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Save to notes */}
+                <div style={{ borderTop:'1.5px solid #e2e8f0', paddingTop:14, display:'flex', justifyContent:'flex-end', gap:10 }}>
+                  {wchatSaved && <span style={{ fontSize:13, color:'#16a34a', fontWeight:600, alignSelf:'center' }}>✅ Saved to client notes!</span>}
+                  <button onClick={saveWchatNote} disabled={wchatSaved} style={{ padding:'9px 20px', background: wchatSaved ? '#f3f4f6' : 'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:9, color: wchatSaved ? '#9ca3af':'#fff', fontWeight:700, fontSize:13, cursor: wchatSaved ? 'default':'pointer' }}>
+                    {wchatSaved ? '✅ Saved' : '💾 Save Summary to Client Notes'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ── IMPORT TAB ───────────────────────────────────── */}
       {tab === 'import' && (
-        <div>
-          {applyMsg && <div style={{ padding:'10px 14px', background:'#052e16', border:'1px solid #166534', borderRadius:8, color:'#4ade80', fontSize:13, marginBottom:14 }}>{applyMsg}</div>}
+        <div style={{ maxHeight:'65vh', overflowY:'auto' }}>
+          {applyMsg && <div style={{ padding:'10px 14px', background:'#f0fdf4', border:'1px solid #86efac', borderRadius:8, color:'#15803d', fontSize:13, marginBottom:14 }}>{applyMsg}</div>}
 
           {!importPreview && (
-            <div style={{ textAlign:'center', padding:'40px 24px', border:'2px dashed #2e4460', borderRadius:12 }}>
+            <div style={{ textAlign:'center', padding:'40px 24px', border:'2px dashed #dde1f0', borderRadius:12 }}>
               <div style={{ fontSize:40, marginBottom:12 }}>📄</div>
-              <div style={{ fontSize:15, fontWeight:600, color:'#f1f5f9', marginBottom:6 }}>上传客户信息卡</div>
-              <div style={{ fontSize:13, color:'#7a8fa8', marginBottom:20 }}>Supports <strong style={{color:'#a0b0c8'}}>.docx</strong> files — AI will extract all fields automatically</div>
-              <input ref={fileRef} type="file" accept=".docx,.pdf" onChange={handleFile} style={{ display:'none' }} />
+              <div style={{ fontSize:15, fontWeight:600, color:'#111827', marginBottom:6 }}>Upload Client Information Card</div>
+              <div style={{ fontSize:13, color:'#1f2937', marginBottom:20 }}>Supports <strong style={{color:'#1f2937'}}>.docx</strong> files — AI will extract all fields automatically</div>
+              <input ref={fileRef} type="file" accept=".docx" onChange={handleFile} style={{ display:'none' }} />
               <button
                 onClick={() => fileRef.current?.click()}
                 disabled={importing}
-                style={{ padding:'11px 24px', background: importing ? '#2e4460' : '#38bdf8', border:'none', borderRadius:9, color: importing ? '#7a8fa8' : '#0f172a', fontWeight:700, fontSize:14, cursor: importing ? 'default' : 'pointer' }}
+                style={{ padding:'11px 24px', background: importing ? '#e5e7eb' : 'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:9, color: importing ? '#6b7280' : '#fff', fontWeight:700, fontSize:14, cursor: importing ? 'default' : 'pointer' }}
               >
-                {importing ? '⏳ 分析中...' : '📥 选择文件 (.docx / .pdf)'}
+                {importing ? '⏳ Analysing document...' : '📥 Select .docx File'}
               </button>
-              <div style={{ marginTop:16, fontSize:11, color:'#475569' }}>由 Claude AI 提供支持 · 文件不会被储存</div>
+              <div style={{ marginTop:16, fontSize:11, color:'#1f2937' }}>Powered by Claude AI · Your files are not stored</div>
             </div>
           )}
 
           {importPreview && (
             <div>
-              <div style={{ padding:'10px 14px', background:'#052e16', border:'1px solid #166534', borderRadius:8, color:'#4ade80', fontSize:13, marginBottom:16 }}>
-                ✅ 文档已分析，确认数据后点击 <strong>应用到档案</strong>
+              <div style={{ padding:'10px 14px', background:'#f0fdf4', border:'1px solid #86efac', borderRadius:8, color:'#15803d', fontSize:13, marginBottom:16 }}>
+                ✅ Document analysed — review the extracted data below, then click <strong>Apply to Record</strong>
               </div>
               <div style={{ display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:8, marginBottom:16 }}>
                 {[
@@ -1013,12 +1617,10 @@ function ClientDetailModal({ client, jobs, onClose, onEdit, onSaveProfile }) {
                   ['AU Address',  importPreview.profile?.auAddress],
                   ['Sponsor',     importPreview.profile?.sponsor?.name],
                   ['Marriage Date', importPreview.profile?.marriage?.date],
-                  ['QQ',           importPreview.profile?.qq],
-                  ['EA File No',   importPreview.profile?.eaFileNo],
                 ].map(([l,v]) => v ? (
-                  <div key={l} style={{ background:'#162032', borderRadius:8, padding:'9px 13px', border:'1px solid #1e3a5f' }}>
-                    <div style={{ fontSize:10, color:'#7a8fa8', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:3 }}>{l}</div>
-                    <div style={{ fontSize:13, color:'#f1f5f9', fontWeight:500 }}>{v}</div>
+                  <div key={l} style={{ background:'#f9fafb', borderRadius:8, padding:'9px 13px', border:'1px solid #e5e7eb' }}>
+                    <div style={{ fontSize:10, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:3 }}>{l}</div>
+                    <div style={{ fontSize:13, color:'#111827', fontWeight:500 }}>{v}</div>
                   </div>
                 ) : null)}
               </div>
@@ -1027,7 +1629,7 @@ function ClientDetailModal({ client, jobs, onClose, onEdit, onSaveProfile }) {
                 <div style={{ marginBottom:14 }}>
                   <div style={{ fontSize:11, color:'#ef4444', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:8, fontWeight:700 }}>🚨 Key Issues Detected ({importPreview.profile.keyIssues.length})</div>
                   {importPreview.profile.keyIssues.map((issue,i) => (
-                    <div key={i} style={{ background:'#162032', borderRadius:7, padding:'8px 12px', borderLeft:'3px solid #ef4444', marginBottom:6, fontSize:12, color:'#e2e8f0' }}>
+                    <div key={i} style={{ background:'#f9fafb', borderRadius:7, padding:'8px 12px', borderLeft:'3px solid #ef4444', marginBottom:6, fontSize:12, color:'#1f2937' }}>
                       <strong style={{color:'#fca5a5'}}>{issue.priority}:</strong> {issue.item}
                     </div>
                   ))}
@@ -1035,20 +1637,35 @@ function ClientDetailModal({ client, jobs, onClose, onEdit, onSaveProfile }) {
               )}
 
               <div style={{ display:'flex', gap:10 }}>
-                <button onClick={()=>setImportPreview(null)} style={{ padding:'9px 18px', background:'#253650', border:'none', borderRadius:8, color:'#a0b0c8', fontWeight:500, cursor:'pointer' }}>← Re-upload</button>
-                <button onClick={applyImport} style={{ flex:1, padding:'10px 20px', background:'#38bdf8', border:'none', borderRadius:8, color:'#0f172a', fontWeight:700, fontSize:14, cursor:'pointer' }}>✅ Apply to Client Record</button>
+                <button onClick={()=>setImportPreview(null)} style={{ padding:'9px 18px', background:'#e5e7eb', border:'none', borderRadius:8, color:'#1f2937', fontWeight:500, cursor:'pointer' }}>← Re-upload</button>
+                <button onClick={applyImport} style={{ flex:1, padding:'10px 20px', background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, color:'#fff', fontWeight:700, fontSize:14, cursor:'pointer' }}>✅ Apply to Client Record</button>
               </div>
             </div>
           )}
         </div>
       )}
 
+      {/* Footer */}
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:10, marginTop:18, borderTop:'1.5px solid #e2e8f0', paddingTop:16 }}>
+        <button
+          onClick={handleGenerateContract}
+          disabled={contractBusy}
+          style={{ padding:'9px 18px', background: contractBusy ? '#e5e7eb' : 'linear-gradient(135deg,#0f766e,#0d9488)', border:'none', borderRadius:8, color: contractBusy ? '#9ca3af' : '#fff', fontSize:13, fontWeight:600, cursor: contractBusy ? 'not-allowed' : 'pointer', boxShadow: contractBusy ? 'none' : '0 2px 8px rgba(15,118,110,0.35)' }}
+        >
+          {contractBusy ? '⏳ 生成中…' : '📄 生成合同'}
+        </button>
+        <div style={{ display:'flex', gap:10 }}>
+          <button onClick={onClose} style={{ padding:'9px 18px', background:'#f1f5f9', border:'1.5px solid #cbd5e1', borderRadius:8, color:'#1f2937', fontSize:13, fontWeight:500 }}>关闭</button>
+          <button onClick={onEdit}  style={{ padding:'9px 20px', background:'linear-gradient(135deg,#4f46e5,#7c3aed)', border:'none', borderRadius:8, color:'#fff', fontSize:13, fontWeight:700, boxShadow:'0 2px 8px rgba(79,70,229,0.3)' }}>✏️ 编辑客户</button>
+        </div>
+      </div>
     </Modal>
   );
 }
 
 /* ─── CLIENTS ────────────────────────────────────────────────────────────────── */
 function Clients({ clients, jobs, setClients }) {
+  const { t } = useLang(); // eslint-disable-line no-unused-vars
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState('All');
   const [filterStatus, setFilterStatus] = useState('All');
@@ -1094,26 +1711,17 @@ function Clients({ clients, jobs, setClients }) {
       try { await sbDelete('clients', id); } catch(e) { console.warn('Delete error:', e); }
     }
   };
+  const clientJobCount = id => jobs.filter(j=>j.clientId===id).length;
 
   const generateContractFromForm = async () => {
-    if (!form.name?.trim()) {
-      window.alert('Enter the client name first.');
-      return;
-    }
+    if (!form.name?.trim()) { window.alert('请先填写客户姓名。'); return; }
     try {
-      const sourceClient = {
-        ...form,
-        profile: form.profile || {},
-        createdAt: form.createdAt || today(),
-      };
       const relevantJobs = modal === 'add' ? [] : jobs.filter(j => j.clientId === form.id);
-      await generateClientContractFile(sourceClient, relevantJobs);
+      await generateClientContractFile({ ...form, profile: form.profile || {} }, relevantJobs);
     } catch (err) {
-      window.alert('Contract generation failed: ' + (err?.message || err));
+      window.alert('合同生成失败: ' + (err?.message || err));
     }
   };
-
-  const clientJobCount = id => jobs.filter(j=>j.clientId===id).length;
 
   const addNote = (text) => setForm(f => ({ ...f, notes: [makeNote(text), ...normalizeNotes(f.notes)] }));
   const deleteNote = (nid) => setForm(f => ({ ...f, notes: normalizeNotes(f.notes).filter(n=>n.id!==nid) }));
@@ -1148,10 +1756,10 @@ function Clients({ clients, jobs, setClients }) {
 
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:24 }}>
         <div>
-          <h1 style={{ fontSize:24, fontWeight:700, color:'#f1f5f9' }}>Clients</h1>
-          <p style={{ color:'#7a8fa8', fontSize:14, marginTop:2 }}>{clients.length} total clients</p>
+          <h1 style={{ fontSize:24, fontWeight:700, color:'#111827' }}>Clients</h1>
+          <p style={{ color:'#1f2937', fontSize:14, marginTop:2 }}>{clients.length} total clients</p>
         </div>
-        <button onClick={openAdd} style={{ background:'#38bdf8', border:'none', borderRadius:10, padding:'10px 18px', color:'#0f172a', fontWeight:700, fontSize:14, display:'flex', alignItems:'center', gap:7 }}>
+        <button onClick={openAdd} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:10, padding:'10px 18px', color:'#fff', fontWeight:700, fontSize:14, display:'flex', alignItems:'center', gap:7 }}>
           <span style={{ fontSize:18, lineHeight:1 }}>+</span> Add Client
         </button>
       </div>
@@ -1171,15 +1779,15 @@ function Clients({ clients, jobs, setClients }) {
       <Card style={{ padding:0, overflow:'hidden' }}>
         <table style={{ width:'100%', borderCollapse:'collapse' }}>
           <thead>
-            <tr style={{ borderBottom:'1px solid #2e4460' }}>
+            <tr style={{ borderBottom:'2px solid #e2e8f0' }}>
               {['Client','Type','Status','Jobs','Nationality','Notes','Created',''].map(h=>(
-                <th key={h} style={{ padding:'12px 16px', textAlign:'left', fontSize:11, fontWeight:600, color:'#7a8fa8', textTransform:'uppercase', letterSpacing:'0.06em', background:'#0f172a60' }}>{h}</th>
+                <th key={h} style={{ padding:'12px 16px', textAlign:'left', fontSize:11, fontWeight:600, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.06em', background:'#f9fafb' }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 && (
-              <tr><td colSpan={8} style={{ padding:40, textAlign:'center', color:'#475569', fontSize:14 }}>No clients found</td></tr>
+              <tr><td colSpan={8} style={{ padding:40, textAlign:'center', color:'#1f2937', fontSize:14 }}>No clients found</td></tr>
             )}
             {filtered.map((c) => {
               const notes = normalizeNotes(c.notes);
@@ -1190,10 +1798,10 @@ function Clients({ clients, jobs, setClients }) {
                   onMouseLeave={e=>{ e.currentTarget.style.background='transparent'; handleRowLeave(); }}>
                   <td style={{ padding:'13px 16px' }}>
                     <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                      <div style={{ width:34, height:34, borderRadius:'50%', background:'#2e4460', display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, fontWeight:600, color:'#a0b0c8' }}>{initials(c.name)}</div>
+                      <div style={{ width:34, height:34, borderRadius:'50%', background:'#e5e7eb', display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, fontWeight:600, color:'#1f2937' }}>{initials(c.name)}</div>
                       <div>
-                        <div onClick={()=>setViewClient(c)} style={{ fontWeight:600, color:'#38bdf8', fontSize:14, cursor:'pointer', textDecoration:'underline', textDecorationStyle:'dotted', textDecorationColor:'#38bdf840' }}>{c.name}</div>
-                        <div style={{ fontSize:12, color:'#7a8fa8' }}>{c.email}</div>
+                        <div onClick={()=>setViewClient(c)} style={{ fontWeight:600, color:'#6366f1', fontSize:14, cursor:'pointer' }}>{c.name}</div>
+                        <div style={{ fontSize:12, color:'#1f2937' }}>{c.email}</div>
                       </div>
                     </div>
                   </td>
@@ -1201,17 +1809,17 @@ function Clients({ clients, jobs, setClients }) {
                     <span style={{ fontSize:12, color: c.type==='Student'?'#60a5fa':c.type==='Migration'?'#a78bfa':'#34d399', background: c.type==='Student'?'#1e40af20':c.type==='Migration'?'#6d28d920':'#05966920', padding:'2px 10px', borderRadius:20, fontWeight:500 }}>{c.type}</span>
                   </td>
                   <td style={{ padding:'13px 16px' }}><StatusBadge status={c.status} small /></td>
-                  <td style={{ padding:'13px 16px', color:'#a0b0c8', fontFamily:"'JetBrains Mono',monospace", fontSize:13 }}>{clientJobCount(c.id)}</td>
-                  <td style={{ padding:'13px 16px', color:'#7a8fa8', fontSize:13 }}>{c.nationality || '—'}</td>
+                  <td style={{ padding:'13px 16px', color:'#1f2937', fontFamily:"'JetBrains Mono',monospace", fontSize:13 }}>{clientJobCount(c.id)}</td>
+                  <td style={{ padding:'13px 16px', color:'#1f2937', fontSize:13 }}>{c.nationality || '—'}</td>
                   <td style={{ padding:'13px 16px' }}>
-                    <span style={{ fontSize:12, color: notes.length>0?'#38bdf8':'#475569', background: notes.length>0?'#38bdf815':'transparent', padding:'2px 8px', borderRadius:10, fontFamily:"'JetBrains Mono',monospace" }}>
+                    <span style={{ fontSize:12, color: notes.length>0?'#6366f1':'#334155', background: notes.length>0?'#38bdf815':'transparent', padding:'2px 8px', borderRadius:10, fontFamily:"'JetBrains Mono',monospace" }}>
                       {notes.length > 0 ? `📝 ${notes.length}` : '—'}
                     </span>
                   </td>
-                  <td style={{ padding:'13px 16px', color:'#7a8fa8', fontSize:13 }}>{fmtDate(c.createdAt)}</td>
+                  <td style={{ padding:'13px 16px', color:'#1f2937', fontSize:13 }}>{fmtDate(c.createdAt)}</td>
                   <td style={{ padding:'13px 16px' }}>
                     <div style={{ display:'flex', gap:6 }}>
-                      <button onClick={()=>openEdit(c)} style={{ background:'#2e4460', border:'none', borderRadius:7, padding:'5px 10px', color:'#a0b0c8', fontSize:12 }}>Edit</button>
+                      <button onClick={()=>openEdit(c)} style={{ background:'#e5e7eb', border:'none', borderRadius:7, padding:'5px 10px', color:'#1f2937', fontSize:12 }}>Edit</button>
                       <button onClick={()=>del(c.id)} style={{ background:'#7f1d1d20', border:'none', borderRadius:7, padding:'5px 10px', color:'#f87171', fontSize:12 }}>Del</button>
                     </div>
                   </td>
@@ -1226,9 +1834,9 @@ function Clients({ clients, jobs, setClients }) {
         <Modal title={modal === 'add' ? 'Add New Client' : `Edit Client – ${form.name}`} onClose={closeModal} wide>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
             <FormField label="Full Name" required><input style={inputStyle} value={form.name||''} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="John Smith" /></FormField>
-            <FormField label="邮箱"><input style={inputStyle} value={form.email||''} onChange={e=>setForm(f=>({...f,email:e.target.value}))} placeholder="john@email.com" /></FormField>
-            <FormField label="电话"><input style={inputStyle} value={form.phone||''} onChange={e=>setForm(f=>({...f,phone:e.target.value}))} placeholder="04xx xxx xxx" /></FormField>
-            <FormField label="国籍"><input style={inputStyle} value={form.nationality||''} onChange={e=>setForm(f=>({...f,nationality:e.target.value}))} placeholder="e.g. Chinese" /></FormField>
+            <FormField label="Email"><input style={inputStyle} value={form.email||''} onChange={e=>setForm(f=>({...f,email:e.target.value}))} placeholder="john@email.com" /></FormField>
+            <FormField label="Phone"><input style={inputStyle} value={form.phone||''} onChange={e=>setForm(f=>({...f,phone:e.target.value}))} placeholder="04xx xxx xxx" /></FormField>
+            <FormField label="Nationality"><input style={inputStyle} value={form.nationality||''} onChange={e=>setForm(f=>({...f,nationality:e.target.value}))} placeholder="e.g. Chinese" /></FormField>
             <FormField label="Client Type">
               <select style={selectStyle} value={form.type||'Student'} onChange={e=>setForm(f=>({...f,type:e.target.value}))}>
                 {CLIENT_TYPES.map(t=><option key={t}>{t}</option>)}
@@ -1240,14 +1848,14 @@ function Clients({ clients, jobs, setClients }) {
               </select>
             </FormField>
           </div>
-          <div style={{ borderTop:'1px solid #2e4460', marginTop:8, paddingTop:18 }}>
+          <div style={{ borderTop:'1.5px solid #e2e8f0', marginTop:8, paddingTop:18 }}>
             <NotesPanel notes={normalizeNotes(form.notes)} onAddNote={addNote} onDeleteNote={deleteNote} />
           </div>
-          <div style={{ display:'flex', justifyContent:'space-between', gap:10, marginTop:18, flexWrap:'wrap' }}>
-            <button onClick={generateContractFromForm} style={{ background:'linear-gradient(135deg,#0f766e,#0d9488)', border:'none', borderRadius:8, boxShadow:'0 2px 8px #0f766e50', padding:'9px 18px', color:'#ecfeff', fontWeight:700 }}>📄 Generate Contract</button>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:10, marginTop:18 }}>
+            <button onClick={generateContractFromForm} style={{ padding:'9px 18px', background:'linear-gradient(135deg,#0f766e,#0d9488)', border:'none', borderRadius:8, color:'#fff', fontSize:13, fontWeight:600, boxShadow:'0 2px 8px rgba(15,118,110,0.3)' }}>📄 生成合同</button>
             <div style={{ display:'flex', gap:10 }}>
-              <button onClick={closeModal} style={{ background:'#2e4460', border:'none', borderRadius:8, padding:'9px 18px', color:'#a0b0c8', fontWeight:500 }}>Cancel</button>
-              <button onClick={save} style={{ background:'#38bdf8', border:'none', borderRadius:8, padding:'9px 20px', color:'#0f172a', fontWeight:700 }}>Save Client</button>
+              <button onClick={closeModal} style={{ background:'#f1f5f9', border:'1.5px solid #cbd5e1', borderRadius:8, padding:'9px 18px', color:'#1f2937', fontSize:13, fontWeight:500 }}>{t('Cancel')}</button>
+              <button onClick={save} style={{ background:'linear-gradient(135deg,#4f46e5,#7c3aed)', border:'none', borderRadius:8, padding:'9px 20px', color:'#fff', fontSize:13, fontWeight:700, boxShadow:'0 2px 8px rgba(79,70,229,0.3)' }}>{t('Save Client')}</button>
             </div>
           </div>
         </Modal>
@@ -1271,6 +1879,7 @@ function Clients({ clients, jobs, setClients }) {
 
 /* ─── JOBS ────────────────────────────────────────────────────────────────────── */
 function Jobs({ jobs, clients, team, setJobs }) {
+  const { t } = useLang(); // eslint-disable-line no-unused-vars
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('All');
   const [filterAssigned, setFilterAssigned] = useState('All');
@@ -1323,8 +1932,63 @@ function Jobs({ jobs, clients, team, setJobs }) {
   const addNote = (text) => setForm(f => ({ ...f, notes: [makeNote(text), ...normalizeNotes(f.notes)] }));
   const deleteNote = (nid) => setForm(f => ({ ...f, notes: normalizeNotes(f.notes).filter(n=>n.id!==nid) }));
 
-  const JobForm = () => (
-    <>
+
+
+  /* Board view */
+  if (view === 'board') {
+    return (
+      <div className="animate-fade">
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
+          <div><h1 style={{ fontSize:24, fontWeight:700, color:'#111827' }}>Jobs</h1><p style={{ color:'#1f2937', fontSize:14, marginTop:2 }}>{jobs.length} total</p></div>
+          <div style={{ display:'flex', gap:10 }}>
+            <div style={{ display:'flex', background:'#ffffff', borderRadius:8, border:'1.5px solid #cbd5e1', overflow:'hidden' }}>
+              {['list','board'].map(v=><button key={v} onClick={()=>setView(v)} style={{ padding:'7px 14px', background: view===v?'#e5e7eb':'transparent', border:'none', color: view===v?'#e2e8f0':'#475569', fontSize:13, fontWeight:500, textTransform:'capitalize' }}>{v}</button>)}
+            </div>
+            <button onClick={openAdd} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:10, padding:'9px 16px', color:'#fff', fontWeight:700, fontSize:13 }}>+ New Job</button>
+          </div>
+        </div>
+        <div style={{ display:'flex', gap:14, overflowX:'auto', paddingBottom:12 }}>
+          {JOB_STATUSES.map(status => {
+            const colJobs = filtered.filter(j=>j.status===status);
+            const s = STATUS_STYLES[status];
+            return (
+              <div key={status} style={{ minWidth:260, flex:1 }}>
+                <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12, padding:'8px 12px', background:s.bg, borderRadius:8 }}>
+                  <span style={{ width:8, height:8, borderRadius:'50%', background:s.dot }} />
+                  <span style={{ fontSize:13, fontWeight:600, color:s.text }}>{status}</span>
+                  <span style={{ marginLeft:'auto', fontSize:12, color:s.text, fontFamily:"'JetBrains Mono',monospace", background:'#00000030', borderRadius:10, padding:'1px 7px' }}>{colJobs.length}</span>
+                </div>
+                <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+                  {colJobs.map(j => {
+                    const client = getClient(j.clientId);
+                    const member = getMember(j.assignedTo);
+                    const jnotes = normalizeNotes(j.notes);
+                    return (
+                      <div key={j.id} onClick={()=>setViewJob(j)} style={{ background:'#ffffff', border:'1.5px solid #d1d5db', borderRadius:10, padding:14, cursor:'pointer', transition:'border-color 0.15s' }}
+                        onMouseEnter={e=>e.currentTarget.style.borderColor='#38bdf840'}
+                        onMouseLeave={e=>e.currentTarget.style.borderColor='#e5e7eb'}>
+                        <div style={{ fontSize:13, fontWeight:600, color:'#111827', marginBottom:5 }}>{j.title}</div>
+                        <div style={{ fontSize:11, color:'#1f2937', marginBottom:8 }}>{client?.name} · {j.type}</div>
+                        <ProgressBar value={j.progress} />
+                        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:10 }}>
+                          <PriorityBadge priority={j.priority} />
+                          <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                            {jnotes.length > 0 && <span style={{ fontSize:11, color:'#6366f1' }}>📝{jnotes.length}</span>}
+                            {member && <Avatar name={member.name} color={member.color} size={24} />}
+                          </div>
+                        </div>
+                        {j.dueDate && <div style={{ fontSize:11, color: isOverdue(j.dueDate)?'#f87171':'#475569', marginTop:8 }}>Due {fmtDate(j.dueDate)}</div>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        {modal && (
+          <Modal title={modal==='add'?'New Job':'Edit Job'} onClose={closeModal} wide>
+                <>
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
         <FormField label="Job Title" required>
           <input style={inputStyle} value={form.title||''} onChange={e=>setForm(f=>({...f,title:e.target.value}))} placeholder="e.g. Visa Application" />
@@ -1358,92 +2022,36 @@ function Jobs({ jobs, clients, team, setJobs }) {
           <input type="date" style={inputStyle} value={form.dueDate||''} onChange={e=>setForm(f=>({...f,dueDate:e.target.value}))} />
         </FormField>
         <FormField label={`Progress: ${form.progress||0}%`}>
-          <input type="range" min={0} max={100} step={5} value={form.progress||0} onChange={e=>setForm(f=>({...f,progress:e.target.value}))} style={{ width:'100%', accentColor:'#38bdf8', marginTop:8 }} />
+          <input type="range" min={0} max={100} step={5} value={form.progress||0} onChange={e=>setForm(f=>({...f,progress:e.target.value}))} style={{ width:'100%', accentColor:'#6366f1', marginTop:8 }} />
         </FormField>
       </div>
-      <div style={{ borderTop:'1px solid #2e4460', marginTop:8, paddingTop:16 }}>
+      <div style={{ borderTop:'1.5px solid #e2e8f0', marginTop:8, paddingTop:16 }}>
         <NotesPanel notes={normalizeNotes(form.notes)} onAddNote={addNote} onDeleteNote={deleteNote} />
       </div>
       {(DOC_CHECKLISTS[form.type]||[]).length > 0 && (
-        <div style={{ borderTop:'1px solid #2e4460', marginTop:8, paddingTop:16 }}>
-          <div style={{ fontSize:11, color:'#7a8fa8', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:12 }}>Document Checklist – {form.type}</div>
+        <div style={{ borderTop:'1.5px solid #e2e8f0', marginTop:8, paddingTop:16 }}>
+          <div style={{ fontSize:11, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:12 }}>Document Checklist – {form.type}</div>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
             {(DOC_CHECKLISTS[form.type]||[]).map(doc => {
               const checked = (form.docs||{})[doc] || false;
               return (
-                <label key={doc} style={{ display:'flex', alignItems:'center', gap:8, background: checked?'#05966915':'#1e293b', borderRadius:7, padding:'7px 12px', cursor:'pointer', border:`1px solid ${checked?'#05966940':'#2e4460'}`, transition:'all 0.15s' }}>
+                <label key={doc} style={{ display:'flex', alignItems:'center', gap:8, background: checked?'#f0fdf4':'#f9fafb', borderRadius:7, padding:'7px 12px', cursor:'pointer', border:`1px solid ${checked?'#05966940':'#e5e7eb'}`, transition:'all 0.15s' }}>
                   <input type="checkbox" checked={checked} onChange={e=>setForm(f=>({...f, docs:{...(f.docs||{}), [doc]:e.target.checked}}))} style={{ accentColor:'#34d399', width:14, height:14 }} />
-                  <span style={{ fontSize:12, color: checked?'#34d399':'#a0b0c8' }}>{doc}</span>
+                  <span style={{ fontSize:12, color: checked?'#34d399':'#94a3b8' }}>{doc}</span>
                 </label>
               );
             })}
           </div>
-          <div style={{ fontSize:11, color:'#7a8fa8', marginTop:10 }}>
+          <div style={{ fontSize:11, color:'#1f2937', marginTop:10 }}>
             {Object.values(form.docs||{}).filter(Boolean).length} / {(DOC_CHECKLISTS[form.type]||[]).length} documents received
           </div>
         </div>
       )}
     </>
-  );
-
-  /* Board view */
-  if (view === 'board') {
-    return (
-      <div className="animate-fade">
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
-          <div><h1 style={{ fontSize:24, fontWeight:700, color:'#f1f5f9' }}>Jobs</h1><p style={{ color:'#7a8fa8', fontSize:14, marginTop:2 }}>{jobs.length} total</p></div>
-          <div style={{ display:'flex', gap:10 }}>
-            <div style={{ display:'flex', background:'#1e293b', borderRadius:8, border:'1px solid #2e4460', overflow:'hidden' }}>
-              {['list','board'].map(v=><button key={v} onClick={()=>setView(v)} style={{ padding:'7px 14px', background: view===v?'#2e4460':'transparent', border:'none', color: view===v?'#f1f5f9':'#7a8fa8', fontSize:13, fontWeight:500, textTransform:'capitalize' }}>{v}</button>)}
-            </div>
-            <button onClick={openAdd} style={{ background:'#38bdf8', border:'none', borderRadius:10, padding:'9px 16px', color:'#0f172a', fontWeight:700, fontSize:13 }}>+ New Job</button>
-          </div>
-        </div>
-        <div style={{ display:'flex', gap:14, overflowX:'auto', paddingBottom:12 }}>
-          {JOB_STATUSES.map(status => {
-            const colJobs = filtered.filter(j=>j.status===status);
-            const s = STATUS_STYLES[status];
-            return (
-              <div key={status} style={{ minWidth:260, flex:1 }}>
-                <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12, padding:'8px 12px', background:s.bg, borderRadius:8 }}>
-                  <span style={{ width:8, height:8, borderRadius:'50%', background:s.dot }} />
-                  <span style={{ fontSize:13, fontWeight:600, color:s.text }}>{status}</span>
-                  <span style={{ marginLeft:'auto', fontSize:12, color:s.text, fontFamily:"'JetBrains Mono',monospace", background:'#00000030', borderRadius:10, padding:'1px 7px' }}>{colJobs.length}</span>
-                </div>
-                <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-                  {colJobs.map(j => {
-                    const client = getClient(j.clientId);
-                    const member = getMember(j.assignedTo);
-                    const jnotes = normalizeNotes(j.notes);
-                    return (
-                      <div key={j.id} onClick={()=>setViewJob(j)} style={{ background:'#1e293b', border:'1px solid #2e4460', borderRadius:10, padding:14, cursor:'pointer', transition:'border-color 0.15s' }}
-                        onMouseEnter={e=>e.currentTarget.style.borderColor='#38bdf840'}
-                        onMouseLeave={e=>e.currentTarget.style.borderColor='#2e4460'}>
-                        <div style={{ fontSize:13, fontWeight:600, color:'#f1f5f9', marginBottom:5 }}>{j.title}</div>
-                        <div style={{ fontSize:11, color:'#7a8fa8', marginBottom:8 }}>{client?.name} · {j.type}</div>
-                        <ProgressBar value={j.progress} />
-                        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:10 }}>
-                          <PriorityBadge priority={j.priority} />
-                          <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-                            {jnotes.length > 0 && <span style={{ fontSize:11, color:'#38bdf8' }}>📝{jnotes.length}</span>}
-                            {member && <Avatar name={member.name} color={member.color} size={24} />}
-                          </div>
-                        </div>
-                        {j.dueDate && <div style={{ fontSize:11, color: isOverdue(j.dueDate)?'#f87171':'#7a8fa8', marginTop:8 }}>Due {fmtDate(j.dueDate)}</div>}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-        {modal && (
-          <Modal title={modal==='add'?'New Job':'Edit Job'} onClose={closeModal} wide>
-            <JobForm />
+  
             <div style={{display:'flex',justifyContent:'flex-end',gap:10,marginTop:18}}>
-              <button onClick={closeModal} style={{background:'#2e4460',border:'none',borderRadius:8,padding:'9px 18px',color:'#a0b0c8',fontWeight:500}}>Cancel</button>
-              <button onClick={save} style={{background:'#38bdf8',border:'none',borderRadius:8,padding:'9px 20px',color:'#0f172a',fontWeight:700}}>Save Job</button>
+              <button onClick={closeModal} style={{background:'#e5e7eb',border:'none',borderRadius:8,padding:'9px 18px',color:'#1f2937',fontWeight:500}}>Cancel</button>
+              <button onClick={save} style={{background:'linear-gradient(135deg,#6366f1,#8b5cf6)',border:'none',borderRadius:8,padding:'9px 20px',color:'#ffffff',fontWeight:700}}>Save Job</button>
             </div>
           </Modal>
         )}
@@ -1456,25 +2064,25 @@ function Jobs({ jobs, clients, team, setJobs }) {
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20, marginBottom:18 }}>
                 <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
                   {[['Client', vc2?.name||'—'], ['Type', viewJob.type], ['Status', viewJob.status], ['Priority', viewJob.priority], ['Due Date', fmtDate(viewJob.dueDate)||'—']].map(([l,v])=>(
-                    <div key={l} style={{ display:'flex', justifyContent:'space-between', background:'#1e293b', borderRadius:8, padding:'9px 14px' }}>
-                      <span style={{ fontSize:11, color:'#7a8fa8', textTransform:'uppercase', letterSpacing:'0.06em' }}>{l}</span>
-                      <span style={{ fontSize:13, color:'#f1f5f9', fontWeight:500 }}>{v}</span>
+                    <div key={l} style={{ display:'flex', justifyContent:'space-between', background:'#ffffff', borderRadius:8, padding:'9px 14px' }}>
+                      <span style={{ fontSize:11, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.06em' }}>{l}</span>
+                      <span style={{ fontSize:13, color:'#111827', fontWeight:500 }}>{v}</span>
                     </div>
                   ))}
                 </div>
                 <div>
                   <div style={{ marginBottom:14 }}>
-                    <div style={{ fontSize:11, color:'#7a8fa8', letterSpacing:'0.08em', marginBottom:6 }}>Progress – {viewJob.progress}%</div>
+                    <div style={{ fontSize:11, color:'#1f2937', letterSpacing:'0.08em', marginBottom:6 }}>Progress – {viewJob.progress}%</div>
                     <ProgressBar value={viewJob.progress} />
                   </div>
                   {checklist2.length > 0 && (
                     <div>
-                      <div style={{ fontSize:11, color:'#7a8fa8', letterSpacing:'0.08em', marginBottom:8 }}>Documents – {checklist2.filter(d=>docs2[d]).length}/{checklist2.length}</div>
-                      <div style={{ background:'#0f172a60', borderRadius:8, padding:10, maxHeight:180, overflowY:'auto' }}>
+                      <div style={{ fontSize:11, color:'#1f2937', letterSpacing:'0.08em', marginBottom:8 }}>Documents – {checklist2.filter(d=>docs2[d]).length}/{checklist2.length}</div>
+                      <div style={{ background:'#f9fafb', borderRadius:8, padding:10, maxHeight:180, overflowY:'auto' }}>
                         {checklist2.map(doc=>(
-                          <div key={doc} style={{ display:'flex', alignItems:'center', gap:8, padding:'5px 4px', borderBottom:'1px solid #2e446030' }}>
-                            <span style={{ fontSize:14, color: docs2[doc]?'#34d399':'#475569' }}>{docs2[doc]?'✓':'○'}</span>
-                            <span style={{ fontSize:12, color: docs2[doc]?'#a0b0c8':'#7a8fa8', textDecoration: docs2[doc]?'line-through':'none' }}>{doc}</span>
+                          <div key={doc} style={{ display:'flex', alignItems:'center', gap:8, padding:'5px 4px', borderBottom:'2px solid #e2e8f0' }}>
+                            <span style={{ fontSize:14, color: docs2[doc]?'#34d399':'#334155' }}>{docs2[doc]?'✓':'○'}</span>
+                            <span style={{ fontSize:12, color: docs2[doc]?'#94a3b8':'#475569', textDecoration: docs2[doc]?'line-through':'none' }}>{doc}</span>
                           </div>
                         ))}
                       </div>
@@ -1483,8 +2091,8 @@ function Jobs({ jobs, clients, team, setJobs }) {
                 </div>
               </div>
               <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:18 }}>
-                <button onClick={()=>setViewJob(null)} style={{ background:'#2e4460', border:'none', borderRadius:8, padding:'9px 18px', color:'#a0b0c8', fontWeight:500 }}>Close</button>
-                <button onClick={()=>{ setViewJob(null); openEdit(viewJob); }} style={{ background:'#38bdf8', border:'none', borderRadius:8, padding:'9px 20px', color:'#0f172a', fontWeight:700 }}>Edit Job</button>
+                <button onClick={()=>setViewJob(null)} style={{ background:'#e5e7eb', border:'none', borderRadius:8, padding:'9px 18px', color:'#1f2937', fontWeight:500 }}>Close</button>
+                <button onClick={()=>{ setViewJob(null); openEdit(viewJob); }} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, padding:'9px 20px', color:'#fff', fontWeight:700 }}>Edit Job</button>
               </div>
             </Modal>
           );
@@ -1497,12 +2105,12 @@ function Jobs({ jobs, clients, team, setJobs }) {
   return (
     <div className="animate-fade">
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:24 }}>
-        <div><h1 style={{ fontSize:24, fontWeight:700, color:'#f1f5f9' }}>Jobs</h1><p style={{ color:'#7a8fa8', fontSize:14, marginTop:2 }}>{jobs.length} total jobs</p></div>
+        <div><h1 style={{ fontSize:24, fontWeight:700, color:'#111827' }}>Jobs</h1><p style={{ color:'#1f2937', fontSize:14, marginTop:2 }}>{jobs.length} total jobs</p></div>
         <div style={{ display:'flex', gap:10 }}>
-          <div style={{ display:'flex', background:'#1e293b', borderRadius:8, border:'1px solid #2e4460', overflow:'hidden' }}>
-            {['list','board'].map(v=><button key={v} onClick={()=>setView(v)} style={{ padding:'7px 14px', background: view===v?'#2e4460':'transparent', border:'none', color: view===v?'#f1f5f9':'#7a8fa8', fontSize:13, fontWeight:500, textTransform:'capitalize' }}>{v}</button>)}
+          <div style={{ display:'flex', background:'#ffffff', borderRadius:8, border:'1.5px solid #cbd5e1', overflow:'hidden' }}>
+            {['list','board'].map(v=><button key={v} onClick={()=>setView(v)} style={{ padding:'7px 14px', background: view===v?'#e5e7eb':'transparent', border:'none', color: view===v?'#e2e8f0':'#475569', fontSize:13, fontWeight:500, textTransform:'capitalize' }}>{v}</button>)}
           </div>
-          <button onClick={openAdd} style={{ background:'#38bdf8', border:'none', borderRadius:10, padding:'9px 16px', color:'#0f172a', fontWeight:700, fontSize:13 }}>+ New Job</button>
+          <button onClick={openAdd} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:10, padding:'9px 16px', color:'#fff', fontWeight:700, fontSize:13 }}>+ New Job</button>
         </div>
       </div>
       <div style={{ display:'flex', gap:10, marginBottom:18, flexWrap:'wrap' }}>
@@ -1521,7 +2129,7 @@ function Jobs({ jobs, clients, team, setJobs }) {
         </select>
       </div>
       <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-        {filtered.length === 0 && <Card><div style={{ textAlign:'center', color:'#475569', padding:30 }}>No jobs found</div></Card>}
+        {filtered.length === 0 && <Card><div style={{ textAlign:'center', color:'#1f2937', padding:30 }}>No jobs found</div></Card>}
         {filtered.map(j => {
           const client = getClient(j.clientId);
           const member = getMember(j.assignedTo);
@@ -1532,28 +2140,28 @@ function Jobs({ jobs, clients, team, setJobs }) {
               <div style={{ display:'flex', alignItems:'center', gap:16, flexWrap:'wrap' }}>
                 <div style={{ flex:1, minWidth:200 }}>
                   <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
-                    <span onClick={()=>setViewJob(j)} style={{ fontSize:14, fontWeight:600, color:'#38bdf8', cursor:'pointer', textDecoration:'underline', textDecorationStyle:'dotted', textDecorationColor:'#38bdf840' }}>{j.title}</span>
+                    <span onClick={()=>setViewJob(j)} style={{ fontSize:14, fontWeight:600, color:'#6366f1', cursor:'pointer', textDecoration:'underline', textDecorationStyle:'dotted', textDecorationColor:'#38bdf840' }}>{j.title}</span>
                     <PriorityBadge priority={j.priority} />
                     {overdue && <span style={{ fontSize:11, color:'#f87171', background:'#7f1d1d30', borderRadius:10, padding:'2px 8px' }}>Overdue</span>}
                   </div>
-                  <div style={{ fontSize:12, color:'#7a8fa8' }}>{client?.name} · <span style={{ color:'#7a8fa8' }}>{j.type}</span></div>
+                  <div style={{ fontSize:12, color:'#1f2937' }}>{client?.name} · <span style={{ color:'#1f2937' }}>{j.type}</span></div>
                 </div>
                 <div style={{ display:'flex', alignItems:'center', gap:10, flexShrink:0 }}>
                   <div style={{ width:120 }}>
-                    <div style={{ fontSize:11, color:'#7a8fa8', marginBottom:4, textAlign:'right' }}>{j.progress}%</div>
+                    <div style={{ fontSize:11, color:'#1f2937', marginBottom:4, textAlign:'right' }}>{j.progress}%</div>
                     <ProgressBar value={j.progress} />
                   </div>
                   <StatusBadge status={j.status} small />
-                  {jnotes.length > 0 && <span style={{ fontSize:12, color:'#38bdf8', background:'#38bdf815', borderRadius:10, padding:'2px 8px' }}>📝 {jnotes.length}</span>}
+                  {jnotes.length > 0 && <span style={{ fontSize:12, color:'#6366f1', background:'#eef2ff', borderRadius:10, padding:'2px 8px' }}>📝 {jnotes.length}</span>}
                   {member && (
                     <div style={{ display:'flex', alignItems:'center', gap:6, minWidth:110 }}>
                       <Avatar name={member.name} color={member.color} size={26} />
-                      <span style={{ fontSize:12, color:'#7a8fa8' }}>{member.name.split(' ')[0]}</span>
+                      <span style={{ fontSize:12, color:'#1f2937' }}>{member.name.split(' ')[0]}</span>
                     </div>
                   )}
-                  {j.dueDate && <div style={{ fontSize:12, color: overdue?'#f87171':'#7a8fa8', minWidth:80 }}>{fmtDate(j.dueDate)}</div>}
+                  {j.dueDate && <div style={{ fontSize:12, color: overdue?'#f87171':'#475569', minWidth:80 }}>{fmtDate(j.dueDate)}</div>}
                   <div style={{ display:'flex', gap:6 }}>
-                    <button onClick={()=>openEdit(j)} style={{ background:'#2e4460', border:'none', borderRadius:7, padding:'5px 10px', color:'#a0b0c8', fontSize:12 }}>Edit</button>
+                    <button onClick={()=>openEdit(j)} style={{ background:'#e5e7eb', border:'none', borderRadius:7, padding:'5px 10px', color:'#1f2937', fontSize:12 }}>Edit</button>
                     <button onClick={()=>del(j.id)} style={{ background:'#7f1d1d20', border:'none', borderRadius:7, padding:'5px 10px', color:'#f87171', fontSize:12 }}>Del</button>
                   </div>
                 </div>
@@ -1564,10 +2172,70 @@ function Jobs({ jobs, clients, team, setJobs }) {
       </div>
       {modal && (
         <Modal title={modal==='add'?'New Job':'Edit Job'} onClose={closeModal} wide>
-          <JobForm />
+              <>
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
+        <FormField label="Job Title" required>
+          <input style={inputStyle} value={form.title||''} onChange={e=>setForm(f=>({...f,title:e.target.value}))} placeholder="e.g. Visa Application" />
+        </FormField>
+        <FormField label="Job Type">
+          <select style={selectStyle} value={form.type} onChange={e=>setForm(f=>({...f,type:e.target.value}))}>
+            {JOB_TYPES.map(t=><option key={t}>{t}</option>)}
+          </select>
+        </FormField>
+        <FormField label="Client" required>
+          <select style={selectStyle} value={form.clientId} onChange={e=>setForm(f=>({...f,clientId:e.target.value}))}>
+            {clients.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </FormField>
+        <FormField label="Assign To">
+          <select style={selectStyle} value={form.assignedTo} onChange={e=>setForm(f=>({...f,assignedTo:e.target.value}))}>
+            {team.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+        </FormField>
+        <FormField label="Status">
+          <select style={selectStyle} value={form.status} onChange={e=>setForm(f=>({...f,status:e.target.value}))}>
+            {JOB_STATUSES.map(s=><option key={s}>{s}</option>)}
+          </select>
+        </FormField>
+        <FormField label="Priority">
+          <select style={selectStyle} value={form.priority} onChange={e=>setForm(f=>({...f,priority:e.target.value}))}>
+            {PRIORITIES.map(p=><option key={p}>{p}</option>)}
+          </select>
+        </FormField>
+        <FormField label="Due Date">
+          <input type="date" style={inputStyle} value={form.dueDate||''} onChange={e=>setForm(f=>({...f,dueDate:e.target.value}))} />
+        </FormField>
+        <FormField label={`Progress: ${form.progress||0}%`}>
+          <input type="range" min={0} max={100} step={5} value={form.progress||0} onChange={e=>setForm(f=>({...f,progress:e.target.value}))} style={{ width:'100%', accentColor:'#6366f1', marginTop:8 }} />
+        </FormField>
+      </div>
+      <div style={{ borderTop:'1.5px solid #e2e8f0', marginTop:8, paddingTop:16 }}>
+        <NotesPanel notes={normalizeNotes(form.notes)} onAddNote={addNote} onDeleteNote={deleteNote} />
+      </div>
+      {(DOC_CHECKLISTS[form.type]||[]).length > 0 && (
+        <div style={{ borderTop:'1.5px solid #e2e8f0', marginTop:8, paddingTop:16 }}>
+          <div style={{ fontSize:11, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:12 }}>Document Checklist – {form.type}</div>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+            {(DOC_CHECKLISTS[form.type]||[]).map(doc => {
+              const checked = (form.docs||{})[doc] || false;
+              return (
+                <label key={doc} style={{ display:'flex', alignItems:'center', gap:8, background: checked?'#f0fdf4':'#f9fafb', borderRadius:7, padding:'7px 12px', cursor:'pointer', border:`1px solid ${checked?'#05966940':'#e5e7eb'}`, transition:'all 0.15s' }}>
+                  <input type="checkbox" checked={checked} onChange={e=>setForm(f=>({...f, docs:{...(f.docs||{}), [doc]:e.target.checked}}))} style={{ accentColor:'#34d399', width:14, height:14 }} />
+                  <span style={{ fontSize:12, color: checked?'#34d399':'#94a3b8' }}>{doc}</span>
+                </label>
+              );
+            })}
+          </div>
+          <div style={{ fontSize:11, color:'#1f2937', marginTop:10 }}>
+            {Object.values(form.docs||{}).filter(Boolean).length} / {(DOC_CHECKLISTS[form.type]||[]).length} documents received
+          </div>
+        </div>
+      )}
+    </>
+  
           <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:18 }}>
-            <button onClick={closeModal} style={{ background:'#2e4460', border:'none', borderRadius:8, padding:'9px 18px', color:'#a0b0c8', fontWeight:500 }}>Cancel</button>
-            <button onClick={save} style={{ background:'#38bdf8', border:'none', borderRadius:8, padding:'9px 20px', color:'#0f172a', fontWeight:700 }}>Save Job</button>
+            <button onClick={closeModal} style={{ background:'#e5e7eb', border:'none', borderRadius:8, padding:'9px 18px', color:'#1f2937', fontWeight:500 }}>Cancel</button>
+            <button onClick={save} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, padding:'9px 20px', color:'#fff', fontWeight:700 }}>Save Job</button>
           </div>
         </Modal>
       )}
@@ -1582,36 +2250,36 @@ function Jobs({ jobs, clients, team, setJobs }) {
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20, marginBottom:18 }}>
               <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
                 {[['Client', vc?.name||'—'], ['Type', viewJob.type], ['Status', viewJob.status], ['Priority', viewJob.priority], ['Due Date', fmtDate(viewJob.dueDate)||'—'], ['Created', fmtDate(viewJob.createdAt)]].map(([l,v])=>(
-                  <div key={l} style={{ display:'flex', justifyContent:'space-between', background:'#1e293b', borderRadius:8, padding:'9px 14px' }}>
-                    <span style={{ fontSize:11, color:'#7a8fa8', textTransform:'uppercase', letterSpacing:'0.06em' }}>{l}</span>
-                    <span style={{ fontSize:13, color:'#f1f5f9', fontWeight:500 }}>{v}</span>
+                  <div key={l} style={{ display:'flex', justifyContent:'space-between', background:'#ffffff', borderRadius:8, padding:'9px 14px' }}>
+                    <span style={{ fontSize:11, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.06em' }}>{l}</span>
+                    <span style={{ fontSize:13, color:'#111827', fontWeight:500 }}>{v}</span>
                   </div>
                 ))}
                 {vm && (
-                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', background:'#1e293b', borderRadius:8, padding:'9px 14px' }}>
-                    <span style={{ fontSize:11, color:'#7a8fa8', textTransform:'uppercase', letterSpacing:'0.06em' }}>Assigned</span>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', background:'#ffffff', borderRadius:8, padding:'9px 14px' }}>
+                    <span style={{ fontSize:11, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.06em' }}>Assigned</span>
                     <div style={{ display:'flex', alignItems:'center', gap:8 }}>
                       <Avatar name={vm.name} color={vm.color} size={22} />
-                      <span style={{ fontSize:13, color:'#f1f5f9', fontWeight:500 }}>{vm.name}</span>
+                      <span style={{ fontSize:13, color:'#111827', fontWeight:500 }}>{vm.name}</span>
                     </div>
                   </div>
                 )}
               </div>
               <div>
                 <div style={{ marginBottom:14 }}>
-                  <div style={{ fontSize:11, color:'#7a8fa8', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:6 }}>Progress – {viewJob.progress}%</div>
+                  <div style={{ fontSize:11, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:6 }}>Progress – {viewJob.progress}%</div>
                   <ProgressBar value={viewJob.progress} />
                 </div>
                 {checklist.length > 0 && (
                   <div>
-                    <div style={{ fontSize:11, color:'#7a8fa8', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:8 }}>Documents – {docsReceived}/{checklist.length}</div>
-                    <div style={{ background:'#0f172a60', borderRadius:8, padding:10, maxHeight:210, overflowY:'auto' }}>
+                    <div style={{ fontSize:11, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:8 }}>Documents – {docsReceived}/{checklist.length}</div>
+                    <div style={{ background:'#f9fafb', borderRadius:8, padding:10, maxHeight:210, overflowY:'auto' }}>
                       {checklist.map(doc=>{
                         const got = docs[doc];
                         return (
-                          <div key={doc} style={{ display:'flex', alignItems:'center', gap:8, padding:'5px 4px', borderBottom:'1px solid #2e446030' }}>
-                            <span style={{ fontSize:14, color: got?'#34d399':'#475569' }}>{got?'✓':'○'}</span>
-                            <span style={{ fontSize:12, color: got?'#a0b0c8':'#7a8fa8', textDecoration: got?'line-through':'none' }}>{doc}</span>
+                          <div key={doc} style={{ display:'flex', alignItems:'center', gap:8, padding:'5px 4px', borderBottom:'2px solid #e2e8f0' }}>
+                            <span style={{ fontSize:14, color: got?'#34d399':'#334155' }}>{got?'✓':'○'}</span>
+                            <span style={{ fontSize:12, color: got?'#94a3b8':'#475569', textDecoration: got?'line-through':'none' }}>{doc}</span>
                           </div>
                         );
                       })}
@@ -1621,21 +2289,21 @@ function Jobs({ jobs, clients, team, setJobs }) {
               </div>
             </div>
             {normalizeNotes(viewJob.notes).length > 0 && (
-              <div style={{ borderTop:'1px solid #2e4460', paddingTop:14 }}>
-                <div style={{ fontSize:11, color:'#7a8fa8', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:8 }}>Notes</div>
+              <div style={{ borderTop:'1.5px solid #e2e8f0', paddingTop:14 }}>
+                <div style={{ fontSize:11, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:8 }}>Notes</div>
                 <div style={{ display:'flex', flexDirection:'column', gap:8, maxHeight:150, overflowY:'auto' }}>
                   {[...normalizeNotes(viewJob.notes)].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)).map(n=>(
-                    <div key={n.id} style={{ background:'#1e293b', borderRadius:8, padding:'10px 14px' }}>
-                      <div style={{ fontSize:13, color:'#e2e8f0', whiteSpace:'pre-wrap' }}>{n.text}</div>
-                      <div style={{ fontSize:11, color:'#475569', marginTop:4 }}>{fmtDate(n.createdAt)}</div>
+                    <div key={n.id} style={{ background:'#ffffff', borderRadius:8, padding:'10px 14px' }}>
+                      <div style={{ fontSize:13, color:'#1f2937', whiteSpace:'pre-wrap' }}>{n.text}</div>
+                      <div style={{ fontSize:11, color:'#1f2937', marginTop:4 }}>{fmtDate(n.createdAt)}</div>
                     </div>
                   ))}
                 </div>
               </div>
             )}
             <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:18 }}>
-              <button onClick={()=>setViewJob(null)} style={{ background:'#2e4460', border:'none', borderRadius:8, padding:'9px 18px', color:'#a0b0c8', fontWeight:500 }}>Close</button>
-              <button onClick={()=>{ setViewJob(null); openEdit(viewJob); }} style={{ background:'#38bdf8', border:'none', borderRadius:8, padding:'9px 20px', color:'#0f172a', fontWeight:700 }}>Edit Job</button>
+              <button onClick={()=>setViewJob(null)} style={{ background:'#e5e7eb', border:'none', borderRadius:8, padding:'9px 18px', color:'#1f2937', fontWeight:500 }}>Close</button>
+              <button onClick={()=>{ setViewJob(null); openEdit(viewJob); }} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, padding:'9px 20px', color:'#fff', fontWeight:700 }}>Edit Job</button>
             </div>
           </Modal>
         );
@@ -1686,19 +2354,19 @@ function Team({ team, jobs, clients, setTeam }) {
       <div
         onClick={() => setViewJob(j)}
         style={{
-          background: isUrgentTop ? '#7f1d1d18' : '#0f172a',
-          border: `1px solid ${isUrgentTop ? '#7f1d1d50' : '#2e446060'}`,
+          background: isUrgentTop ? '#7f1d1d18' : '#ffffff',
+          border: `1px solid ${isUrgentTop ? '#7f1d1d50' : '#1e2d4060'}`,
           borderRadius:8, padding: compact ? '7px 10px' : '10px 14px',
           cursor:'pointer', transition:'background 0.15s',
         }}
         onMouseEnter={e => e.currentTarget.style.background = isUrgentTop ? '#7f1d1d28' : '#0f1f33'}
-        onMouseLeave={e => e.currentTarget.style.background = isUrgentTop ? '#7f1d1d18' : '#0f172a'}
+        onMouseLeave={e => e.currentTarget.style.background = isUrgentTop ? '#7f1d1d18' : '#ffffff'}
       >
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:3 }}>
-          <span style={{ fontSize:13, fontWeight:600, color:'#f1f5f9', flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginRight:8 }}>
+          <span style={{ fontSize:13, fontWeight:600, color:'#111827', flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginRight:8 }}>
             {client?.name || '—'}
           </span>
-          <span style={{ fontSize:10, fontWeight:700, color:pStyle.text||'#a0b0c8', background:pStyle.bg||'#2e4460', borderRadius:10, padding:'2px 8px', flexShrink:0, textTransform:'uppercase', letterSpacing:'0.04em' }}>
+          <span style={{ fontSize:10, fontWeight:700, color:pStyle.text||'#94a3b8', background:pStyle.bg||'#e5e7eb', borderRadius:10, padding:'2px 8px', flexShrink:0, textTransform:'uppercase', letterSpacing:'0.04em' }}>
             {j.priority}
           </span>
         </div>
@@ -1709,11 +2377,11 @@ function Team({ team, jobs, clients, setTeam }) {
           <StatusBadge status={j.status} small />
           <div style={{ display:'flex', alignItems:'center', gap:8 }}>
             {j.dueDate && (
-              <span style={{ fontSize:10, color: overdue ? '#f87171' : '#7a8fa8' }}>
+              <span style={{ fontSize:10, color: overdue ? '#f87171' : '#475569' }}>
                 {overdue ? '⚠ ' : ''}{fmtDate(j.dueDate)}
               </span>
             )}
-            <span style={{ fontSize:10, color:'#475569' }}>→</span>
+            <span style={{ fontSize:10, color:'#1f2937' }}>→</span>
           </div>
         </div>
       </div>
@@ -1723,8 +2391,8 @@ function Team({ team, jobs, clients, setTeam }) {
   return (
     <div className="animate-fade">
       <div style={{ marginBottom:24 }}>
-        <h1 style={{ fontSize:24, fontWeight:700, color:'#f1f5f9' }}>Team</h1>
-        <p style={{ color:'#7a8fa8', fontSize:14, marginTop:2 }}>{team.length} members · Click any case to open details</p>
+        <h1 style={{ fontSize:24, fontWeight:700, color:'#111827' }}>Team</h1>
+        <p style={{ color:'#1f2937', fontSize:14, marginTop:2 }}>{team.length} members · Click any case to open details</p>
       </div>
 
       {/* ── Member cards grid ── */}
@@ -1745,19 +2413,19 @@ function Team({ team, jobs, clients, setTeam }) {
                 <div style={{ display:'flex', alignItems:'center', gap:12 }}>
                   <Avatar name={m.name} color={m.color} size={44} />
                   <div>
-                    <div style={{ fontWeight:600, color:'#f1f5f9', fontSize:15 }}>{m.name}</div>
-                    <div style={{ fontSize:12, color:'#7a8fa8', marginTop:2 }}>{m.role}</div>
-                    <div style={{ fontSize:11, color:'#475569', marginTop:2 }}>✉ {m.email}</div>
+                    <div style={{ fontWeight:600, color:'#111827', fontSize:15 }}>{m.name}</div>
+                    <div style={{ fontSize:12, color:'#1f2937', marginTop:2 }}>{m.role}</div>
+                    <div style={{ fontSize:11, color:'#1f2937', marginTop:2 }}>✉ {m.email}</div>
                   </div>
                 </div>
-                <button onClick={() => openEdit(m)} style={{ background:'#2e4460', border:'none', borderRadius:7, padding:'4px 10px', color:'#7a8fa8', fontSize:12 }}>Edit</button>
+                <button onClick={() => openEdit(m)} style={{ background:'#e5e7eb', border:'none', borderRadius:7, padding:'4px 10px', color:'#1f2937', fontSize:12 }}>Edit</button>
               </div>
 
               {/* Stats row */}
               <div style={{ display:'flex', gap:8, marginBottom:14 }}>
-                <div style={{ flex:1, background:'#0f172a', borderRadius:8, padding:'7px 10px', textAlign:'center' }}>
+                <div style={{ flex:1, background:'#ffffff', borderRadius:8, padding:'7px 10px', textAlign:'center' }}>
                   <div style={{ fontSize:20, fontWeight:700, color:m.color, fontFamily:"'JetBrains Mono',monospace" }}>{activeJobs.length}</div>
-                  <div style={{ fontSize:11, color:'#7a8fa8' }}>Active</div>
+                  <div style={{ fontSize:11, color:'#1f2937' }}>Active</div>
                 </div>
                 {urgentCount > 0 && (
                   <div style={{ flex:1, background:'#7f1d1d20', borderRadius:8, padding:'7px 10px', textAlign:'center', border:'1px solid #7f1d1d40' }}>
@@ -1765,16 +2433,16 @@ function Team({ team, jobs, clients, setTeam }) {
                     <div style={{ fontSize:11, color:'#f87171' }}>Urgent</div>
                   </div>
                 )}
-                <div style={{ flex:1, background:'#0f172a', borderRadius:8, padding:'7px 10px', textAlign:'center' }}>
+                <div style={{ flex:1, background:'#ffffff', borderRadius:8, padding:'7px 10px', textAlign:'center' }}>
                   <div style={{ fontSize:20, fontWeight:700, color:'#34d399', fontFamily:"'JetBrains Mono',monospace" }}>{completedCount}</div>
-                  <div style={{ fontSize:11, color:'#7a8fa8' }}>Done</div>
+                  <div style={{ fontSize:11, color:'#1f2937' }}>Done</div>
                 </div>
               </div>
 
               {/* Top-3 case list */}
               {activeJobs.length > 0 ? (
                 <div>
-                  <div style={{ fontSize:11, color:'#475569', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:8 }}>
+                  <div style={{ fontSize:11, color:'#1f2937', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:8 }}>
                     Top Cases — ranked by urgency
                   </div>
                   <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
@@ -1785,23 +2453,23 @@ function Team({ team, jobs, clients, setTeam }) {
                   {remaining > 0 ? (
                     <button
                       onClick={() => setDrillMember(m)}
-                      style={{ marginTop:10, width:'100%', background:'#2e4460', border:'1px solid #334c6e', borderRadius:8, padding:'8px 0', color:'#a0b0c8', fontSize:12, fontWeight:600, cursor:'pointer', transition:'all 0.15s' }}
-                      onMouseEnter={e => { e.currentTarget.style.background='#253650'; e.currentTarget.style.color='#f1f5f9'; }}
-                      onMouseLeave={e => { e.currentTarget.style.background='#2e4460'; e.currentTarget.style.color='#a0b0c8'; }}
+                      style={{ marginTop:10, width:'100%', background:'#e5e7eb', border:'1.5px solid #cbd5e1', borderRadius:8, padding:'8px 0', color:'#1f2937', fontSize:12, fontWeight:600, cursor:'pointer', transition:'all 0.15s' }}
+                      onMouseEnter={e => { e.currentTarget.style.background='#253650'; e.currentTarget.style.color='#e2e8f0'; }}
+                      onMouseLeave={e => { e.currentTarget.style.background='#e5e7eb'; e.currentTarget.style.color='#94a3b8'; }}
                     >
                       View all {activeJobs.length} cases →
                     </button>
                   ) : (
                     <button
                       onClick={() => setDrillMember(m)}
-                      style={{ marginTop:10, width:'100%', background:'transparent', border:'1px solid #2e4460', borderRadius:8, padding:'6px 0', color:'#475569', fontSize:11, cursor:'pointer' }}
+                      style={{ marginTop:10, width:'100%', background:'transparent', border:'1.5px solid #cbd5e1', borderRadius:8, padding:'6px 0', color:'#1f2937', fontSize:11, cursor:'pointer' }}
                     >
                       View details
                     </button>
                   )}
                 </div>
               ) : (
-                <div style={{ fontSize:13, color:'#475569', textAlign:'center', padding:'10px 0' }}>No active jobs 🎉</div>
+                <div style={{ fontSize:13, color:'#1f2937', textAlign:'center', padding:'10px 0' }}>No active jobs 🎉</div>
               )}
             </Card>
           );
@@ -1815,20 +2483,20 @@ function Team({ team, jobs, clients, setTeam }) {
         return (
           <Modal title={`${drillMember.name} — All Cases`} onClose={() => setDrillMember(null)} wide>
             {/* Member summary bar */}
-            <div style={{ display:'flex', alignItems:'center', gap:14, marginBottom:20, padding:'12px 16px', background:'#0f172a', borderRadius:10, border:'1px solid #2e4460' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:14, marginBottom:20, padding:'12px 16px', background:'#ffffff', borderRadius:10, border:'1px solid #e5e7eb' }}>
               <Avatar name={drillMember.name} color={drillMember.color} size={40} />
               <div style={{ flex:1 }}>
-                <div style={{ fontWeight:600, color:'#f1f5f9', fontSize:15 }}>{drillMember.name}</div>
-                <div style={{ fontSize:12, color:'#7a8fa8' }}>{drillMember.role} · {drillMember.email}</div>
+                <div style={{ fontWeight:600, color:'#111827', fontSize:15 }}>{drillMember.name}</div>
+                <div style={{ fontSize:12, color:'#1f2937' }}>{drillMember.role} · {drillMember.email}</div>
               </div>
               <div style={{ display:'flex', gap:12 }}>
                 <div style={{ textAlign:'center' }}>
                   <div style={{ fontSize:18, fontWeight:700, color:drillMember.color, fontFamily:"'JetBrains Mono',monospace" }}>{allJobs.length}</div>
-                  <div style={{ fontSize:10, color:'#7a8fa8' }}>Active</div>
+                  <div style={{ fontSize:10, color:'#1f2937' }}>Active</div>
                 </div>
                 <div style={{ textAlign:'center' }}>
                   <div style={{ fontSize:18, fontWeight:700, color:'#34d399', fontFamily:"'JetBrains Mono',monospace" }}>{completedJobs.length}</div>
-                  <div style={{ fontSize:10, color:'#7a8fa8' }}>Done</div>
+                  <div style={{ fontSize:10, color:'#1f2937' }}>Done</div>
                 </div>
               </div>
             </div>
@@ -1836,7 +2504,7 @@ function Team({ team, jobs, clients, setTeam }) {
             {/* Active cases */}
             {allJobs.length > 0 && (
               <div style={{ marginBottom:20 }}>
-                <div style={{ fontSize:11, color:'#475569', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:10 }}>
+                <div style={{ fontSize:11, color:'#1f2937', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:10 }}>
                   Active Cases ({allJobs.length}) — click to open
                 </div>
                 <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
@@ -1848,17 +2516,17 @@ function Team({ team, jobs, clients, setTeam }) {
             {/* Completed cases */}
             {completedJobs.length > 0 && (
               <div>
-                <div style={{ fontSize:11, color:'#475569', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:10 }}>
+                <div style={{ fontSize:11, color:'#1f2937', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:10 }}>
                   Completed ({completedJobs.length})
                 </div>
                 <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
                   {completedJobs.map(j => {
                     const client = getClient(j.clientId);
                     return (
-                      <div key={j.id} onClick={() => setViewJob(j)} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 12px', background:'#0f172a', borderRadius:8, cursor:'pointer', opacity:0.6 }}
+                      <div key={j.id} onClick={() => setViewJob(j)} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 12px', background:'#ffffff', borderRadius:8, cursor:'pointer', opacity:0.6 }}
                         onMouseEnter={e => e.currentTarget.style.opacity='1'}
                         onMouseLeave={e => e.currentTarget.style.opacity='0.6'}>
-                        <span style={{ fontSize:12, color:'#a0b0c8' }}>{client?.name || '—'}</span>
+                        <span style={{ fontSize:12, color:'#1f2937' }}>{client?.name || '—'}</span>
                         <span style={{ fontSize:11, color:'#60a5fa' }}>{caseLabel(j.type)}</span>
                         <StatusBadge status={j.status} small />
                       </div>
@@ -1869,11 +2537,11 @@ function Team({ team, jobs, clients, setTeam }) {
             )}
 
             {allJobs.length === 0 && completedJobs.length === 0 && (
-              <div style={{ textAlign:'center', color:'#475569', padding:'20px 0' }}>No cases assigned yet.</div>
+              <div style={{ textAlign:'center', color:'#1f2937', padding:'20px 0' }}>No cases assigned yet.</div>
             )}
 
             <div style={{ display:'flex', justifyContent:'flex-end', marginTop:20 }}>
-              <button onClick={() => setDrillMember(null)} style={{ background:'#2e4460', border:'none', borderRadius:8, padding:'9px 20px', color:'#a0b0c8', fontWeight:500 }}>Close</button>
+              <button onClick={() => setDrillMember(null)} style={{ background:'#e5e7eb', border:'none', borderRadius:8, padding:'9px 20px', color:'#1f2937', fontWeight:500 }}>Close</button>
             </div>
           </Modal>
         );
@@ -1890,27 +2558,27 @@ function Team({ team, jobs, clients, setTeam }) {
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20, marginBottom:18 }}>
               <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
                 {[['Client', vc?.name||'—'], ['Type', viewJob.type], ['Status', viewJob.status], ['Priority', viewJob.priority], ['Due Date', fmtDate(viewJob.dueDate)||'—']].map(([l,v]) => (
-                  <div key={l} style={{ display:'flex', justifyContent:'space-between', background:'#1e293b', borderRadius:8, padding:'9px 14px' }}>
-                    <span style={{ fontSize:11, color:'#7a8fa8', textTransform:'uppercase', letterSpacing:'0.06em' }}>{l}</span>
-                    <span style={{ fontSize:13, color:'#f1f5f9', fontWeight:500 }}>{v}</span>
+                  <div key={l} style={{ display:'flex', justifyContent:'space-between', background:'#ffffff', borderRadius:8, padding:'9px 14px' }}>
+                    <span style={{ fontSize:11, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.06em' }}>{l}</span>
+                    <span style={{ fontSize:13, color:'#111827', fontWeight:500 }}>{v}</span>
                   </div>
                 ))}
               </div>
               <div>
                 <div style={{ marginBottom:14 }}>
-                  <div style={{ fontSize:11, color:'#7a8fa8', letterSpacing:'0.08em', marginBottom:6 }}>Progress — {viewJob.progress}%</div>
+                  <div style={{ fontSize:11, color:'#1f2937', letterSpacing:'0.08em', marginBottom:6 }}>Progress — {viewJob.progress}%</div>
                   <ProgressBar value={viewJob.progress} />
                 </div>
                 {checklist.length > 0 && (
                   <div>
-                    <div style={{ fontSize:11, color:'#7a8fa8', letterSpacing:'0.08em', marginBottom:8 }}>Documents — {docsReceived}/{checklist.length}</div>
-                    <div style={{ background:'#0f172a60', borderRadius:8, padding:10, maxHeight:200, overflowY:'auto' }}>
+                    <div style={{ fontSize:11, color:'#1f2937', letterSpacing:'0.08em', marginBottom:8 }}>Documents — {docsReceived}/{checklist.length}</div>
+                    <div style={{ background:'#f9fafb', borderRadius:8, padding:10, maxHeight:200, overflowY:'auto' }}>
                       {checklist.map(doc => {
                         const got = docs[doc];
                         return (
-                          <div key={doc} style={{ display:'flex', alignItems:'center', gap:8, padding:'5px 4px', borderBottom:'1px solid #2e446030' }}>
-                            <span style={{ fontSize:14, color: got?'#34d399':'#475569' }}>{got?'✓':'○'}</span>
-                            <span style={{ fontSize:12, color: got?'#a0b0c8':'#7a8fa8', textDecoration: got?'line-through':'none' }}>{doc}</span>
+                          <div key={doc} style={{ display:'flex', alignItems:'center', gap:8, padding:'5px 4px', borderBottom:'2px solid #e2e8f0' }}>
+                            <span style={{ fontSize:14, color: got?'#34d399':'#334155' }}>{got?'✓':'○'}</span>
+                            <span style={{ fontSize:12, color: got?'#94a3b8':'#475569', textDecoration: got?'line-through':'none' }}>{doc}</span>
                           </div>
                         );
                       })}
@@ -1920,20 +2588,20 @@ function Team({ team, jobs, clients, setTeam }) {
               </div>
             </div>
             {normalizeNotes(viewJob.notes).length > 0 && (
-              <div style={{ borderTop:'1px solid #2e4460', paddingTop:14 }}>
-                <div style={{ fontSize:11, color:'#7a8fa8', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:8 }}>Notes</div>
+              <div style={{ borderTop:'1.5px solid #e2e8f0', paddingTop:14 }}>
+                <div style={{ fontSize:11, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:8 }}>Notes</div>
                 <div style={{ display:'flex', flexDirection:'column', gap:8, maxHeight:150, overflowY:'auto' }}>
                   {[...normalizeNotes(viewJob.notes)].sort((a,b) => new Date(b.createdAt)-new Date(a.createdAt)).map(n => (
-                    <div key={n.id} style={{ background:'#1e293b', borderRadius:8, padding:'10px 14px' }}>
-                      <div style={{ fontSize:13, color:'#e2e8f0', whiteSpace:'pre-wrap' }}>{n.text}</div>
-                      <div style={{ fontSize:11, color:'#475569', marginTop:4 }}>{fmtDate(n.createdAt)}</div>
+                    <div key={n.id} style={{ background:'#ffffff', borderRadius:8, padding:'10px 14px' }}>
+                      <div style={{ fontSize:13, color:'#1f2937', whiteSpace:'pre-wrap' }}>{n.text}</div>
+                      <div style={{ fontSize:11, color:'#1f2937', marginTop:4 }}>{fmtDate(n.createdAt)}</div>
                     </div>
                   ))}
                 </div>
               </div>
             )}
             <div style={{ display:'flex', justifyContent:'flex-end', marginTop:18 }}>
-              <button onClick={() => setViewJob(null)} style={{ background:'#2e4460', border:'none', borderRadius:8, padding:'9px 20px', color:'#a0b0c8', fontWeight:500 }}>Close</button>
+              <button onClick={() => setViewJob(null)} style={{ background:'#e5e7eb', border:'none', borderRadius:8, padding:'9px 20px', color:'#1f2937', fontWeight:500 }}>Close</button>
             </div>
           </Modal>
         );
@@ -1942,9 +2610,9 @@ function Team({ team, jobs, clients, setTeam }) {
       {/* ── Edit member modal ── */}
       {editing && (
         <Modal title="Edit Team Member" onClose={() => setEditing(null)}>
-          <FormField label="姓名"><input style={inputStyle} value={form.name||''} onChange={e => setForm(f => ({...f, name:e.target.value}))} /></FormField>
+          <FormField label="Name"><input style={inputStyle} value={form.name||''} onChange={e => setForm(f => ({...f, name:e.target.value}))} /></FormField>
           <FormField label="Role"><input style={inputStyle} value={form.role||''} onChange={e => setForm(f => ({...f, role:e.target.value}))} /></FormField>
-          <FormField label="邮箱"><input style={inputStyle} value={form.email||''} onChange={e => setForm(f => ({...f, email:e.target.value}))} /></FormField>
+          <FormField label="Email"><input style={inputStyle} value={form.email||''} onChange={e => setForm(f => ({...f, email:e.target.value}))} /></FormField>
           <FormField label="Color">
             <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginTop:4 }}>
               {TEAM_COLORS.map(c => (
@@ -1953,8 +2621,8 @@ function Team({ team, jobs, clients, setTeam }) {
             </div>
           </FormField>
           <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:8 }}>
-            <button onClick={() => setEditing(null)} style={{ background:'#2e4460', border:'none', borderRadius:8, padding:'9px 18px', color:'#a0b0c8', fontWeight:500 }}>Cancel</button>
-            <button onClick={save} style={{ background:'#38bdf8', border:'none', borderRadius:8, padding:'9px 20px', color:'#0f172a', fontWeight:700 }}>Save</button>
+            <button onClick={() => setEditing(null)} style={{ background:'#e5e7eb', border:'none', borderRadius:8, padding:'9px 18px', color:'#1f2937', fontWeight:500 }}>Cancel</button>
+            <button onClick={save} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, padding:'9px 20px', color:'#fff', fontWeight:700 }}>Save</button>
           </div>
         </Modal>
       )}
@@ -1970,7 +2638,7 @@ function Team({ team, jobs, clients, setTeam }) {
 /* ─── NEW CONSTANTS ──────────────────────────────────────────────────────────── */
 const LEAD_STAGES = ['New Enquiry','Consultation Booked','Proposal Sent','Converted','Lost'];
 const LEAD_STAGE_COLORS = { 
-  'New Enquiry':        '#38bdf8',
+  'New Enquiry':        '#6366f1',
   'Consultation Booked':'#a78bfa',
   'Proposal Sent':      '#f59e0b',
   'Converted':          '#34d399',
@@ -1978,8 +2646,8 @@ const LEAD_STAGE_COLORS = {
 };
 const INVOICE_STATUSES = ['Draft','Sent','Paid','Overdue'];
 const INVOICE_STATUS_STYLES = {
-  'Draft':   { bg:'#2e446040', text:'#a0b0c8' },
-  'Sent':    { bg:'#0ea5e920', text:'#38bdf8' },
+  'Draft':   { bg:'#1e2d4040', text:'#94a3b8' },
+  'Sent':    { bg:'#0ea5e920', text:'#6366f1' },
   'Paid':    { bg:'#10b98120', text:'#34d399' },
   'Overdue': { bg:'#ef444420', text:'#f87171' },
 };
@@ -2024,7 +2692,7 @@ function DeadlineAlerts({ jobs, appointments }) {
         {soon.length} Upcoming Deadline{soon.length>1?'s':''}
       </span>
       {soon.slice(0,5).map((s,i) => (
-        <span key={i} style={{ fontSize:12, background: s.overdue?'#ef444430': s.urgent?'#f97316 20':'#2e4460', color: s.overdue?'#f87171': s.urgent?'#fdba74':'#a0b0c8', borderRadius:6, padding:'3px 9px' }}>
+        <span key={i} style={{ fontSize:12, background: s.overdue?'#ef444430': s.urgent?'#f97316 20':'#e5e7eb', color: s.overdue?'#f87171': s.urgent?'#fdba74':'#94a3b8', borderRadius:6, padding:'3px 9px' }}>
           {s.label} · {s.overdue ? `${Math.abs(s.days)}d overdue` : s.days === 0 ? 'Today' : `${s.days}d`}
         </span>
       ))}
@@ -2082,21 +2750,21 @@ function Leads({ leads, setLeads, clients, setClients, jobs, setJobs, team, agen
     <div style={{ animation:'fadeIn 0.3s ease' }}>
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:22 }}>
         <div>
-          <h1 style={{ fontSize:22, fontWeight:700, color:'#f1f5f9' }}>Leads Pipeline</h1>
-          <div style={{ fontSize:13, color:'#7a8fa8', marginTop:3 }}>{leads.length} total leads · {leads.filter(l=>l.stage==='Converted').length} converted</div>
+          <h1 style={{ fontSize:22, fontWeight:700, color:'#111827' }}>Leads Pipeline</h1>
+          <div style={{ fontSize:13, color:'#1f2937', marginTop:3 }}>{leads.length} total leads · {leads.filter(l=>l.stage==='Converted').length} converted</div>
         </div>
         <div style={{ display:'flex', gap:10 }}>
-          <input value={filter} onChange={e=>setFilter(e.target.value)} placeholder="Search leads…" style={{ background:'#1e293b', border:'1px solid #2e4460', borderRadius:8, padding:'8px 12px', color:'#f1f5f9', fontSize:13, width:200, outline:'none' }}/>
-          <button onClick={openAdd} style={{ background:'#38bdf8', color:'#0f172a', border:'none', borderRadius:8, padding:'9px 18px', fontWeight:700, fontSize:13 }}>+ Add Lead</button>
+          <input value={filter} onChange={e=>setFilter(e.target.value)} placeholder="Search leads…" style={{ background:'#ffffff', border:'1.5px solid #d1d5db', borderRadius:8, padding:'8px 12px', color:'#111827', fontSize:13, width:200, outline:'none' }}/>
+          <button onClick={openAdd} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', color:'#ffffff', border:'none', borderRadius:8, padding:'9px 18px', fontWeight:700, fontSize:13 }}>+ Add Lead</button>
         </div>
       </div>
 
       {/* Stats row */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(5,1fr)', gap:12, marginBottom:24 }}>
         {LEAD_STAGES.map(s => (
-          <div key={s} style={{ background:'#1e293b', border:`1px solid ${LEAD_STAGE_COLORS[s]}30`, borderRadius:10, padding:'12px 16px' }}>
+          <div key={s} style={{ background:'#ffffff', border:`1px solid ${LEAD_STAGE_COLORS[s]}30`, borderRadius:10, padding:'12px 16px' }}>
             <div style={{ fontSize:11, color: LEAD_STAGE_COLORS[s], fontWeight:600, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:4 }}>{s}</div>
-            <div style={{ fontSize:24, fontWeight:700, color:'#f1f5f9' }}>{byStage[s].length}</div>
+            <div style={{ fontSize:24, fontWeight:700, color:'#111827' }}>{byStage[s].length}</div>
           </div>
         ))}
       </div>
@@ -2107,20 +2775,20 @@ function Leads({ leads, setLeads, clients, setClients, jobs, setJobs, team, agen
           <div key={stage}>
             <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10 }}>
               <div style={{ width:8, height:8, borderRadius:'50%', background: LEAD_STAGE_COLORS[stage] }}/>
-              <span style={{ fontSize:12, fontWeight:600, color:'#7a8fa8', textTransform:'uppercase', letterSpacing:'0.06em' }}>{stage}</span>
-              <span style={{ fontSize:11, background:'#2e4460', color:'#7a8fa8', borderRadius:8, padding:'1px 6px', marginLeft:'auto' }}>{byStage[stage].length}</span>
+              <span style={{ fontSize:12, fontWeight:600, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.06em' }}>{stage}</span>
+              <span style={{ fontSize:11, background:'#e5e7eb', color:'#1f2937', borderRadius:8, padding:'1px 6px', marginLeft:'auto' }}>{byStage[stage].length}</span>
             </div>
             <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
               {byStage[stage].map(lead => (
-                <div key={lead.id} style={{ background:'#1e293b', border:'1px solid #253650', borderRadius:10, padding:'12px 14px', cursor:'pointer' }}
+                <div key={lead.id} style={{ background:'#ffffff', border:'1.5px solid #d1d5db', borderRadius:10, padding:'12px 14px', cursor:'pointer' }}
                   onClick={() => openEdit(lead)}>
-                  <div style={{ fontWeight:600, color:'#f1f5f9', fontSize:13, marginBottom:4 }}>{lead.name}</div>
-                  {lead.visaInterest && <div style={{ fontSize:11, color:'#38bdf8', marginBottom:4 }}>{lead.visaInterest}</div>}
-                  {lead.email && <div style={{ fontSize:11, color:'#7a8fa8', marginBottom:2 }}>✉ {lead.email}</div>}
-                  {lead.source && <div style={{ fontSize:11, color:'#475569' }}>src: {lead.source}</div>}
+                  <div style={{ fontWeight:600, color:'#111827', fontSize:13, marginBottom:4 }}>{lead.name}</div>
+                  {lead.visaInterest && <div style={{ fontSize:11, color:'#6366f1', marginBottom:4 }}>{lead.visaInterest}</div>}
+                  {lead.email && <div style={{ fontSize:11, color:'#1f2937', marginBottom:2 }}>✉ {lead.email}</div>}
+                  {lead.source && <div style={{ fontSize:11, color:'#1f2937' }}>src: {lead.source}</div>}
                   <div style={{ display:'flex', gap:6, marginTop:8 }}>
                     {stage !== 'Converted' && stage !== 'Lost' && (
-                      <button onClick={e=>{e.stopPropagation();convertLead(lead);}} style={{ fontSize:10, background:'#34d39920', color:'#34d399', border:'none', borderRadius:5, padding:'2px 8px' }}>Convert →</button>
+                      <button onClick={e=>{e.stopPropagation();convertLead(lead);}} style={{ fontSize:10, background:'#f0fdf4', color:'#16a34a', border:'none', borderRadius:5, padding:'2px 8px' }}>Convert →</button>
                     )}
                     <button onClick={e=>{e.stopPropagation();deleteLead(lead.id);}} style={{ fontSize:10, background:'#ef444420', color:'#f87171', border:'none', borderRadius:5, padding:'2px 8px', marginLeft:'auto' }}>Del</button>
                   </div>
@@ -2167,8 +2835,8 @@ function Leads({ leads, setLeads, clients, setClients, jobs, setJobs, team, agen
             <textarea value={form.notes||''} onChange={e=>setForm(f=>({...f,notes:e.target.value}))} rows={3} style={{ ...inputStyle, resize:'vertical' }}/>
           </FormField>
           <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:16 }}>
-            <button onClick={()=>setShowForm(false)} style={{ background:'#2e4460', border:'none', borderRadius:8, padding:'9px 18px', color:'#a0b0c8', fontSize:13 }}>Cancel</button>
-            <button onClick={save} style={{ background:'#38bdf8', border:'none', borderRadius:8, padding:'9px 18px', color:'#0f172a', fontWeight:700, fontSize:13 }}>Save Lead</button>
+            <button onClick={()=>setShowForm(false)} style={{ background:'#e5e7eb', border:'none', borderRadius:8, padding:'9px 18px', color:'#1f2937', fontSize:13 }}>Cancel</button>
+            <button onClick={save} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, padding:'9px 18px', color:'#fff', fontWeight:700, fontSize:13 }}>Save Lead</button>
           </div>
         </Modal>
       )}
@@ -2241,23 +2909,23 @@ function CalendarPage({ appointments, setAppointments, jobs, clients, team }) {
     <div style={{ animation:'fadeIn 0.3s ease' }}>
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:22 }}>
         <div>
-          <h1 style={{ fontSize:22, fontWeight:700, color:'#f1f5f9' }}>Calendar</h1>
-          <div style={{ fontSize:13, color:'#7a8fa8', marginTop:3 }}>{upcoming.length} upcoming appointments</div>
+          <h1 style={{ fontSize:22, fontWeight:700, color:'#111827' }}>Calendar</h1>
+          <div style={{ fontSize:13, color:'#1f2937', marginTop:3 }}>{upcoming.length} upcoming appointments</div>
         </div>
         <div style={{ display:'flex', gap:10, alignItems:'center' }}>
-          <button onClick={()=>setCurMonth(p=>{const d=new Date(p.y,p.m-1);return{y:d.getFullYear(),m:d.getMonth()};})} style={{ background:'#2e4460', border:'none', borderRadius:7, padding:'7px 12px', color:'#a0b0c8', fontSize:16 }}>‹</button>
-          <span style={{ fontSize:15, fontWeight:600, color:'#f1f5f9', minWidth:140, textAlign:'center' }}>{monthNames[curMonth.m]} {curMonth.y}</span>
-          <button onClick={()=>setCurMonth(p=>{const d=new Date(p.y,p.m+1);return{y:d.getFullYear(),m:d.getMonth()};})} style={{ background:'#2e4460', border:'none', borderRadius:7, padding:'7px 12px', color:'#a0b0c8', fontSize:16 }}>›</button>
-          <button onClick={()=>{setForm(emptyAppt);setEditAppt(null);setShowForm(true);}} style={{ background:'#38bdf8', color:'#0f172a', border:'none', borderRadius:8, padding:'9px 18px', fontWeight:700, fontSize:13 }}>+ Add Appointment</button>
+          <button onClick={()=>setCurMonth(p=>{const d=new Date(p.y,p.m-1);return{y:d.getFullYear(),m:d.getMonth()};})} style={{ background:'#e5e7eb', border:'none', borderRadius:7, padding:'7px 12px', color:'#1f2937', fontSize:16 }}>‹</button>
+          <span style={{ fontSize:15, fontWeight:600, color:'#111827', minWidth:140, textAlign:'center' }}>{monthNames[curMonth.m]} {curMonth.y}</span>
+          <button onClick={()=>setCurMonth(p=>{const d=new Date(p.y,p.m+1);return{y:d.getFullYear(),m:d.getMonth()};})} style={{ background:'#e5e7eb', border:'none', borderRadius:7, padding:'7px 12px', color:'#1f2937', fontSize:16 }}>›</button>
+          <button onClick={()=>{setForm(emptyAppt);setEditAppt(null);setShowForm(true);}} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', color:'#ffffff', border:'none', borderRadius:8, padding:'9px 18px', fontWeight:700, fontSize:13 }}>+ Add Appointment</button>
         </div>
       </div>
 
       <div style={{ display:'grid', gridTemplateColumns:'1fr 300px', gap:20 }}>
         {/* Calendar grid */}
-        <div style={{ background:'#1e293b', border:'1px solid #253650', borderRadius:12, overflow:'hidden' }}>
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', background:'#253650' }}>
+        <div style={{ background:'#ffffff', border:'1.5px solid #d1d5db', borderRadius:12, overflow:'hidden' }}>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', background:'#e9eaf3' }}>
             {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d=>(
-              <div key={d} style={{ padding:'10px 0', textAlign:'center', fontSize:11, fontWeight:600, color:'#7a8fa8', textTransform:'uppercase', letterSpacing:'0.06em' }}>{d}</div>
+              <div key={d} style={{ padding:'10px 0', textAlign:'center', fontSize:11, fontWeight:600, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.06em' }}>{d}</div>
             ))}
           </div>
           <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)' }}>
@@ -2265,16 +2933,16 @@ function CalendarPage({ appointments, setAppointments, jobs, clients, team }) {
               const isToday = d && `${curMonth.y}-${String(curMonth.m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}` === today();
               const events = d ? (apptsByDay[d]||[]) : [];
               return (
-                <div key={i} style={{ minHeight:90, padding:'8px 6px', borderRight:'1px solid #253650', borderBottom:'1px solid #253650', background: isToday?'#38bdf808':'transparent', opacity: d?1:0.3 }}>
+                <div key={i} style={{ minHeight:90, padding:'8px 6px', borderRight:'1px solid #e9eaf3', borderBottom:'1px solid #e9eaf3', background: isToday?'#38bdf808':'transparent', opacity: d?1:0.3 }}>
                   {d && (
                     <>
-                      <div style={{ fontSize:13, fontWeight: isToday?700:400, color: isToday?'#38bdf8':'#a0b0c8', marginBottom:4 }}>{d}</div>
+                      <div style={{ fontSize:13, fontWeight: isToday?700:400, color: isToday?'#6366f1':'#94a3b8', marginBottom:4 }}>{d}</div>
                       {events.slice(0,3).map((ev,ei) => (
-                        <div key={ei} onClick={()=>{ if(!ev.isDeadline){setForm({...ev});setEditAppt(ev.id);setShowForm(true);}}} style={{ fontSize:10, background: ev.isDeadline?'#f59e0b20':'#38bdf815', color: ev.isDeadline?'#fbbf24':'#38bdf8', borderRadius:4, padding:'2px 5px', marginBottom:2, cursor: ev.isDeadline?'default':'pointer', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                        <div key={ei} onClick={()=>{ if(!ev.isDeadline){setForm({...ev});setEditAppt(ev.id);setShowForm(true);}}} style={{ fontSize:10, background: ev.isDeadline?'#f59e0b20':'#38bdf815', color: ev.isDeadline?'#fbbf24':'#6366f1', borderRadius:4, padding:'2px 5px', marginBottom:2, cursor: ev.isDeadline?'default':'pointer', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                           {ev.time && !ev.isDeadline ? ev.time.slice(0,5)+' ' : ''}{ev.title}
                         </div>
                       ))}
-                      {events.length > 3 && <div style={{ fontSize:10, color:'#7a8fa8' }}>+{events.length-3} more</div>}
+                      {events.length > 3 && <div style={{ fontSize:10, color:'#1f2937' }}>+{events.length-3} more</div>}
                     </>
                   )}
                 </div>
@@ -2285,25 +2953,25 @@ function CalendarPage({ appointments, setAppointments, jobs, clients, team }) {
 
         {/* Upcoming list */}
         <div>
-          <div style={{ fontSize:12, fontWeight:600, color:'#7a8fa8', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:12 }}>Upcoming</div>
+          <div style={{ fontSize:12, fontWeight:600, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:12 }}>Upcoming</div>
           <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-            {upcoming.length === 0 && <div style={{ fontSize:13, color:'#475569', textAlign:'center', padding:'20px 0' }}>No upcoming appointments</div>}
+            {upcoming.length === 0 && <div style={{ fontSize:13, color:'#1f2937', textAlign:'center', padding:'20px 0' }}>No upcoming appointments</div>}
             {upcoming.map(a => {
               const cl = clients.find(c=>c.id===a.clientId);
               const d = daysUntil(a.date);
               return (
-                <div key={a.id} style={{ background:'#1e293b', border:'1px solid #253650', borderRadius:10, padding:'12px 14px', cursor:'pointer' }}
+                <div key={a.id} style={{ background:'#ffffff', border:'1.5px solid #d1d5db', borderRadius:10, padding:'12px 14px', cursor:'pointer' }}
                   onClick={()=>{setForm({...a});setEditAppt(a.id);setShowForm(true);}}>
                   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
-                    <div style={{ fontWeight:600, color:'#f1f5f9', fontSize:13 }}>{a.title}</div>
-                    <span style={{ fontSize:11, background: d===0?'#f59e0b20': d<=2?'#ef444420':'#2e4460', color: d===0?'#fbbf24': d<=2?'#f87171':'#7a8fa8', borderRadius:6, padding:'2px 7px' }}>
+                    <div style={{ fontWeight:600, color:'#111827', fontSize:13 }}>{a.title}</div>
+                    <span style={{ fontSize:11, background: d===0?'#f59e0b20': d<=2?'#ef444420':'#e5e7eb', color: d===0?'#fbbf24': d<=2?'#f87171':'#475569', borderRadius:6, padding:'2px 7px' }}>
                       {d===0?'Today': d===1?'Tomorrow':`${d}d`}
                     </span>
                   </div>
-                  <div style={{ fontSize:11, color:'#38bdf8', marginTop:3 }}>{a.type}</div>
-                  {cl && <div style={{ fontSize:11, color:'#7a8fa8', marginTop:2 }}>👤 {cl.name}</div>}
+                  <div style={{ fontSize:11, color:'#6366f1', marginTop:3 }}>{a.type}</div>
+                  {cl && <div style={{ fontSize:11, color:'#1f2937', marginTop:2 }}>👤 {cl.name}</div>}
                   <div style={{ display:'flex', justifyContent:'space-between', marginTop:6 }}>
-                    <span style={{ fontSize:11, color:'#475569' }}>{fmtDate(a.date)} {a.time}</span>
+                    <span style={{ fontSize:11, color:'#1f2937' }}>{fmtDate(a.date)} {a.time}</span>
                     <button onClick={e=>{e.stopPropagation();deleteAppt(a.id);}} style={{ fontSize:10, background:'none', border:'none', color:'#ef4444', padding:0 }}>✕</button>
                   </div>
                 </div>
@@ -2352,8 +3020,8 @@ function CalendarPage({ appointments, setAppointments, jobs, clients, team }) {
           <div style={{ display:'flex', justifyContent:'space-between', marginTop:16 }}>
             {editAppt && <button onClick={()=>{deleteAppt(editAppt);setShowForm(false);}} style={{ background:'#ef444420', border:'none', borderRadius:8, padding:'9px 16px', color:'#f87171', fontSize:13 }}>Delete</button>}
             <div style={{ display:'flex', gap:10, marginLeft:'auto' }}>
-              <button onClick={()=>setShowForm(false)} style={{ background:'#2e4460', border:'none', borderRadius:8, padding:'9px 18px', color:'#a0b0c8', fontSize:13 }}>Cancel</button>
-              <button onClick={save} style={{ background:'#38bdf8', border:'none', borderRadius:8, padding:'9px 18px', color:'#0f172a', fontWeight:700, fontSize:13 }}>Save</button>
+              <button onClick={()=>setShowForm(false)} style={{ background:'#e5e7eb', border:'none', borderRadius:8, padding:'9px 18px', color:'#1f2937', fontSize:13 }}>Cancel</button>
+              <button onClick={save} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, padding:'9px 18px', color:'#fff', fontWeight:700, fontSize:13 }}>Save</button>
             </div>
           </div>
         </Modal>
@@ -2407,23 +3075,23 @@ function Invoices({ invoices, setInvoices, clients, jobs }) {
     <div style={{ animation:'fadeIn 0.3s ease' }}>
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:22 }}>
         <div>
-          <h1 style={{ fontSize:22, fontWeight:700, color:'#f1f5f9' }}>Invoices</h1>
-          <div style={{ fontSize:13, color:'#7a8fa8', marginTop:3 }}>{invoices.length} invoices total</div>
+          <h1 style={{ fontSize:22, fontWeight:700, color:'#111827' }}>Invoices</h1>
+          <div style={{ fontSize:13, color:'#1f2937', marginTop:3 }}>{invoices.length} invoices total</div>
         </div>
-        <button onClick={()=>{setForm(emptyInv);setEditInv(null);setShowForm(true);}} style={{ background:'#38bdf8', color:'#0f172a', border:'none', borderRadius:8, padding:'9px 18px', fontWeight:700, fontSize:13 }}>+ New Invoice</button>
+        <button onClick={()=>{setForm(emptyInv);setEditInv(null);setShowForm(true);}} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', color:'#ffffff', border:'none', borderRadius:8, padding:'9px 18px', fontWeight:700, fontSize:13 }}>+ New Invoice</button>
       </div>
 
       {/* Summary cards */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:14, marginBottom:24 }}>
         {[
-          { label:'Total Invoiced', value: fmtCurrency(invoices.reduce((s,i)=>s+Number(i.amount||0),0)), color:'#38bdf8' },
+          { label:'Total Invoiced', value: fmtCurrency(invoices.reduce((s,i)=>s+Number(i.amount||0),0)), color:'#6366f1' },
           { label:'Paid', value: fmtCurrency(totalPaid), color:'#34d399' },
           { label:'Outstanding', value: fmtCurrency(totalDue), color:'#f59e0b' },
           { label:'Overdue', value: fmtCurrency(totalOverdue), color:'#ef4444' },
         ].map(c => (
-          <div key={c.label} style={{ background:'#1e293b', border:`1px solid ${c.color}25`, borderRadius:10, padding:'14px 18px' }}>
+          <div key={c.label} style={{ background:'#ffffff', border:`1px solid ${c.color}25`, borderRadius:10, padding:'14px 18px' }}>
             <div style={{ fontSize:11, color:c.color, fontWeight:600, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:6 }}>{c.label}</div>
-            <div style={{ fontSize:20, fontWeight:700, color:'#f1f5f9' }}>{c.value}</div>
+            <div style={{ fontSize:20, fontWeight:700, color:'#111827' }}>{c.value}</div>
           </div>
         ))}
       </div>
@@ -2431,43 +3099,43 @@ function Invoices({ invoices, setInvoices, clients, jobs }) {
       {/* Filter tabs */}
       <div style={{ display:'flex', gap:6, marginBottom:18 }}>
         {['All',...INVOICE_STATUSES].map(s => (
-          <button key={s} onClick={()=>setFilterStatus(s)} style={{ background: filterStatus===s?'#38bdf820':'#1e293b', border: `1px solid ${filterStatus===s?'#38bdf840':'#253650'}`, borderRadius:7, padding:'6px 14px', color: filterStatus===s?'#38bdf8':'#7a8fa8', fontSize:12, fontWeight: filterStatus===s?600:400 }}>
+          <button key={s} onClick={()=>setFilterStatus(s)} style={{ background: filterStatus===s?'#38bdf820':'#f9fafb', border: `1px solid ${filterStatus===s?'#38bdf840':'#e9eaf3'}`, borderRadius:7, padding:'6px 14px', color: filterStatus===s?'#6366f1':'#475569', fontSize:12, fontWeight: filterStatus===s?600:400 }}>
             {s} {s!=='All' && `(${enriched.filter(i=>i.status===s).length})`}
           </button>
         ))}
       </div>
 
       {/* Table */}
-      <div style={{ background:'#1e293b', border:'1px solid #253650', borderRadius:12, overflow:'hidden' }}>
+      <div style={{ background:'#ffffff', border:'1.5px solid #d1d5db', borderRadius:12, overflow:'hidden' }}>
         <table style={{ width:'100%', borderCollapse:'collapse' }}>
           <thead>
-            <tr style={{ background:'#253650' }}>
+            <tr style={{ background:'#e9eaf3' }}>
               {['Invoice #','Client','Job','Amount','Status','Due Date',''].map(h=>(
-                <th key={h} style={{ padding:'10px 14px', textAlign:'left', fontSize:11, color:'#7a8fa8', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.06em' }}>{h}</th>
+                <th key={h} style={{ padding:'10px 14px', textAlign:'left', fontSize:11, color:'#1f2937', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.06em' }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 && (
-              <tr><td colSpan={7} style={{ padding:'32px', textAlign:'center', color:'#475569', fontSize:13 }}>No invoices found</td></tr>
+              <tr><td colSpan={7} style={{ padding:'32px', textAlign:'center', color:'#1f2937', fontSize:13 }}>No invoices found</td></tr>
             )}
             {filtered.map(inv => {
               const cl = clients.find(c=>c.id===inv.clientId);
               const jb = jobs.find(j=>j.id===inv.jobId);
               const st = INVOICE_STATUS_STYLES[inv.status] || INVOICE_STATUS_STYLES['Draft'];
               return (
-                <tr key={inv.id} style={{ borderTop:'1px solid #253650' }} onMouseEnter={e=>e.currentTarget.style.background='#ffffff05'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
-                  <td style={{ padding:'12px 14px', fontSize:13, color:'#38bdf8', fontFamily:"'JetBrains Mono',monospace" }}>{invNo(inv.id)}</td>
-                  <td style={{ padding:'12px 14px', fontSize:13, color:'#f1f5f9' }}>{cl?.name || '—'}</td>
-                  <td style={{ padding:'12px 14px', fontSize:12, color:'#7a8fa8' }}>{jb?.type?.slice(0,30) || inv.description?.slice(0,30) || '—'}</td>
-                  <td style={{ padding:'12px 14px', fontSize:13, fontWeight:600, color:'#f1f5f9', fontFamily:"'JetBrains Mono',monospace" }}>{fmtCurrency(inv.amount)}</td>
+                <tr key={inv.id} style={{ borderTop:'1px solid #e9eaf3' }} onMouseEnter={e=>e.currentTarget.style.background='#ffffff05'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                  <td style={{ padding:'12px 14px', fontSize:13, color:'#6366f1', fontFamily:"'JetBrains Mono',monospace" }}>{invNo(inv.id)}</td>
+                  <td style={{ padding:'12px 14px', fontSize:13, color:'#111827' }}>{cl?.name || '—'}</td>
+                  <td style={{ padding:'12px 14px', fontSize:12, color:'#1f2937' }}>{jb?.type?.slice(0,30) || inv.description?.slice(0,30) || '—'}</td>
+                  <td style={{ padding:'12px 14px', fontSize:13, fontWeight:600, color:'#111827', fontFamily:"'JetBrains Mono',monospace" }}>{fmtCurrency(inv.amount)}</td>
                   <td style={{ padding:'12px 14px' }}>
                     <span style={{ fontSize:11, background:st.bg, color:st.text, borderRadius:6, padding:'3px 9px', fontWeight:600 }}>{inv.status}</span>
                   </td>
-                  <td style={{ padding:'12px 14px', fontSize:12, color: inv.status==='Overdue'?'#f87171':'#7a8fa8' }}>{fmtDate(inv.dueDate)}</td>
+                  <td style={{ padding:'12px 14px', fontSize:12, color: inv.status==='Overdue'?'#f87171':'#64748b' }}>{fmtDate(inv.dueDate)}</td>
                   <td style={{ padding:'12px 14px' }}>
                     <div style={{ display:'flex', gap:6 }}>
-                      <button onClick={()=>{setForm({...inv});setEditInv(inv.id);setShowForm(true);}} style={{ background:'#2e4460', border:'none', borderRadius:6, padding:'4px 10px', color:'#a0b0c8', fontSize:11 }}>Edit</button>
+                      <button onClick={()=>{setForm({...inv});setEditInv(inv.id);setShowForm(true);}} style={{ background:'#e5e7eb', border:'none', borderRadius:6, padding:'4px 10px', color:'#1f2937', fontSize:11 }}>Edit</button>
                       {inv.status !== 'Paid' && (
                         <button onClick={async()=>{ const u={...inv,status:'Paid'}; setInvoices(iv=>iv.map(i=>i.id===inv.id?u:i)); try{await sbUpdate('invoices',inv.id,{data:u});}catch(e){} }} style={{ background:'#10b98120', border:'none', borderRadius:6, padding:'4px 10px', color:'#34d399', fontSize:11 }}>Mark Paid</button>
                       )}
@@ -2513,8 +3181,8 @@ function Invoices({ invoices, setInvoices, clients, jobs }) {
           <div style={{ display:'flex', justifyContent:'space-between', marginTop:16 }}>
             {editInv && <button onClick={()=>{deleteInv(editInv);setShowForm(false);}} style={{ background:'#ef444420', border:'none', borderRadius:8, padding:'9px 16px', color:'#f87171', fontSize:13 }}>Delete</button>}
             <div style={{ display:'flex', gap:10, marginLeft:'auto' }}>
-              <button onClick={()=>setShowForm(false)} style={{ background:'#2e4460', border:'none', borderRadius:8, padding:'9px 18px', color:'#a0b0c8', fontSize:13 }}>Cancel</button>
-              <button onClick={save} style={{ background:'#38bdf8', border:'none', borderRadius:8, padding:'9px 18px', color:'#0f172a', fontWeight:700, fontSize:13 }}>Save Invoice</button>
+              <button onClick={()=>setShowForm(false)} style={{ background:'#e5e7eb', border:'none', borderRadius:8, padding:'9px 18px', color:'#1f2937', fontSize:13 }}>Cancel</button>
+              <button onClick={save} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, padding:'9px 18px', color:'#fff', fontWeight:700, fontSize:13 }}>Save Invoice</button>
             </div>
           </div>
         </Modal>
@@ -2569,88 +3237,88 @@ function Reports({ clients, jobs, leads, invoices, team }) {
   return (
     <div style={{ animation:'fadeIn 0.3s ease' }}>
       <div style={{ marginBottom:24 }}>
-        <h1 style={{ fontSize:22, fontWeight:700, color:'#f1f5f9' }}>Reports & Analytics</h1>
-        <div style={{ fontSize:13, color:'#7a8fa8', marginTop:3 }}>Business performance overview</div>
+        <h1 style={{ fontSize:22, fontWeight:700, color:'#111827' }}>Reports & Analytics</h1>
+        <div style={{ fontSize:13, color:'#1f2937', marginTop:3 }}>Business performance overview</div>
       </div>
 
       {/* Top KPIs */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:14, marginBottom:28 }}>
         {[
-          { label:'Total Clients', value: clients.length, sub: `${clients.filter(c=>c.status==='Active').length} active`, icon:'👤', color:'#38bdf8' },
+          { label:'Total Clients', value: clients.length, sub: `${clients.filter(c=>c.status==='Active').length} active`, icon:'👤', color:'#6366f1' },
           { label:'Active Cases', value: jobs.filter(j=>j.status!=='Completed').length, sub: `${jobs.filter(j=>j.status==='Completed').length} completed`, icon:'📋', color:'#a78bfa' },
           { label:'Lead Conversion', value: convRate+'%', sub: `${converted}/${totalLeads} leads`, icon:'🎯', color:'#34d399' },
           { label:'Total Revenue', value: fmtCurrency(invoices.filter(i=>i.status==='Paid').reduce((s,i)=>s+Number(i.amount||0),0)), sub: `${invoices.filter(i=>i.status==='Paid').length} paid invoices`, icon:'💰', color:'#f59e0b' },
         ].map(k => (
-          <div key={k.label} style={{ background:'#1e293b', border:`1px solid ${k.color}25`, borderRadius:12, padding:'18px 20px' }}>
+          <div key={k.label} style={{ background:'#ffffff', border:`1px solid ${k.color}25`, borderRadius:12, padding:'18px 20px' }}>
             <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:10 }}>
               <span style={{ fontSize:20 }}>{k.icon}</span>
               <span style={{ fontSize:11, color:k.color, fontWeight:600, textTransform:'uppercase', letterSpacing:'0.06em' }}>{k.label}</span>
             </div>
-            <div style={{ fontSize:26, fontWeight:700, color:'#f1f5f9', marginBottom:4 }}>{k.value}</div>
-            <div style={{ fontSize:11, color:'#7a8fa8' }}>{k.sub}</div>
+            <div style={{ fontSize:26, fontWeight:700, color:'#111827', marginBottom:4 }}>{k.value}</div>
+            <div style={{ fontSize:11, color:'#1f2937' }}>{k.sub}</div>
           </div>
         ))}
       </div>
 
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20, marginBottom:24 }}>
         {/* Revenue chart */}
-        <div style={{ background:'#1e293b', border:'1px solid #253650', borderRadius:12, padding:'20px' }}>
-          <div style={{ fontSize:13, fontWeight:600, color:'#f1f5f9', marginBottom:16 }}>Revenue (Last 6 Months)</div>
+        <div style={{ background:'#ffffff', border:'1.5px solid #d1d5db', borderRadius:12, padding:'20px' }}>
+          <div style={{ fontSize:13, fontWeight:600, color:'#111827', marginBottom:16 }}>Revenue (Last 6 Months)</div>
           <div style={{ display:'flex', alignItems:'flex-end', gap:8, height:120 }}>
             {revenueByMonth.map(mo => (
               <div key={mo.label} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:4 }}>
-                <div style={{ fontSize:9, color:'#7a8fa8', fontFamily:"'JetBrains Mono',monospace" }}>{mo.total>0?'$'+Math.round(mo.total/1000)+'k':''}</div>
-                <div style={{ width:'100%', background: mo.total>0?'#38bdf8':'#2e4460', borderRadius:'4px 4px 0 0', height: Math.max(4, (mo.total/maxRev)*90)+'px', transition:'height 0.3s' }}/>
-                <div style={{ fontSize:9, color:'#7a8fa8' }}>{mo.label}</div>
+                <div style={{ fontSize:9, color:'#1f2937', fontFamily:"'JetBrains Mono',monospace" }}>{mo.total>0?'$'+Math.round(mo.total/1000)+'k':''}</div>
+                <div style={{ width:'100%', background: mo.total>0?'#6366f1':'#e5e7eb', borderRadius:'4px 4px 0 0', height: Math.max(4, (mo.total/maxRev)*90)+'px', transition:'height 0.3s' }}/>
+                <div style={{ fontSize:9, color:'#1f2937' }}>{mo.label}</div>
               </div>
             ))}
           </div>
         </div>
 
         {/* Cases by type */}
-        <div style={{ background:'#1e293b', border:'1px solid #253650', borderRadius:12, padding:'20px' }}>
-          <div style={{ fontSize:13, fontWeight:600, color:'#f1f5f9', marginBottom:16 }}>Top Case Types</div>
+        <div style={{ background:'#ffffff', border:'1.5px solid #d1d5db', borderRadius:12, padding:'20px' }}>
+          <div style={{ fontSize:13, fontWeight:600, color:'#111827', marginBottom:16 }}>Top Case Types</div>
           <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
             {topTypes.map(([type, count]) => (
               <div key={type} style={{ display:'flex', alignItems:'center', gap:10 }}>
-                <div style={{ fontSize:11, color:'#a0b0c8', width:160, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flexShrink:0 }}>{type}</div>
-                <div style={{ flex:1, background:'#2e4460', borderRadius:4, height:6 }}>
+                <div style={{ fontSize:11, color:'#1f2937', width:160, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flexShrink:0 }}>{type}</div>
+                <div style={{ flex:1, background:'#e5e7eb', borderRadius:4, height:6 }}>
                   <div style={{ height:'100%', background:'#a78bfa', borderRadius:4, width:(count/maxCount*100)+'%' }}/>
                 </div>
                 <div style={{ fontSize:11, color:'#a78bfa', fontFamily:"'JetBrains Mono',monospace", width:20, textAlign:'right' }}>{count}</div>
               </div>
             ))}
-            {topTypes.length===0 && <div style={{ color:'#475569', fontSize:13 }}>No cases yet</div>}
+            {topTypes.length===0 && <div style={{ color:'#1f2937', fontSize:13 }}>No cases yet</div>}
           </div>
         </div>
       </div>
 
       {/* Team performance table */}
-      <div style={{ background:'#1e293b', border:'1px solid #253650', borderRadius:12, overflow:'hidden' }}>
-        <div style={{ padding:'16px 20px', borderBottom:'1px solid #253650' }}>
-          <div style={{ fontSize:13, fontWeight:600, color:'#f1f5f9' }}>Team Performance</div>
+      <div style={{ background:'#ffffff', border:'1.5px solid #d1d5db', borderRadius:12, overflow:'hidden' }}>
+        <div style={{ padding:'16px 20px', borderBottom:'1px solid #e9eaf3' }}>
+          <div style={{ fontSize:13, fontWeight:600, color:'#111827' }}>Team Performance</div>
         </div>
         <table style={{ width:'100%', borderCollapse:'collapse' }}>
           <thead>
-            <tr style={{ background:'#253650' }}>
+            <tr style={{ background:'#e9eaf3' }}>
               {['Team Member','Role','Total Cases','Active','Completed','Revenue Generated'].map(h=>(
-                <th key={h} style={{ padding:'10px 14px', textAlign:'left', fontSize:11, color:'#7a8fa8', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.06em' }}>{h}</th>
+                <th key={h} style={{ padding:'10px 14px', textAlign:'left', fontSize:11, color:'#1f2937', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.06em' }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {teamPerf.map(m => (
-              <tr key={m.id} style={{ borderTop:'1px solid #253650' }}>
+              <tr key={m.id} style={{ borderTop:'1px solid #e9eaf3' }}>
                 <td style={{ padding:'12px 14px' }}>
                   <div style={{ display:'flex', alignItems:'center', gap:8 }}>
                     <div style={{ width:28, height:28, borderRadius:'50%', background:m.color+'25', display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:700, color:m.color }}>
                       {(m.name||'').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()}
                     </div>
-                    <span style={{ fontSize:13, color:'#f1f5f9' }}>{m.name}</span>
+                    <span style={{ fontSize:13, color:'#111827' }}>{m.name}</span>
                   </div>
                 </td>
-                <td style={{ padding:'12px 14px', fontSize:12, color:'#7a8fa8' }}>{m.role}</td>
-                <td style={{ padding:'12px 14px', fontSize:13, color:'#a0b0c8', fontFamily:"'JetBrains Mono',monospace" }}>{m.totalJobs}</td>
+                <td style={{ padding:'12px 14px', fontSize:12, color:'#1f2937' }}>{m.role}</td>
+                <td style={{ padding:'12px 14px', fontSize:13, color:'#1f2937', fontFamily:"'JetBrains Mono',monospace" }}>{m.totalJobs}</td>
                 <td style={{ padding:'12px 14px', fontSize:13, color:'#fbbf24', fontFamily:"'JetBrains Mono',monospace" }}>{m.active}</td>
                 <td style={{ padding:'12px 14px', fontSize:13, color:'#34d399', fontFamily:"'JetBrains Mono',monospace" }}>{m.completed}</td>
                 <td style={{ padding:'12px 14px', fontSize:13, color:'#f59e0b', fontFamily:"'JetBrains Mono',monospace" }}>{fmtCurrency(m.revenue)}</td>
@@ -2694,14 +3362,14 @@ function AgentsPage({ agents, setAgents, leads, jobs, invoices }) {
     <div style={{ animation:'fadeIn 0.3s ease' }}>
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:22 }}>
         <div>
-          <h1 style={{ fontSize:22, fontWeight:700, color:'#f1f5f9' }}>Referral Agents</h1>
-          <div style={{ fontSize:13, color:'#7a8fa8', marginTop:3 }}>{agents.length} agents registered</div>
+          <h1 style={{ fontSize:22, fontWeight:700, color:'#111827' }}>Referral Agents</h1>
+          <div style={{ fontSize:13, color:'#1f2937', marginTop:3 }}>{agents.length} agents registered</div>
         </div>
-        <button onClick={()=>{setForm(empty);setEditAgent(null);setShowForm(true);}} style={{ background:'#38bdf8', color:'#0f172a', border:'none', borderRadius:8, padding:'9px 18px', fontWeight:700, fontSize:13 }}>+ Add Agent</button>
+        <button onClick={()=>{setForm(empty);setEditAgent(null);setShowForm(true);}} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', color:'#ffffff', border:'none', borderRadius:8, padding:'9px 18px', fontWeight:700, fontSize:13 }}>+ Add Agent</button>
       </div>
 
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))', gap:16 }}>
-        {agents.length===0 && <div style={{ color:'#475569', fontSize:13, gridColumn:'1/-1', textAlign:'center', padding:'40px 0' }}>No referral agents yet. Add your first agent to start tracking referrals.</div>}
+        {agents.length===0 && <div style={{ color:'#1f2937', fontSize:13, gridColumn:'1/-1', textAlign:'center', padding:'40px 0' }}>No referral agents yet. Add your first agent to start tracking referrals.</div>}
         {agents.map(agent => {
           const agentLeads = leads.filter(l=>l.referralId===agent.id);
           const converted = agentLeads.filter(l=>l.stage==='Converted').length;
@@ -2714,36 +3382,36 @@ function AgentsPage({ agents, setAgents, leads, jobs, invoices }) {
           const commission = agentRevenue * (agent.commissionRate||10)/100;
 
           return (
-            <div key={agent.id} style={{ background:'#1e293b', border:'1px solid #253650', borderRadius:12, padding:'18px 20px' }}>
+            <div key={agent.id} style={{ background:'#ffffff', border:'1.5px solid #d1d5db', borderRadius:12, padding:'18px 20px' }}>
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:12 }}>
                 <div>
-                  <div style={{ fontWeight:700, color:'#f1f5f9', fontSize:15 }}>{agent.name}</div>
-                  {agent.company && <div style={{ fontSize:12, color:'#7a8fa8', marginTop:2 }}>{agent.company}</div>}
+                  <div style={{ fontWeight:700, color:'#111827', fontSize:15 }}>{agent.name}</div>
+                  {agent.company && <div style={{ fontSize:12, color:'#1f2937', marginTop:2 }}>{agent.company}</div>}
                 </div>
                 <div style={{ display:'flex', gap:6 }}>
-                  <button onClick={()=>{setForm({...agent});setEditAgent(agent.id);setShowForm(true);}} style={{ background:'#2e4460', border:'none', borderRadius:6, padding:'4px 10px', color:'#a0b0c8', fontSize:11 }}>Edit</button>
+                  <button onClick={()=>{setForm({...agent});setEditAgent(agent.id);setShowForm(true);}} style={{ background:'#e5e7eb', border:'none', borderRadius:6, padding:'4px 10px', color:'#1f2937', fontSize:11 }}>Edit</button>
                   <button onClick={()=>deleteAgent(agent.id)} style={{ background:'#ef444420', border:'none', borderRadius:6, padding:'4px 10px', color:'#f87171', fontSize:11 }}>Del</button>
                 </div>
               </div>
-              {agent.email && <div style={{ fontSize:12, color:'#7a8fa8', marginBottom:4 }}>✉ {agent.email}</div>}
-              {agent.phone && <div style={{ fontSize:12, color:'#7a8fa8', marginBottom:10 }}>📞 {agent.phone}</div>}
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8, background:'#0f172a', borderRadius:8, padding:'10px' }}>
+              {agent.email && <div style={{ fontSize:12, color:'#1f2937', marginBottom:4 }}>✉ {agent.email}</div>}
+              {agent.phone && <div style={{ fontSize:12, color:'#1f2937', marginBottom:10 }}>📞 {agent.phone}</div>}
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8, background:'#ffffff', borderRadius:8, padding:'10px' }}>
                 <div style={{ textAlign:'center' }}>
-                  <div style={{ fontSize:18, fontWeight:700, color:'#38bdf8' }}>{agentLeads.length}</div>
-                  <div style={{ fontSize:10, color:'#7a8fa8' }}>Leads</div>
+                  <div style={{ fontSize:18, fontWeight:700, color:'#6366f1' }}>{agentLeads.length}</div>
+                  <div style={{ fontSize:10, color:'#1f2937' }}>Leads</div>
                 </div>
                 <div style={{ textAlign:'center' }}>
                   <div style={{ fontSize:18, fontWeight:700, color:'#34d399' }}>{converted}</div>
-                  <div style={{ fontSize:10, color:'#7a8fa8' }}>Converted</div>
+                  <div style={{ fontSize:10, color:'#1f2937' }}>Converted</div>
                 </div>
                 <div style={{ textAlign:'center' }}>
                   <div style={{ fontSize:14, fontWeight:700, color:'#f59e0b' }}>{agent.commissionRate||10}%</div>
-                  <div style={{ fontSize:10, color:'#7a8fa8' }}>Commission</div>
+                  <div style={{ fontSize:10, color:'#1f2937' }}>Commission</div>
                 </div>
               </div>
               {agentRevenue > 0 && (
                 <div style={{ marginTop:10, background:'#f59e0b10', border:'1px solid #f59e0b20', borderRadius:8, padding:'8px 12px', display:'flex', justifyContent:'space-between' }}>
-                  <span style={{ fontSize:11, color:'#a0b0c8' }}>Commission Due</span>
+                  <span style={{ fontSize:11, color:'#1f2937' }}>Commission Due</span>
                   <span style={{ fontSize:13, fontWeight:700, color:'#f59e0b', fontFamily:"'JetBrains Mono',monospace" }}>{fmtCurrency(commission)}</span>
                 </div>
               )}
@@ -2768,8 +3436,8 @@ function AgentsPage({ agents, setAgents, leads, jobs, invoices }) {
             <textarea value={form.notes||''} onChange={e=>setForm(f=>({...f,notes:e.target.value}))} rows={2} style={{ ...inputStyle, resize:'vertical' }}/>
           </FormField>
           <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:16 }}>
-            <button onClick={()=>setShowForm(false)} style={{ background:'#2e4460', border:'none', borderRadius:8, padding:'9px 18px', color:'#a0b0c8', fontSize:13 }}>Cancel</button>
-            <button onClick={save} style={{ background:'#38bdf8', border:'none', borderRadius:8, padding:'9px 18px', color:'#0f172a', fontWeight:700, fontSize:13 }}>Save Agent</button>
+            <button onClick={()=>setShowForm(false)} style={{ background:'#e5e7eb', border:'none', borderRadius:8, padding:'9px 18px', color:'#1f2937', fontSize:13 }}>Cancel</button>
+            <button onClick={save} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, padding:'9px 18px', color:'#fff', fontWeight:700, fontSize:13 }}>Save Agent</button>
           </div>
         </Modal>
       )}
@@ -2781,6 +3449,33 @@ const SB_URL = process.env.REACT_APP_SB_URL;   // set in .env or Vercel environm
 const SB_KEY = process.env.REACT_APP_SB_KEY;   // set in .env or Vercel environment variables
 // ─────────────────────────────────────────────────────────────────────────────
 
+/* ─── TOAST NOTIFICATION ─────────────────────────────────────────────────────── */
+function Toast({ message, type, onClose }) {
+  useEffect(() => {
+    const t = setTimeout(onClose, 5000);
+    return () => clearTimeout(t);
+  }, [onClose]);
+  const colors = {
+    error:   { bg:'#fef2f2', border:'#fecaca', color:'#dc2626', icon:'❌' },
+    success: { bg:'#f0fdf4', border:'#86efac', color:'#16a34a', icon:'✅' },
+    warning: { bg:'#fffbeb', border:'#fde68a', color:'#d97706', icon:'⚠️' },
+  };
+  const c = colors[type] || colors.warning;
+  return createPortal(
+    <div style={{ position:'fixed', bottom:24, right:24, zIndex:9999, background:c.bg, border:`1px solid ${c.border}`, borderRadius:12, padding:'12px 16px', maxWidth:380, boxShadow:'0 8px 24px rgba(0,0,0,0.12)', display:'flex', alignItems:'flex-start', gap:10, animation:'fadeIn 0.25s ease both' }}>
+      <span style={{ fontSize:18, flexShrink:0 }}>{c.icon}</span>
+      <div style={{ flex:1 }}>
+        <div style={{ fontSize:13.5, fontWeight:600, color:c.color }}>{message}</div>
+      </div>
+      <button onClick={onClose} style={{ background:'none', border:'none', color:'#1f2937', fontSize:18, cursor:'pointer', padding:0, lineHeight:1, flexShrink:0 }}>×</button>
+    </div>,
+    document.body
+  );
+}
+
+// Dispatch DB errors as custom events so App can show toasts
+const dbError = (msg) => window.dispatchEvent(new CustomEvent('ozsky-db-error', { detail: msg }));
+
 const sbFetch = async (path, method = 'GET', body = null) => {
   const headers = {
     'apikey':        SB_KEY,
@@ -2791,7 +3486,12 @@ const sbFetch = async (path, method = 'GET', body = null) => {
   const opts = { method, headers };
   if (body) opts.body = JSON.stringify(body);
   const res = await fetch(`${SB_URL}/rest/v1/${path}`, opts);
-  if (!res.ok) throw new Error(`Supabase ${method} /${path} → ${res.status}`);
+  if (!res.ok) {
+    const errText = await res.text().catch(()=>'');
+    const msg = `DB error on ${method} /${path.split('?')[0]}: ${res.status}${errText ? ' – ' + errText.slice(0,120) : ''}`;
+    dbError(msg);
+    throw new Error(msg);
+  }
   if (method === 'DELETE' || res.status === 204) return null;
   return res.json();
 };
@@ -2802,94 +3502,79 @@ const sbUpdate = (table, id, obj) => sbFetch(`${table}?id=eq.${id}`, 'PATCH', ob
 const sbDelete = (table, id)      => sbFetch(`${table}?id=eq.${id}`, 'DELETE');
 
 // ─── PASSWORD CONFIG ──────────────────────────────────────────────────────────
-const APP_PASSWORD = 'ozsky2024';   // ← Change this to your preferred password
-// ─────────────────────────────────────────────────────────────────────────────
+const STAFF_PASSWORD   = 'ozsky2024';  // regular staff
+const MANAGER_PASSWORD = '731hay';     // managers only — unlocks Reports
 
 function LoginScreen({ onLogin }) {
-  const [pw, setPw]         = useState('');
-  const [error, setError]   = useState('');
-  const [shake, setShake]   = useState(false);
-  const [show, setShow]     = useState(false);
-  const inputRef            = useRef(null);
-
+  const [pw, setPw]       = useState('');
+  const [error, setError] = useState('');
+  const [shake, setShake] = useState(false);
+  const [show, setShow]   = useState(false);
+  const inputRef          = useRef(null);
   useEffect(() => { inputRef.current?.focus(); }, []);
 
   const attempt = () => {
-    if (pw === APP_PASSWORD) {
-      onLogin();
+    if (pw === MANAGER_PASSWORD) {
+      onLogin('manager');
+    } else if (pw === STAFF_PASSWORD) {
+      onLogin('staff');
     } else {
       setError('Incorrect password. Please try again.');
-      setShake(true);
-      setPw('');
+      setShake(true); setPw('');
       setTimeout(() => setShake(false), 500);
       setTimeout(() => inputRef.current?.focus(), 50);
     }
   };
 
-  const handleKey = (e) => { if (e.key === 'Enter') attempt(); };
-
   return (
-    <div style={{ minHeight:'100vh', background:'#0f172a', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:"'Inter','Segoe UI',sans-serif" }}>
-      <div style={{ width:360, padding:'40px 36px', background:'#0d1825', borderRadius:16, border:'1px solid #253650', boxShadow:'0 24px 64px rgba(0,0,0,0.6)', animation: shake ? 'shake 0.4s ease' : 'none' }}>
-        <style>{`
-          @keyframes shake {
-            0%,100%{transform:translateX(0)}
-            20%{transform:translateX(-8px)}
-            40%{transform:translateX(8px)}
-            60%{transform:translateX(-5px)}
-            80%{transform:translateX(5px)}
-          }
-        `}</style>
-
+    <div style={{ minHeight:'100vh', background:'linear-gradient(135deg,#1c1f3a 0%,#2d3563 50%,#1c1f3a 100%)', display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+        @keyframes shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-8px)} 40%{transform:translateX(8px)} 60%{transform:translateX(-4px)} 80%{transform:translateX(4px)} }
+        @keyframes loginFade { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+        .login-card { animation: loginFade 0.4s cubic-bezier(.16,1,.3,1) both; }
+      `}</style>
+      <div className="login-card" style={{ width:'100%', maxWidth:400, background:'#fff', borderRadius:20, padding:'40px 36px', boxShadow:'0 32px 80px rgba(0,0,0,0.35)', fontFamily:"'Inter',sans-serif", animation: shake ? 'shake 0.4s ease' : undefined }}>
         {/* Logo */}
         <div style={{ textAlign:'center', marginBottom:28 }}>
-          <img src={LOGO_B64} alt="Ozsky International" style={{ width:130, height:'auto', objectFit:'contain', borderRadius:6 }} />
+          <img src={LOGO_B64} alt="Ozsky International" style={{ width:140, height:'auto', borderRadius:8 }} />
         </div>
-
-        {/* Title */}
+        {/* Header */}
         <div style={{ textAlign:'center', marginBottom:28 }}>
-          <div style={{ fontSize:20, fontWeight:700, color:'#f1f5f9', marginBottom:4 }}>Sign in</div>
-          <div style={{ fontSize:13, color:'#7a8fa8' }}>Enter your password to access the CRM</div>
+          <div style={{ fontSize:22, fontWeight:800, color:'#111827', marginBottom:5 }}>Welcome back</div>
+          <div style={{ fontSize:13.5, color:'#1f2937' }}>Sign in to Ozsky CRM</div>
         </div>
-
-        {/* Password field */}
-        <div style={{ marginBottom:16 }}>
-          <label style={{ display:'block', fontSize:12, fontWeight:600, color:'#a0b0c8', marginBottom:6, textTransform:'uppercase', letterSpacing:'0.05em' }}>Password</label>
+        {/* Password */}
+        <div style={{ marginBottom:18 }}>
+          <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:7 }}>Password</label>
           <div style={{ position:'relative' }}>
             <input
               ref={inputRef}
               type={show ? 'text' : 'password'}
               value={pw}
               onChange={e => { setPw(e.target.value); setError(''); }}
-              onKeyDown={handleKey}
-              placeholder="Enter password"
-              style={{ width:'100%', padding:'11px 42px 11px 14px', background:'#131f2e', border:`1px solid ${error ? '#ef4444' : '#2e4460'}`, borderRadius:9, color:'#f1f5f9', fontSize:15, outline:'none', boxSizing:'border-box', transition:'border-color 0.15s' }}
-              onFocus={e => { if (!error) e.target.style.borderColor = '#38bdf8'; }}
-              onBlur={e => { if (!error) e.target.style.borderColor = '#2e4460'; }}
+              onKeyDown={e => e.key === 'Enter' && attempt()}
+              placeholder="Enter your password"
+              style={{ width:'100%', padding:'12px 44px 12px 14px', background: error?'#fef2f2':'#f9fafb', border:`1.5px solid ${error?'#fca5a5':'#e5e7eb'}`, borderRadius:10, color:'#111827', fontSize:15, outline:'none', boxSizing:'border-box', transition:'all 0.15s' }}
+              onFocus={e => { e.target.style.borderColor='#6366f1'; e.target.style.boxShadow='0 0 0 3px rgba(99,102,241,0.12)'; e.target.style.background='#fff'; }}
+              onBlur={e  => { e.target.style.borderColor=error?'#fca5a5':'#e5e7eb'; e.target.style.boxShadow='none'; }}
             />
-            <button
-              onClick={() => setShow(!show)}
-              style={{ position:'absolute', right:12, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', color:'#7a8fa8', cursor:'pointer', fontSize:16, padding:2 }}
-              tabIndex={-1}
-            >
+            <button onClick={() => setShow(!show)} tabIndex={-1} style={{ position:'absolute', right:12, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', color:'#1f2937', fontSize:16, padding:2 }}>
               {show ? '🙈' : '👁️'}
             </button>
           </div>
-          {error && <div style={{ fontSize:12, color:'#ef4444', marginTop:6 }}>{error}</div>}
+          {error && <div style={{ fontSize:12, color:'#ef4444', marginTop:6, display:'flex', alignItems:'center', gap:4 }}>⚠ {error}</div>}
         </div>
-
-        {/* Login button */}
+        {/* Submit */}
         <button
           onClick={attempt}
-          style={{ width:'100%', padding:'12px', background:'#38bdf8', border:'none', borderRadius:9, color:'#0f172a', fontSize:15, fontWeight:700, cursor:'pointer', transition:'background 0.15s', marginTop:4 }}
-          onMouseEnter={e => e.target.style.background = '#0ea5e9'}
-          onMouseLeave={e => e.target.style.background = '#38bdf8'}
+          style={{ width:'100%', padding:'13px', background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:10, color:'#fff', fontSize:15, fontWeight:700, cursor:'pointer', transition:'all 0.15s', boxShadow:'0 4px 14px rgba(99,102,241,0.4)', marginTop:4 }}
+          onMouseEnter={e => { e.target.style.opacity='0.92'; e.target.style.transform='translateY(-1px)'; }}
+          onMouseLeave={e => { e.target.style.opacity='1'; e.target.style.transform='translateY(0)'; }}
         >
           Sign in →
         </button>
-
-        {/* Footer */}
-        <div style={{ textAlign:'center', marginTop:24, fontSize:11, color:'#1e3048' }}>
+        <div style={{ textAlign:'center', marginTop:22, fontSize:11.5, color:'#d1d5db' }}>
           Ozsky International · Internal CRM
         </div>
       </div>
@@ -2897,7 +3582,29 @@ function LoginScreen({ onLogin }) {
   );
 }
 
-export default function App() {
+/* ─── LANGUAGE TOGGLE ───────────────────────────────────────────────────────── */
+function LangToggle() {
+  const { lang } = useLang();
+  return (
+    <button
+      onClick={() => setLang(lang === 'en' ? 'zh' : 'en')}
+      title={lang === 'en' ? '切换中文' : 'Switch to English'}
+      style={{
+        display:'flex', alignItems:'center', gap:5, padding:'5px 12px',
+        background: lang === 'zh' ? 'linear-gradient(135deg,#e0e7ff,#ede9fe)' : '#f3f4f6',
+        border: lang === 'zh' ? '1px solid #c7d2fe' : '1px solid #e5e7eb',
+        borderRadius:20, cursor:'pointer', fontSize:12, fontWeight:700,
+        color: lang === 'zh' ? '#4338ca' : '#374151', transition:'all 0.2s',
+      }}
+    >
+      <span style={{ fontSize:14 }}>{lang === 'zh' ? '🇨🇳' : '🇦🇺'}</span>
+      {lang === 'zh' ? '中文' : 'EN'}
+    </button>
+  );
+}
+
+function App() {
+  const { t } = useLang();
   const [clients, setClients]           = useState(INIT_CLIENTS);
   const [jobs, setJobs]                 = useState(INIT_JOBS);
   const [team, setTeam]                 = useState(INIT_TEAM);
@@ -2908,6 +3615,16 @@ export default function App() {
   const [view, setView]                 = useState('dashboard');
   const [, setLoaded]               = useState(false);
   const [authed, setAuthed]             = useState(() => sessionStorage.getItem('ozsky_auth') === '1');
+  const [isManager, setIsManager]       = useState(() => sessionStorage.getItem('ozsky_role') === 'manager');
+  const [sidebarOpen, setSidebarOpen]   = useState(false);
+  const [toast, setToast]               = useState(null);
+
+  // Listen for DB errors from sbFetch
+  useEffect(() => {
+    const handler = (e) => setToast({ message: e.detail, type:'error' });
+    window.addEventListener('ozsky-db-error', handler);
+    return () => window.removeEventListener('ozsky-db-error', handler);
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -2955,71 +3672,166 @@ export default function App() {
     })();
   }, []);
 
-  const nav = [
-    { id:'dashboard',   icon:'◈',  label:'Dashboard' },
-    { id:'clients',     icon:'👤', label:'Clients',   count: clients.filter(c=>c.status==='Active').length },
-    { id:'jobs',        icon:'📋', label:'Jobs',      count: jobs.filter(j=>j.status!=='Completed').length },
-    { id:'leads',       icon:'🎯', label:'Leads',     count: leads.filter(l=>l.stage!=='Converted'&&l.stage!=='Lost').length },
-    { id:'calendar',    icon:'📅', label:'Calendar',  count: appointments.filter(a=>a.date===today()).length || undefined },
-    { id:'invoices',    icon:'💰', label:'Invoices',  count: invoices.filter(i=>i.status==='Overdue'||i.status==='Sent').length || undefined },
-    { id:'agents',      icon:'🤝', label:'Agents' },
-    { id:'reports',     icon:'📊', label:'Reports' },
-    { id:'team',        icon:'👥', label:'Team' },
-  ];
-
+  // Auth gate — uses both `authed` (read) and `LoginScreen` (rendered)
   if (!authed) {
-    return <LoginScreen onLogin={() => { sessionStorage.setItem('ozsky_auth','1'); setAuthed(true); }} />;
+    return <LoginScreen onLogin={(role) => {
+      sessionStorage.setItem('ozsky_auth', '1');
+      sessionStorage.setItem('ozsky_role', role);
+      setAuthed(true);
+      setIsManager(role === 'manager');
+    }} />;
   }
+
+  const allNav = [
+    { id:'dashboard', icon:'🏠', label: t('Dashboard') },
+    { id:'clients',   icon:'👤', label: t('Clients'),  count: clients.filter(c=>c.status==='Active').length },
+    { id:'jobs',      icon:'📋', label: t('Jobs'),     count: jobs.filter(j=>j.status!=='Completed').length },
+    { id:'leads',     icon:'🎯', label: t('Leads'),    count: leads.filter(l=>l.stage!=='Converted'&&l.stage!=='Lost').length },
+    { id:'calendar',  icon:'📅', label: t('Calendar'), count: appointments.filter(a=>a.date===today()).length || undefined },
+    { id:'invoices',  icon:'💰', label: t('Invoices'), count: invoices.filter(i=>i.status==='Overdue'||i.status==='Sent').length || undefined },
+    { id:'agents',    icon:'🤝', label: t('Agents') },
+    ...(isManager ? [
+      { id:'team',    icon:'👥', label: t('Team'), managerOnly:true },
+      { id:'reports', icon:'📊', label: t('Reports'), managerOnly:true },
+    ] : []),
+  ];
+  // Bottom-nav shows first 5 items on mobile
+  const mobileNav = allNav.slice(0,5);
+
+  const PAGE_TITLES = {
+    dashboard:'Dashboard', clients:'Clients', jobs:'Jobs',
+    leads:'Leads Pipeline', calendar:'Calendar', invoices:'Invoices',
+    agents:'Referral Agents', team:'Team', reports:'Reports & Analytics'
+  };
+
+  const logout = () => {
+    sessionStorage.removeItem('ozsky_auth');
+    sessionStorage.removeItem('ozsky_role');
+    setAuthed(false); setIsManager(false);
+  };
 
   return (
     <>
       <style>{GLOBAL_CSS}</style>
+
+      {/* ── SIDEBAR MOBILE OVERLAY ── */}
+      <div className={`oz-mob-overlay${sidebarOpen?' open':''}`} onClick={()=>setSidebarOpen(false)} />
+
       <div style={{ display:'flex', height:'100vh', overflow:'hidden' }}>
-        {/* Sidebar */}
-        <div style={{ width:230, background:'#0b1222', borderRight:'1px solid #253650', display:'flex', flexDirection:'column', flexShrink:0 }}>
+
+        {/* ── SIDEBAR ── */}
+        <aside className={`oz-sidebar${sidebarOpen?' open':''}`}>
           {/* Logo */}
-          <div style={{ padding:'16px 16px 14px', borderBottom:'1px solid #253650', display:'flex', flexDirection:'column', alignItems:'center', gap:8 }}>
-            <img src={LOGO_B64} alt="Ozsky International" style={{ width:160, height:'auto', objectFit:'contain', borderRadius:6 }} />
-            <div style={{ fontSize:10, color:'#475569', letterSpacing:'0.06em', textTransform:'uppercase' }}>CRM · Migration & Student Services</div>
+          <div style={{ padding:'18px 16px 14px', borderBottom:'1px solid rgba(255,255,255,0.07)', display:'flex', flexDirection:'column', alignItems:'center', gap:7 }}>
+            <img src={LOGO_B64} alt="Ozsky" style={{ width:148, height:'auto', borderRadius:6 }} />
+            <div style={{ fontSize:9.5, color:'#4b5280', letterSpacing:'0.07em', textTransform:'uppercase' }}>CRM · Migration & Student Services</div>
           </div>
-          {/* Nav */}
-          <nav style={{ padding:'12px 10px', flex:1 }}>
-            {nav.map(n => (
-              <button key={n.id} onClick={()=>setView(n.id)} style={{ width:'100%', display:'flex', alignItems:'center', gap:10, padding:'9px 12px', borderRadius:9, border:'none', background: view===n.id?'#38bdf815':'transparent', color: view===n.id?'#38bdf8':'#7a8fa8', fontSize:14, fontWeight: view===n.id?600:400, marginBottom:2, transition:'all 0.15s', textAlign:'left' }}
-                onMouseEnter={e=>{ if(view!==n.id) e.currentTarget.style.background='#ffffff08'; }}
-                onMouseLeave={e=>{ if(view!==n.id) e.currentTarget.style.background='transparent'; }}>
-                <span style={{ fontSize:15, width:18, textAlign:'center' }}>{n.icon}</span>
+
+          {/* Role badge */}
+          <div style={{ padding:'10px 14px 6px' }}>
+            <div style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'3px 10px', borderRadius:99, fontSize:10.5, fontWeight:700, background: isManager?'rgba(168,85,247,0.18)':'rgba(99,102,241,0.15)', color: isManager?'#d8b4fe':'#a5b4fc', letterSpacing:'0.05em', textTransform:'uppercase' }}>
+              <span>{isManager?'👑':'👤'}</span> {isManager?'Manager':'Staff'}
+            </div>
+          </div>
+
+          {/* Nav items */}
+          <nav style={{ padding:'6px 10px', flex:1, overflowY:'auto' }}>
+            {allNav.map(n => (
+              <button key={n.id} className={`oz-nav-item${view===n.id?' active':''}`}
+                onClick={()=>{ setView(n.id); setSidebarOpen(false); }}>
+                <span style={{ fontSize:15, width:20, textAlign:'center', flexShrink:0 }}>{n.icon}</span>
                 <span style={{ flex:1 }}>{n.label}</span>
-                {n.count !== undefined && n.count > 0 && (
-                  <span style={{ fontSize:11, background: view===n.id?'#38bdf830':'#2e4460', color: view===n.id?'#38bdf8':'#7a8fa8', borderRadius:10, padding:'1px 7px', fontFamily:"'JetBrains Mono',monospace" }}>{n.count}</span>
-                )}
+                {n.managerOnly && <span style={{ fontSize:9, padding:'1px 5px', borderRadius:5, background:'rgba(168,85,247,0.25)', color:'#d8b4fe', fontWeight:700, letterSpacing:'0.04em' }}>MGR</span>}
+                {n.count !== undefined && n.count > 0 && <span className="oz-nav-badge">{n.count}</span>}
               </button>
             ))}
           </nav>
-          {/* Footer */}
-          <div style={{ padding:'14px 16px', borderTop:'1px solid #253650' }}>
-            <div style={{ fontSize:11, color:'#2e4460', textAlign:'center' }}>v1.1 · {clients.length} clients · {jobs.length} jobs</div>
-          </div>
-        </div>
 
-        {/* Main content */}
-        <div style={{ flex:1, overflowY:'auto', padding:'28px 32px', background:'#0f172a' }}>
-          {view === 'dashboard' && (
-            <>
-              <DeadlineAlerts jobs={jobs} appointments={appointments} />
-              <Dashboard clients={clients} jobs={jobs} team={team} onGoTo={setView} />
-            </>
-          )}
-          {view === 'clients'   && <Clients clients={clients} jobs={jobs} setClients={setClients} />}
-          {view === 'jobs'      && <Jobs jobs={jobs} clients={clients} team={team} setJobs={setJobs} />}
-          {view === 'team'      && <Team team={team} jobs={jobs} clients={clients} setTeam={setTeam} />}
-          {view === 'leads'     && <Leads leads={leads} setLeads={setLeads} clients={clients} setClients={setClients} jobs={jobs} setJobs={setJobs} team={team} agents={agents} />}
-          {view === 'calendar'  && <CalendarPage appointments={appointments} setAppointments={setAppointments} jobs={jobs} clients={clients} team={team} />}
-          {view === 'invoices'  && <Invoices invoices={invoices} setInvoices={setInvoices} clients={clients} jobs={jobs} />}
-          {view === 'reports'   && <Reports clients={clients} jobs={jobs} leads={leads} invoices={invoices} team={team} />}
-          {view === 'agents'    && <AgentsPage agents={agents} setAgents={setAgents} leads={leads} jobs={jobs} invoices={invoices} />}
+          {/* Sidebar footer */}
+          <div style={{ padding:'12px 14px', borderTop:'1px solid rgba(255,255,255,0.07)' }}>
+            <div style={{ fontSize:11, color:'#3d4468', marginBottom:8, textAlign:'center' }}>
+              {clients.length} clients · {jobs.length} jobs
+            </div>
+            <button onClick={logout} style={{ width:'100%', padding:'7px', background:'rgba(239,68,68,0.1)', border:'1px solid rgba(239,68,68,0.2)', borderRadius:8, color:'#f87171', fontSize:12, fontWeight:600, transition:'all 0.15s' }}
+              onMouseEnter={e=>e.currentTarget.style.background='rgba(239,68,68,0.18)'}
+              onMouseLeave={e=>e.currentTarget.style.background='rgba(239,68,68,0.1)'}>
+              Sign out
+            </button>
+          </div>
+        </aside>
+
+        {/* ── MAIN COLUMN ── */}
+        <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden', minWidth:0 }}>
+
+          {/* ── TOP BAR ── */}
+          <header className="oz-topbar">
+            <button className="oz-hamburger" onClick={()=>setSidebarOpen(s=>!s)}>☰</button>
+            <div style={{ flex:1 }}>
+              <span style={{ fontSize:16, fontWeight:800, color:'#111827' }}>{PAGE_TITLES[view]||view}</span>
+            </div>
+            {/* User chip */}
+            <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+              <LangToggle />
+              <div style={{ display:'flex', alignItems:'center', gap:7, padding:'5px 12px', background: isManager?'#f5f3ff':'#eef2ff', borderRadius:99, border:`1px solid ${isManager?'#ddd6fe':'#c7d2fe'}` }}>
+                <span style={{ fontSize:13 }}>{isManager?'👑':'👤'}</span>
+                <span style={{ fontSize:12.5, fontWeight:600, color: isManager?'#7c3aed':'#4338ca' }}>{isManager ? t('Manager') : t('Staff')}</span>
+              </div>
+              <button onClick={logout} style={{ background:'none', border:'1.5px solid #cbd5e1', borderRadius:8, padding:'5px 12px', fontSize:12, fontWeight:600, color:'#1f2937', transition:'all 0.15s' }}
+                onMouseEnter={e=>{e.currentTarget.style.borderColor='#f87171';e.currentTarget.style.color='#ef4444';}}
+                onMouseLeave={e=>{e.currentTarget.style.borderColor='#e5e7eb';e.currentTarget.style.color='#9ca3af';}}>
+                {t('Sign out')}
+              </button>
+            </div>
+          </header>
+
+          {/* ── PAGE CONTENT ── */}
+          <main className="oz-main-content" style={{ flex:1, overflowY:'auto', padding:'28px 32px' }}>
+            {view === 'dashboard' && (
+              <>
+                <DeadlineAlerts jobs={jobs} appointments={appointments} />
+                <Dashboard clients={clients} jobs={jobs} team={team} onGoTo={setView} />
+              </>
+            )}
+            {view === 'clients'   && <Clients   clients={clients} jobs={jobs} setClients={setClients} />}
+            {view === 'jobs'      && <Jobs       jobs={jobs} clients={clients} team={team} setJobs={setJobs} />}
+            {view === 'team'      && isManager && <Team       team={team} jobs={jobs} clients={clients} setTeam={setTeam} />}
+            {view === 'leads'     && <Leads      leads={leads} setLeads={setLeads} clients={clients} setClients={setClients} jobs={jobs} setJobs={setJobs} team={team} agents={agents} />}
+            {view === 'calendar'  && <CalendarPage appointments={appointments} setAppointments={setAppointments} jobs={jobs} clients={clients} team={team} />}
+            {view === 'invoices'  && <Invoices   invoices={invoices} setInvoices={setInvoices} clients={clients} jobs={jobs} />}
+            {view === 'agents'    && <AgentsPage agents={agents} setAgents={setAgents} leads={leads} jobs={jobs} invoices={invoices} />}
+            {view === 'reports'   && isManager && <Reports clients={clients} jobs={jobs} leads={leads} invoices={invoices} team={team} />}
+            {view === 'reports'   && !isManager && (
+              <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', minHeight:400, gap:14 }}>
+                <div style={{ fontSize:52 }}>🔒</div>
+                <div style={{ fontSize:20, fontWeight:800, color:'#111827' }}>Manager Access Only</div>
+                <div style={{ fontSize:14, color:'#1f2937', textAlign:'center', maxWidth:320 }}>Reports & Analytics are restricted to manager accounts. Please sign in with manager credentials.</div>
+              </div>
+            )}
+          </main>
         </div>
       </div>
+
+      {/* ── TOAST ── */}
+      {toast && <Toast message={toast.message} type={toast.type} onClose={()=>setToast(null)} />}
+
+      {/* ── MOBILE BOTTOM NAV ── */}
+      <nav className="oz-mob-nav">
+        {mobileNav.map(n => (
+          <button key={n.id} className={`oz-mob-btn${view===n.id?' active':''}`} onClick={()=>setView(n.id)}>
+            <span className="micon">{n.icon}</span>
+            {n.label}
+            {n.count > 0 && <span style={{ position:'absolute', top:2, right:6, background:'#ef4444', color:'#fff', borderRadius:99, fontSize:8, padding:'0 4px', fontWeight:700 }}>{n.count}</span>}
+          </button>
+        ))}
+        <button className={`oz-mob-btn${view==='team'?' active':''}`} onClick={()=>setView('team')} style={{display: isManager?'flex':'none'}}>
+          <span className="micon">👥</span>Team
+        </button>
+        <button className="oz-mob-btn" onClick={()=>setSidebarOpen(true)}>
+          <span className="micon">☰</span>More
+        </button>
+      </nav>
     </>
   );
 }
+
+export default App;
