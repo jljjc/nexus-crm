@@ -81,12 +81,12 @@ const LANG_ZH = {
   'Client Type':'客户类型','Phone':'电话',
   'Add New Client':'添加新客户','Edit Client':'编辑客户',
   // Jobs page
-  'New Case':'新案件','Save Job':'保存案件',
+  'New Job':'新案件','Save Job':'保存案件',
   'Job Title':'案件标题','Job Type':'案件类型','Client':'客户',
   'Assign To':'分配给','Priority':'优先级','Due Date':'截止日期',
   'Progress':'进度','CASE NOTES':'案件备注',
   'DOCUMENT CHECKLIST':'文件清单',
-  'Edit Case':'编辑案件','Open in Jobs →':'在案件页打开 →',
+  'Edit Job':'编辑案件','Open in Jobs →':'在案件页打开 →',
   // Dashboard
   'Active Clients':'活跃客户','Jobs In Progress':'进行中案件',
   'Urgent Jobs':'紧急案件',
@@ -496,7 +496,7 @@ const INIT_JOBS = [];
 const uid = () => Math.random().toString(36).slice(2, 9);
 const today = () => new Date().toISOString().split('T')[0];
 const initials = (name) => name.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2);
-const fmtDate = (d) => d ? new Date(d+'T00:00:00').toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'}) : '—';
+const fmtDate = (d) => { if (!d) return '—'; const s = String(d); const dt = new Date(s.includes('T') ? s : s+'T00:00:00'); return isNaN(dt) ? '—' : dt.toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'}); };
 const fmtDateTime = (iso) => {
   if (!iso) return '—';
   const d = new Date(iso);
@@ -790,16 +790,12 @@ function Dashboard({ clients, jobs, team, onGoTo }) {
   const getClient = id => clients.find(c=>c.id===id);
   const getMember = id => team.find(t=>t.id===id);
   // Always show Liang (t1) and Mansi (t2) first, then rest by workload
-  const memberLoad = (() => {
-    const withCount = team.map(m => ({
-      ...m,
-      count: jobs.filter(j=>j.assignedTo===m.id && j.status!=='Completed').length
-    }));
-    const priority = ['t1','t2']; // Liang, Mansi always top
-    const top = priority.map(id => withCount.find(m=>m.id===id)).filter(Boolean);
-    const rest = withCount.filter(m=>!priority.includes(m.id)).sort((a,b)=>b.count-a.count);
-    return [...top, ...rest].slice(0,6);
-  })();
+  // Exclude owners Liang (t1) and Mansi (t2) from workload display
+  const memberLoad = team
+    .filter(m => m.id !== 't1' && m.id !== 't2')
+    .map(m => ({ ...m, count: jobs.filter(j=>j.assignedTo===m.id && j.status!=='Completed').length }))
+    .sort((a,b) => b.count - a.count)
+    .slice(0, 6);
 
   // Upcoming deadlines in next 14 days
   const now = new Date();
@@ -821,7 +817,7 @@ function Dashboard({ clients, jobs, team, onGoTo }) {
 
   const statCards = [
     { label:'Active Clients',   value:active,     icon:'👥', color:'#6366f1', sub:`of ${clients.length} total`,   onClick:()=>onGoTo('clients') },
-    { label:'Cases In Progress', value:inProgress, icon:'⚡', color:'#f59e0b', sub:`${jobs.length} total cases`,     onClick:()=>onGoTo('jobs') },
+    { label:'Jobs In Progress', value:inProgress, icon:'⚡', color:'#f59e0b', sub:`${jobs.length} total jobs`,     onClick:()=>onGoTo('jobs') },
     { label:'Urgent Cases',      value:urgent,     icon:'🔴', color:'#f87171', sub:'need immediate attention',       onClick:()=>onGoTo('jobs') },
     { label:'Awaiting Decision', value:awaitingDecision, icon:'⏳', color:'#94a3b8', sub:'lodged · pending outcome', onClick:()=>onGoTo('jobs') },
   ];
@@ -978,7 +974,7 @@ function Dashboard({ clients, jobs, team, onGoTo }) {
 
       {/* Job Quick-View Modal (from dashboard) */}
       {selectedJob && (
-        <Modal title={`Case Details – ${selectedJob.title}`} onClose={()=>setSelectedJob(null)} wide>
+        <Modal title={`Job Details – ${selectedJob.title}`} onClose={()=>setSelectedJob(null)} wide>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20, marginBottom:20 }}>
             <div>
               <div style={{ fontSize:11, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:6 }}>Client</div>
@@ -1226,7 +1222,7 @@ Return this exact structure (use null for missing fields, keep English for value
 
   const tabs = [
     { id:'profile',  label:'👤 Profile' },
-    { id:'jobs',     label:`📋 Cases (${clientJobs.length})` },
+    { id:'jobs',     label:`📋 Jobs (${clientJobs.length})` },
     { id:'notes',    label:`📝 ${t('Notes')||'Notes'} (${normalizeNotes(client.notes).length})` },
     { id:'wechat',   label:`💬 ${t('WeChat')||'WeChat'}` },
     { id:'import',   label:`📥 ${t('Import Doc')||'Import Doc'}` },
@@ -1458,7 +1454,7 @@ Return this exact structure (use null for missing fields, keep English for value
                 <select style={{ ...selectStyle, fontSize:13 }} value={qform.priority} onChange={e=>setQform(f=>({...f,priority:e.target.value}))}>
                   {PRIORITIES.map(p=><option key={p}>{p}</option>)}
                 </select>
-                <div style={{gridColumn:'span 1'}}><div style={{fontSize:11,color:'#374151',fontWeight:600,marginBottom:4}}>截止日期 (Due Date)</div><input type="date" style={{ ...inputStyle, fontSize:13 }} value={qform.dueDate||''} onChange={e=>setQform(f=>({...f,dueDate:e.target.value}))} /></div>
+                <input type="date" style={{ ...inputStyle, fontSize:13 }} value={qform.dueDate||''} onChange={e=>setQform(f=>({...f,dueDate:e.target.value}))} />
               </div>
               <div style={{ display:'flex', gap:8, justifyContent:'flex-end' }}>
                 <button onClick={() => setQuickJob(false)} style={{ padding:'7px 16px', background:'#f1f5f9', border:'1.5px solid #cbd5e1', borderRadius:7, color:'#374151', fontSize:12 }}>取消</button>
@@ -1844,7 +1840,7 @@ function Clients({ clients, jobs, setClients, setJobs, team }) {
         <table style={{ width:'100%', borderCollapse:'collapse' }}>
           <thead>
             <tr style={{ borderBottom:'2px solid #e2e8f0' }}>
-              {['Client','Type','Status','Cases','Nationality','Notes','Created',''].map(h=>(
+              {['Client','Type','Status','Jobs','Nationality','Notes','Created',''].map(h=>(
                 <th key={h} style={{ padding:'12px 16px', textAlign:'left', fontSize:11, fontWeight:600, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.06em', background:'#f9fafb' }}>{h}</th>
               ))}
             </tr>
@@ -1944,219 +1940,6 @@ function Clients({ clients, jobs, setClients, setJobs, team }) {
 }
 
 /* ─── JOBS ────────────────────────────────────────────────────────────────────── */
-/* ─── RICH CASE VIEW MODAL ───────────────────────────────────────────────────── */
-function CaseViewModal({ viewJob, setViewJob, getClient, getMember, setJobs, openEdit }) {
-  const [importing, setImporting] = useState(false);
-  const snapRef = useRef(null);
-  if (!viewJob) return null;
-  const vc = getClient(viewJob.clientId);
-  const checklist = DOC_CHECKLISTS[viewJob.type] || [];
-  const docs = viewJob.docs || {};
-  const pct = STATUS_PROGRESS[viewJob.status] ?? viewJob.progress ?? 0;
-  const docsReceived = checklist.filter(d=>docs[d]).length;
-
-  const handleSnapUpload = async (e) => {
-    const file = e.target.files?.[0]; if (!file) return;
-    setImporting(true);
-    try {
-      const buf = await file.arrayBuffer();
-      const { value: rawText } = await mammoth.extractRawText({ arrayBuffer: buf });
-      const res = await fetch('/api/claude', {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:3000,
-          messages:[{ role:'user', content:
-`Extract case timeline and current status from this immigration case snapshot. Return ONLY valid JSON:
-{
-  "snapshot": "brief current status summary (1-2 sentences)",
-  "caseTimeline": [{"date":"","event":"","status":"Completed"}],
-  "currentProgress": null
-}
-Status values: "Completed", "In Progress", "Urgent", "Pending"
-Document:
-${rawText.slice(0,6000)}` }]
-        })
-      });
-      const d = await res.json();
-      const txt = (d.content?.[0]?.text||'').replace(/```json|```/g,'').trim();
-      const parsed = JSON.parse(txt);
-      const updated = {
-        ...viewJob,
-        ...(parsed.snapshot ? { snapshot: parsed.snapshot } : {}),
-        ...(parsed.caseTimeline?.length ? { caseTimeline: parsed.caseTimeline } : {}),
-      };
-      setViewJob(updated);
-      setJobs(prev => prev.map(j => j.id===viewJob.id ? updated : j));
-      try { await sbUpdate('jobs', updated.id, { data: updated }); } catch(er){ console.warn(er); }
-    } catch(err) { window.alert('Import failed: ' + err.message); }
-    finally { setImporting(false); e.target.value=''; }
-  };
-
-  return (
-    <Modal
-      title={viewJob.title}
-      onClose={()=>setViewJob(null)}
-      wide
-      footer={
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-          <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-            <StatusBadge status={viewJob.status} />
-            <PriorityBadge priority={viewJob.priority} />
-          </div>
-          <div style={{ display:'flex', gap:10 }}>
-            <button onClick={()=>setViewJob(null)} style={{ padding:'8px 16px', background:'#f1f5f9', border:'1.5px solid #cbd5e1', borderRadius:8, color:'#374151', fontSize:13 }}>关闭</button>
-            <button onClick={()=>{ setViewJob(null); openEdit(viewJob); }} style={{ padding:'8px 18px', background:'linear-gradient(135deg,#4f46e5,#7c3aed)', border:'none', borderRadius:8, color:'#fff', fontSize:13, fontWeight:700 }}>✏️ 编辑案件</button>
-          </div>
-        </div>
-      }
-    >
-      {/* ── PROGRESS BANNER ─────────────────────────── */}
-      <div style={{ background:'linear-gradient(135deg,#1e1b4b,#312e81)', borderRadius:12, padding:'14px 18px', marginBottom:16, color:'#fff' }}>
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:8 }}>
-          <div>
-            <div style={{ fontSize:10, color:'rgba(255,255,255,0.55)', textTransform:'uppercase', letterSpacing:'0.12em', marginBottom:3 }}>案件进度</div>
-            <div style={{ fontSize:15, fontWeight:700 }}>{vc?.name||'—'} · {viewJob.type}</div>
-            <div style={{ fontSize:12, color:'rgba(255,255,255,0.65)', marginTop:2 }}>负责人: {getMember(viewJob.assignedTo)?.name||'—'} · Due {fmtDate(viewJob.dueDate)||'—'}</div>
-          </div>
-          <div style={{ textAlign:'right', flexShrink:0 }}>
-            <div style={{ fontSize:28, fontWeight:800, color: pct>=100?'#34d399':pct>=70?'#a5b4fc':'#fbbf24', lineHeight:1 }}>{pct}%</div>
-            <div style={{ fontSize:11, color:'rgba(255,255,255,0.55)', marginTop:2 }}>{viewJob.status}</div>
-          </div>
-        </div>
-        <div style={{ height:5, borderRadius:5, background:'rgba(255,255,255,0.15)', overflow:'hidden' }}>
-          <div style={{ height:'100%', width:`${pct}%`, background: pct>=100?'#34d399':pct>=70?'#818cf8':'#fbbf24', borderRadius:5 }} />
-        </div>
-      </div>
-
-      {/* ── EDITABLE SNAPSHOT ───────────────────────── */}
-      <div style={{ marginBottom:14 }}>
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
-          <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em' }}>最新进展</div>
-          <div style={{ display:'flex', gap:6 }}>
-            <input ref={snapRef} type="file" accept=".docx,.pdf" style={{display:'none'}} onChange={handleSnapUpload} />
-            <button
-              disabled={importing}
-              onClick={()=>snapRef.current?.click()}
-              style={{ padding:'4px 10px', background:'#f1f5f9', border:'1.5px solid #cbd5e1', borderRadius:6, color:'#374151', fontSize:11, fontWeight:600, cursor:'pointer' }}
-            >{importing ? '⏳ 导入中…' : '📄 上传快照'}</button>
-          </div>
-        </div>
-        <textarea
-          style={{ width:'100%', background:'#f8fafc', border:'2px solid #c7d2e0', borderRadius:9, padding:'9px 12px', fontSize:13, color:'#111827', resize:'vertical', minHeight:72, fontFamily:'inherit', lineHeight:1.55, outline:'none', boxSizing:'border-box' }}
-          placeholder="记录最新案件进展..."
-          defaultValue={viewJob.snapshot||''}
-          onBlur={async e => {
-            if (e.target.value === (viewJob.snapshot||'')) return;
-            const updated = { ...viewJob, snapshot: e.target.value };
-            setViewJob(updated);
-            setJobs(prev => prev.map(j => j.id===viewJob.id ? updated : j));
-            try { await sbUpdate('jobs', updated.id, { data: updated }); } catch(er){ console.warn(er); }
-          }}
-        />
-      </div>
-
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:14 }}>
-        {/* Info */}
-        <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
-          <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:2 }}>案件信息</div>
-          {[['客户', vc?.name||'—'], ['类型', viewJob.type], ['截止日期', fmtDate(viewJob.dueDate)||'—'], ['创建', fmtDate(viewJob.createdAt)||'—']].map(([l,v]) => (
-            <div key={l} style={{ display:'flex', justifyContent:'space-between', background:'#f8fafc', borderRadius:8, padding:'7px 11px', border:'1.5px solid #e2e8f0' }}>
-              <span style={{ fontSize:11, color:'#374151', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.05em' }}>{l}</span>
-              <span style={{ fontSize:13, color:'#111827', fontWeight:500 }}>{v}</span>
-            </div>
-          ))}
-        </div>
-        {/* Docs OR Timeline */}
-        <div>
-          {checklist.length > 0 ? (
-            <>
-              <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:6 }}>材料清单 ({docsReceived}/{checklist.length})</div>
-              <div style={{ background:'#f9fafb', borderRadius:8, padding:'8px 10px', maxHeight:160, overflowY:'auto', border:'1.5px solid #e2e8f0' }}>
-                {checklist.map(doc=>(
-                  <div key={doc} style={{ display:'flex', alignItems:'center', gap:8, padding:'5px 4px', borderBottom:'1px solid #f1f5f9' }}>
-                    <span style={{ fontSize:14, color: docs[doc]?'#34d399':'#cbd5e1' }}>{docs[doc]?'✓':'○'}</span>
-                    <span style={{ fontSize:12, color: docs[doc]?'#94a3b8':'#374151', textDecoration: docs[doc]?'line-through':'none' }}>{doc}</span>
-                  </div>
-                ))}
-              </div>
-            </>
-          ) : (
-            <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:6 }}>负责人</div>
-          )}
-          {(() => { const vm = getMember(viewJob.assignedTo); return vm ? (
-            <div style={{ display:'flex', alignItems:'center', gap:8, background:'#f8fafc', borderRadius:8, padding:'8px 11px', border:'1.5px solid #e2e8f0', marginTop: checklist.length?8:0 }}>
-              <Avatar name={vm.name} color={vm.color} size={24} />
-              <span style={{ fontSize:13, color:'#111827', fontWeight:500 }}>{vm.name}</span>
-            </div>
-          ) : null; })()}
-        </div>
-      </div>
-
-      {/* ── CASE TIMELINE ───────────────────────────── */}
-      {(viewJob.caseTimeline||[]).length > 0 && (
-        <div style={{ borderTop:'1.5px solid #e2e8f0', paddingTop:14, marginBottom:14 }}>
-          <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:10 }}>大事记</div>
-          <div style={{ position:'relative', paddingLeft:18, maxHeight:200, overflowY:'auto' }}>
-            <div style={{ position:'absolute', left:5, top:6, bottom:6, width:2, background:'linear-gradient(to bottom, #6366f1, #e2e8f0)', borderRadius:2 }} />
-            {(viewJob.caseTimeline||[]).map((ev, i) => {
-              const col = ev.status==='Completed'?'#16a34a':ev.status==='Urgent'?'#d97706':ev.status==='Failed'?'#dc2626':'#6366f1';
-              return (
-                <div key={i} style={{ display:'flex', gap:12, marginBottom:8, alignItems:'flex-start' }}>
-                  <div style={{ width:10, height:10, borderRadius:'50%', background:col, border:'2px solid #fff', boxShadow:`0 0 0 2px ${col}40`, flexShrink:0, marginTop:3 }} />
-                  <div style={{ flex:1, background:'#fff', borderRadius:7, padding:'7px 11px', border:'1px solid #e5e7eb' }}>
-                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                      <span style={{ fontSize:12, fontWeight:600, color:'#111827' }}>{ev.event}</span>
-                      <span style={{ fontSize:10, fontWeight:700, color:col, background:col+'15', padding:'2px 7px', borderRadius:10 }}>{ev.status}</span>
-                    </div>
-                    <div style={{ fontSize:11, color:'#6b7280', marginTop:2 }}>{ev.date}</div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* ── NOTES ──────────────────────────────────── */}
-      <div style={{ borderTop:'1.5px solid #e2e8f0', paddingTop:14 }}>
-        <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:10 }}>备注 ({normalizeNotes(viewJob.notes).length})</div>
-        <div style={{ display:'flex', gap:8, marginBottom:10 }}>
-          <input id="vj-note-inp" style={{ flex:1, background:'#fff', border:'2px solid #c7d2e0', borderRadius:9, padding:'8px 12px', fontSize:13, fontFamily:'inherit', outline:'none' }} placeholder="添加备注… (Enter 保存)"
-            onKeyDown={async e => {
-              if (e.key==='Enter' && e.target.value.trim()) {
-                const updated = { ...viewJob, notes: [makeNote(e.target.value.trim()), ...normalizeNotes(viewJob.notes)] };
-                setViewJob(updated); setJobs(prev=>prev.map(j=>j.id===viewJob.id?updated:j));
-                try { await sbUpdate('jobs', updated.id, { data: updated }); } catch(er){ console.warn(er); }
-                e.target.value='';
-              }
-            }}
-          />
-          <button style={{ padding:'8px 14px', background:'#4f46e5', border:'none', borderRadius:8, color:'#fff', fontSize:13, fontWeight:600, cursor:'pointer' }}
-            onClick={async () => {
-              const inp = document.getElementById('vj-note-inp');
-              if (!inp?.value.trim()) return;
-              const updated = { ...viewJob, notes: [makeNote(inp.value.trim()), ...normalizeNotes(viewJob.notes)] };
-              setViewJob(updated); setJobs(prev=>prev.map(j=>j.id===viewJob.id?updated:j));
-              try { await sbUpdate('jobs', updated.id, { data: updated }); } catch(er){ console.warn(er); }
-              inp.value='';
-            }}
-          >添加</button>
-        </div>
-        <div style={{ display:'flex', flexDirection:'column', gap:6, maxHeight:180, overflowY:'auto' }}>
-          {normalizeNotes(viewJob.notes).length===0
-            ? <div style={{ color:'#94a3b8', fontSize:13 }}>暂无备注</div>
-            : [...normalizeNotes(viewJob.notes)].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)).map(n=>(
-              <div key={n.id} style={{ background:'#f8fafc', borderRadius:8, padding:'9px 12px', border:'1.5px solid #e2e8f0' }}>
-                <div style={{ fontSize:13, color:'#111827', whiteSpace:'pre-wrap', lineHeight:1.55 }}>{n.text}</div>
-                <div style={{ fontSize:11, color:'#9ca3af', marginTop:4 }}>{fmtDateTime(n.createdAt)}</div>
-              </div>
-            ))
-          }
-        </div>
-      </div>
-    </Modal>
-  );
-}
-
 function Jobs({ jobs, clients, team, setJobs }) {
   const { t } = useLang(); // eslint-disable-line no-unused-vars
   const [search, setSearch] = useState('');
@@ -2188,7 +1971,7 @@ function Jobs({ jobs, clients, team, setJobs }) {
   });
 
   const openAdd = () => { setForm({ title:'', type:'Subclass 500 – Student Visa', clientId: clients[0]?.id||'', assignedTo: team[0]?.id||'', status:'New', priority:'Medium', dueDate:'', notes:[], progress:0, createdAt:today() }); setModal('add'); };
-  const openEdit = (j) => { setClientSearch(clients.find(c=>c.id===j.clientId)?.name||''); setForm({ ...j, notes: normalizeNotes(j.notes) }); setModal(j); };
+  const openEdit = (j) => { setClientSearch(clients.find(c=>c.id===j.clientId)?.name||''); setForm({ ...j, notes: normalizeNotes(j.notes) }); setClientSearch(sortedClients[0]?.name||''); setModal(j); };
   const closeModal = () => setModal(null);
 
   const save = async () => {
@@ -2206,7 +1989,7 @@ function Jobs({ jobs, clients, team, setJobs }) {
   };
 
   const del = async (id) => {
-    if(window.confirm('Delete this job?')) {
+    if(window.confirm('Delete this case?')) {
       setJobs(prev=>prev.filter(j=>j.id!==id));
       try { await sbDelete('jobs', id); } catch(e) { console.warn('Delete error:', e); }
     }
@@ -2222,7 +2005,7 @@ function Jobs({ jobs, clients, team, setJobs }) {
     return (
       <div className="animate-fade">
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
-          <div><h1 style={{ fontSize:24, fontWeight:700, color:'#111827' }}>Cases</h1><p style={{ color:'#1f2937', fontSize:14, marginTop:2 }}>{jobs.length} total</p></div>
+          <div><h1 style={{ fontSize:24, fontWeight:700, color:'#111827' }}>Jobs</h1><p style={{ color:'#1f2937', fontSize:14, marginTop:2 }}>{jobs.length} total</p></div>
           <div style={{ display:'flex', gap:10 }}>
             <div style={{ display:'flex', background:'#ffffff', borderRadius:8, border:'1.5px solid #cbd5e1', overflow:'hidden' }}>
               {['list','board'].map(v=><button key={v} onClick={()=>setView(v)} style={{ padding:'7px 14px', background: view===v?'#e5e7eb':'transparent', border:'none', color: view===v?'#e2e8f0':'#475569', fontSize:13, fontWeight:500, textTransform:'capitalize' }}>{v}</button>)}
@@ -2270,13 +2053,13 @@ function Jobs({ jobs, clients, team, setJobs }) {
           })}
         </div>
         {modal && (
-          <Modal title={modal==='add'?'New Case':'Edit Case'} onClose={closeModal} wide>
+          <Modal title={modal==='add'?'New Job':'Edit Job'} onClose={closeModal} wide>
                 <>
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
-        <FormField label="Case Title" required>
+        <FormField label="Job Title" required>
           <input style={inputStyle} value={form.title||''} onChange={e=>setForm(f=>({...f,title:e.target.value}))} placeholder="e.g. Visa Application" />
         </FormField>
-        <FormField label="Case Type">
+        <FormField label="Job Type">
           <select style={selectStyle} value={form.type} onChange={e=>setForm(f=>({...f,type:e.target.value}))}>
             {JOB_TYPES.map(t=><option key={t}>{t}</option>)}
           </select>
@@ -2366,7 +2149,163 @@ function Jobs({ jobs, clients, team, setJobs }) {
             </div>
           </Modal>
         )}
-        {viewJob && <CaseViewModal viewJob={viewJob} setViewJob={setViewJob} getClient={id=>clients.find(c=>c.id===id)} getMember={id=>team.find(t=>t.id===id)} setJobs={()=>{}} openEdit={()=>{}} />}
+        {viewJob && (() => {
+        const vc2 = getClient(viewJob.clientId);
+        const checklist2 = DOC_CHECKLISTS[viewJob.type] || [];
+        const docs2 = viewJob.docs || {};
+        const pct2 = STATUS_PROGRESS[viewJob.status] ?? viewJob.progress ?? 0;
+        const docsReceived2 = checklist2.filter(d=>docs2[d]).length;
+        return (
+        <Modal title={viewJob.title} onClose={()=>setViewJob(null)} wide>
+        {/* ── PROGRESS BANNER ─────────────────────── */}
+        <div style={{ background:'linear-gradient(135deg,#1e1b4b,#312e81)', borderRadius:12, padding:'14px 18px', marginBottom:16, color:'#fff' }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:8 }}>
+        <div>
+        <div style={{ fontSize:10, color:'rgba(255,255,255,0.55)', textTransform:'uppercase', letterSpacing:'0.12em', marginBottom:3 }}>案件进度</div>
+        <div style={{ fontSize:15, fontWeight:700 }}>{vc2?.name||'—'} · {viewJob.type}</div>
+        <div style={{ fontSize:12, color:'rgba(255,255,255,0.65)', marginTop:2 }}>负责人: {getMember(viewJob.assignedTo)?.name||'—'} · Due {fmtDate(viewJob.dueDate)||'—'}</div>
+        </div>
+        <div style={{ textAlign:'right', flexShrink:0 }}>
+        <div style={{ fontSize:28, fontWeight:800, color: pct2>=100?'#34d399':pct2>=70?'#a5b4fc':'#fbbf24', lineHeight:1 }}>{pct2}%</div>
+        <div style={{ fontSize:11, color:'rgba(255,255,255,0.55)', marginTop:2 }}>{viewJob.status}</div>
+        </div>
+        </div>
+        <div style={{ height:5, borderRadius:5, background:'rgba(255,255,255,0.15)', overflow:'hidden' }}>
+        <div style={{ height:'100%', width:`${pct2}%`, background: pct2>=100?'#34d399':pct2>=70?'#818cf8':'#fbbf24', borderRadius:5, transition:'width 0.4s' }} />
+        </div>
+        </div>
+
+        {/* ── EDITABLE SNAPSHOT ───────────────────── */}
+        <div style={{ marginBottom:14 }}>
+        <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:6 }}>最新进展 <span style={{ color:'#9ca3af', fontWeight:400, textTransform:'none', letterSpacing:0, fontSize:11 }}>(失焦自动保存)</span></div>
+        <textarea
+        style={{ width:'100%', background:'#f8fafc', border:'2px solid #c7d2e0', borderRadius:9, padding:'9px 12px', fontSize:13, color:'#111827', resize:'vertical', minHeight:72, fontFamily:'inherit', lineHeight:1.55, outline:'none', boxSizing:'border-box' }}
+        placeholder="记录最新案件进展..."
+        defaultValue={viewJob.snapshot||''}
+        onBlur={async e => {
+        if (e.target.value === (viewJob.snapshot||'')) return;
+        const updated = { ...viewJob, snapshot: e.target.value };
+        setViewJob(updated);
+        setJobs(prev => prev.map(j => j.id===viewJob.id ? updated : j));
+        try { await sbUpdate('jobs', updated.id, { data: updated }); } catch(er){ console.warn(er); }
+        }}
+        />
+        </div>
+
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:14 }}>
+        {/* Case info */}
+        <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
+        <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:2 }}>案件信息</div>
+        {[['客户', vc2?.name||'—'], ['类型', viewJob.type], ['截止日期', fmtDate(viewJob.dueDate)], ['创建', fmtDate(viewJob.createdAt)]].map(([l,v]) => (
+        <div key={l} style={{ display:'flex', justifyContent:'space-between', background:'#f8fafc', borderRadius:8, padding:'7px 11px', border:'1.5px solid #e2e8f0' }}>
+        <span style={{ fontSize:11, color:'#374151', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.05em' }}>{l}</span>
+        <span style={{ fontSize:13, color:'#111827', fontWeight:500 }}>{v}</span>
+        </div>
+        ))}
+        {(() => { const vm = getMember(viewJob.assignedTo); return vm ? (
+        <div style={{ display:'flex', alignItems:'center', gap:8, background:'#f8fafc', borderRadius:8, padding:'7px 11px', border:'1.5px solid #e2e8f0' }}>
+        <span style={{ fontSize:11, color:'#374151', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.05em', flex:1 }}>负责人</span>
+        <Avatar name={vm.name} color={vm.color} size={22} />
+        <span style={{ fontSize:13, color:'#111827', fontWeight:500 }}>{vm.name}</span>
+        </div>
+        ) : null; })()}
+        </div>
+        {/* Docs checklist */}
+        <div>
+        {checklist2.length > 0 ? (
+        <>
+        <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:6 }}>材料清单 ({docsReceived2}/{checklist2.length})</div>
+        <div style={{ background:'#f9fafb', borderRadius:8, padding:'8px 10px', maxHeight:180, overflowY:'auto', border:'1.5px solid #e2e8f0' }}>
+        {checklist2.map(doc=>(
+        <div key={doc} style={{ display:'flex', alignItems:'center', gap:8, padding:'5px 4px', borderBottom:'1px solid #f1f5f9' }}>
+        <span style={{ fontSize:14, color: docs2[doc]?'#34d399':'#cbd5e1' }}>{docs2[doc]?'✓':'○'}</span>
+        <span style={{ fontSize:12, color: docs2[doc]?'#94a3b8':'#374151', textDecoration: docs2[doc]?'line-through':'none' }}>{doc}</span>
+        </div>
+        ))}
+        </div>
+        </>
+        ) : (
+        <div style={{ fontSize:12, color:'#94a3b8', paddingTop:8 }}>无材料清单</div>
+        )}
+        </div>
+        </div>
+
+        {/* ── CASE TIMELINE ───────────────────────── */}
+        {(viewJob.caseTimeline||[]).length > 0 && (
+        <div style={{ borderTop:'1.5px solid #e2e8f0', paddingTop:14, marginBottom:14 }}>
+        <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:10 }}>大事记</div>
+        <div style={{ position:'relative', paddingLeft:18, maxHeight:180, overflowY:'auto' }}>
+        <div style={{ position:'absolute', left:5, top:6, bottom:6, width:2, background:'linear-gradient(to bottom,#6366f1,#e2e8f0)', borderRadius:2 }} />
+        {(viewJob.caseTimeline||[]).map((ev,i) => {
+        const col = ev.status==='Completed'?'#16a34a':ev.status==='Urgent'?'#d97706':ev.status==='Failed'?'#dc2626':'#6366f1';
+        return (
+        <div key={i} style={{ display:'flex', gap:12, marginBottom:8, alignItems:'flex-start' }}>
+        <div style={{ width:10, height:10, borderRadius:'50%', background:col, border:'2px solid #fff', boxShadow:`0 0 0 2px ${col}40`, flexShrink:0, marginTop:3 }} />
+        <div style={{ flex:1, background:'#fff', borderRadius:7, padding:'7px 11px', border:'1px solid #e5e7eb' }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+        <span style={{ fontSize:12, fontWeight:600, color:'#111827' }}>{ev.event}</span>
+        <span style={{ fontSize:10, fontWeight:700, color:col, background:col+'15', padding:'2px 7px', borderRadius:10 }}>{ev.status}</span>
+        </div>
+        <div style={{ fontSize:11, color:'#6b7280', marginTop:2 }}>{ev.date}</div>
+        </div>
+        </div>
+        );
+        })}
+        </div>
+        </div>
+        )}
+
+        {/* ── NOTES ──────────────────────────────── */}
+        <div style={{ borderTop:'1.5px solid #e2e8f0', paddingTop:14 }}>
+        <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:10 }}>备注 ({normalizeNotes(viewJob.notes).length})</div>
+        <div style={{ display:'flex', gap:8, marginBottom:10 }}>
+        <input id="vj-note-inp" style={{ flex:1, background:'#fff', border:'2px solid #c7d2e0', borderRadius:9, padding:'8px 12px', fontSize:13, fontFamily:'inherit', outline:'none' }} placeholder="添加备注… (Enter 保存)"
+        onKeyDown={async e => {
+        if (e.key==='Enter' && e.target.value.trim()) {
+        const updated = { ...viewJob, notes:[makeNote(e.target.value.trim()), ...normalizeNotes(viewJob.notes)] };
+        setViewJob(updated); setJobs(prev=>prev.map(j=>j.id===viewJob.id?updated:j));
+        try { await sbUpdate('jobs', updated.id, {data:updated}); } catch(er){ console.warn(er); }
+        e.target.value='';
+        }
+        }}
+        />
+        <button style={{ padding:'8px 14px', background:'#4f46e5', border:'none', borderRadius:8, color:'#fff', fontSize:13, fontWeight:600, cursor:'pointer' }}
+        onClick={async () => {
+        const inp = document.getElementById('vj-note-inp');
+        if (!inp?.value.trim()) return;
+        const updated = { ...viewJob, notes:[makeNote(inp.value.trim()), ...normalizeNotes(viewJob.notes)] };
+        setViewJob(updated); setJobs(prev=>prev.map(j=>j.id===viewJob.id?updated:j));
+        try { await sbUpdate('jobs', updated.id, {data:updated}); } catch(er){ console.warn(er); }
+        inp.value='';
+        }}
+        >添加</button>
+        </div>
+        <div style={{ display:'flex', flexDirection:'column', gap:6, maxHeight:180, overflowY:'auto' }}>
+        {normalizeNotes(viewJob.notes).length===0
+        ? <div style={{ color:'#94a3b8', fontSize:13 }}>暂无备注</div>
+        : [...normalizeNotes(viewJob.notes)].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)).map(n=>(
+        <div key={n.id} style={{ background:'#f8fafc', borderRadius:8, padding:'9px 12px', border:'1.5px solid #e2e8f0' }}>
+        <div style={{ fontSize:13, color:'#111827', whiteSpace:'pre-wrap', lineHeight:1.55 }}>{n.text}</div>
+        <div style={{ fontSize:11, color:'#9ca3af', marginTop:4 }}>{fmtDateTime(n.createdAt)}</div>
+        </div>
+        ))
+        }
+        </div>
+        </div>
+
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:18, paddingTop:14, borderTop:'1.5px solid #e2e8f0' }}>
+        <div style={{ display:'flex', gap:8 }}>
+        <StatusBadge status={viewJob.status} />
+        <PriorityBadge priority={viewJob.priority} />
+        </div>
+        <div style={{ display:'flex', gap:10 }}>
+        <button onClick={()=>setViewJob(null)} style={{ padding:'8px 16px', background:'#f1f5f9', border:'1.5px solid #cbd5e1', borderRadius:8, color:'#374151', fontSize:13 }}>关闭</button>
+        <button onClick={()=>{ setViewJob(null); openEdit(viewJob); }} style={{ padding:'8px 18px', background:'linear-gradient(135deg,#4f46e5,#7c3aed)', border:'none', borderRadius:8, color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer' }}>✏️ 编辑案件</button>
+        </div>
+        </div>
+        </Modal>
+        );
+        })()}
       </div>
     );
   }
@@ -2375,7 +2314,7 @@ function Jobs({ jobs, clients, team, setJobs }) {
   return (
     <div className="animate-fade">
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:24 }}>
-        <div><h1 style={{ fontSize:24, fontWeight:700, color:'#111827' }}>Cases</h1><p style={{ color:'#1f2937', fontSize:14, marginTop:2 }}>{jobs.length} total jobs</p></div>
+        <div><h1 style={{ fontSize:24, fontWeight:700, color:'#111827' }}>Jobs</h1><p style={{ color:'#1f2937', fontSize:14, marginTop:2 }}>{jobs.length} total jobs</p></div>
         <div style={{ display:'flex', gap:10 }}>
           <div style={{ display:'flex', background:'#ffffff', borderRadius:8, border:'1.5px solid #cbd5e1', overflow:'hidden' }}>
             {['list','board'].map(v=><button key={v} onClick={()=>setView(v)} style={{ padding:'7px 14px', background: view===v?'#e5e7eb':'transparent', border:'none', color: view===v?'#e2e8f0':'#475569', fontSize:13, fontWeight:500, textTransform:'capitalize' }}>{v}</button>)}
@@ -2384,7 +2323,7 @@ function Jobs({ jobs, clients, team, setJobs }) {
         </div>
       </div>
       <div style={{ display:'flex', gap:10, marginBottom:18, flexWrap:'wrap' }}>
-        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍  Search cases..." style={{ ...inputStyle, width:240 }} />
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍  Search jobs..." style={{ ...inputStyle, width:240 }} />
         <select value={filterStatus} onChange={e=>setFilterStatus(e.target.value)} style={{ ...selectStyle, width:160 }}>
           <option value="All">All Status</option>
           {JOB_STATUSES.map(s=><option key={s}>{s}</option>)}
@@ -2406,7 +2345,7 @@ function Jobs({ jobs, clients, team, setJobs }) {
           const overdue = isOverdue(j.dueDate) && j.status !== 'Completed';
           const jnotes = normalizeNotes(j.notes);
           return (
-            <Card key={j.id} style={{ padding:'14px 18px' }}>
+            <Card key={j.id} onClick={()=>setViewJob(j)} style={{ padding:'14px 18px', cursor:'pointer' }}>
               <div style={{ display:'flex', alignItems:'center', gap:16, flexWrap:'wrap' }}>
                 <div style={{ flex:1, minWidth:200 }}>
                   <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
@@ -2441,13 +2380,13 @@ function Jobs({ jobs, clients, team, setJobs }) {
         })}
       </div>
       {modal && (
-        <Modal title={modal==='add'?'New Case':'Edit Case'} onClose={closeModal} wide>
+        <Modal title={modal==='add'?'New Job':'Edit Job'} onClose={closeModal} wide>
               <>
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
-        <FormField label="Case Title" required>
+        <FormField label="Job Title" required>
           <input style={inputStyle} value={form.title||''} onChange={e=>setForm(f=>({...f,title:e.target.value}))} placeholder="e.g. Visa Application" />
         </FormField>
-        <FormField label="Case Type">
+        <FormField label="Job Type">
           <select style={selectStyle} value={form.type} onChange={e=>setForm(f=>({...f,type:e.target.value}))}>
             {JOB_TYPES.map(t=><option key={t}>{t}</option>)}
           </select>
@@ -2537,13 +2476,171 @@ function Jobs({ jobs, clients, team, setJobs }) {
           </div>
         </Modal>
       )}
-        {viewJob && <CaseViewModal viewJob={viewJob} setViewJob={setViewJob} getClient={getClient} getMember={getMember} setJobs={setJobs} openEdit={openEdit} />}
+      {viewJob && (() => {
+      const vc2 = getClient(viewJob.clientId);
+      const checklist2 = DOC_CHECKLISTS[viewJob.type] || [];
+      const docs2 = viewJob.docs || {};
+      const pct2 = STATUS_PROGRESS[viewJob.status] ?? viewJob.progress ?? 0;
+      const docsReceived2 = checklist2.filter(d=>docs2[d]).length;
+      return (
+      <Modal title={viewJob.title} onClose={()=>setViewJob(null)} wide>
+      {/* ── PROGRESS BANNER ─────────────────────── */}
+      <div style={{ background:'linear-gradient(135deg,#1e1b4b,#312e81)', borderRadius:12, padding:'14px 18px', marginBottom:16, color:'#fff' }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:8 }}>
+      <div>
+      <div style={{ fontSize:10, color:'rgba(255,255,255,0.55)', textTransform:'uppercase', letterSpacing:'0.12em', marginBottom:3 }}>案件进度</div>
+      <div style={{ fontSize:15, fontWeight:700 }}>{vc2?.name||'—'} · {viewJob.type}</div>
+      <div style={{ fontSize:12, color:'rgba(255,255,255,0.65)', marginTop:2 }}>负责人: {getMember(viewJob.assignedTo)?.name||'—'} · Due {fmtDate(viewJob.dueDate)||'—'}</div>
+      </div>
+      <div style={{ textAlign:'right', flexShrink:0 }}>
+      <div style={{ fontSize:28, fontWeight:800, color: pct2>=100?'#34d399':pct2>=70?'#a5b4fc':'#fbbf24', lineHeight:1 }}>{pct2}%</div>
+      <div style={{ fontSize:11, color:'rgba(255,255,255,0.55)', marginTop:2 }}>{viewJob.status}</div>
+      </div>
+      </div>
+      <div style={{ height:5, borderRadius:5, background:'rgba(255,255,255,0.15)', overflow:'hidden' }}>
+      <div style={{ height:'100%', width:`${pct2}%`, background: pct2>=100?'#34d399':pct2>=70?'#818cf8':'#fbbf24', borderRadius:5, transition:'width 0.4s' }} />
+      </div>
+      </div>
+
+      {/* ── EDITABLE SNAPSHOT ───────────────────── */}
+      <div style={{ marginBottom:14 }}>
+      <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:6 }}>最新进展 <span style={{ color:'#9ca3af', fontWeight:400, textTransform:'none', letterSpacing:0, fontSize:11 }}>(失焦自动保存)</span></div>
+      <textarea
+      style={{ width:'100%', background:'#f8fafc', border:'2px solid #c7d2e0', borderRadius:9, padding:'9px 12px', fontSize:13, color:'#111827', resize:'vertical', minHeight:72, fontFamily:'inherit', lineHeight:1.55, outline:'none', boxSizing:'border-box' }}
+      placeholder="记录最新案件进展..."
+      defaultValue={viewJob.snapshot||''}
+      onBlur={async e => {
+      if (e.target.value === (viewJob.snapshot||'')) return;
+      const updated = { ...viewJob, snapshot: e.target.value };
+      setViewJob(updated);
+      setJobs(prev => prev.map(j => j.id===viewJob.id ? updated : j));
+      try { await sbUpdate('jobs', updated.id, { data: updated }); } catch(er){ console.warn(er); }
+      }}
+      />
+      </div>
+
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:14 }}>
+      {/* Case info */}
+      <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
+      <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:2 }}>案件信息</div>
+      {[['客户', vc2?.name||'—'], ['类型', viewJob.type], ['截止日期', fmtDate(viewJob.dueDate)], ['创建', fmtDate(viewJob.createdAt)]].map(([l,v]) => (
+      <div key={l} style={{ display:'flex', justifyContent:'space-between', background:'#f8fafc', borderRadius:8, padding:'7px 11px', border:'1.5px solid #e2e8f0' }}>
+      <span style={{ fontSize:11, color:'#374151', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.05em' }}>{l}</span>
+      <span style={{ fontSize:13, color:'#111827', fontWeight:500 }}>{v}</span>
+      </div>
+      ))}
+      {(() => { const vm = getMember(viewJob.assignedTo); return vm ? (
+      <div style={{ display:'flex', alignItems:'center', gap:8, background:'#f8fafc', borderRadius:8, padding:'7px 11px', border:'1.5px solid #e2e8f0' }}>
+      <span style={{ fontSize:11, color:'#374151', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.05em', flex:1 }}>负责人</span>
+      <Avatar name={vm.name} color={vm.color} size={22} />
+      <span style={{ fontSize:13, color:'#111827', fontWeight:500 }}>{vm.name}</span>
+      </div>
+      ) : null; })()}
+      </div>
+      {/* Docs checklist */}
+      <div>
+      {checklist2.length > 0 ? (
+      <>
+      <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:6 }}>材料清单 ({docsReceived2}/{checklist2.length})</div>
+      <div style={{ background:'#f9fafb', borderRadius:8, padding:'8px 10px', maxHeight:180, overflowY:'auto', border:'1.5px solid #e2e8f0' }}>
+      {checklist2.map(doc=>(
+      <div key={doc} style={{ display:'flex', alignItems:'center', gap:8, padding:'5px 4px', borderBottom:'1px solid #f1f5f9' }}>
+      <span style={{ fontSize:14, color: docs2[doc]?'#34d399':'#cbd5e1' }}>{docs2[doc]?'✓':'○'}</span>
+      <span style={{ fontSize:12, color: docs2[doc]?'#94a3b8':'#374151', textDecoration: docs2[doc]?'line-through':'none' }}>{doc}</span>
+      </div>
+      ))}
+      </div>
+      </>
+      ) : (
+      <div style={{ fontSize:12, color:'#94a3b8', paddingTop:8 }}>无材料清单</div>
+      )}
+      </div>
+      </div>
+
+      {/* ── CASE TIMELINE ───────────────────────── */}
+      {(viewJob.caseTimeline||[]).length > 0 && (
+      <div style={{ borderTop:'1.5px solid #e2e8f0', paddingTop:14, marginBottom:14 }}>
+      <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:10 }}>大事记</div>
+      <div style={{ position:'relative', paddingLeft:18, maxHeight:180, overflowY:'auto' }}>
+      <div style={{ position:'absolute', left:5, top:6, bottom:6, width:2, background:'linear-gradient(to bottom,#6366f1,#e2e8f0)', borderRadius:2 }} />
+      {(viewJob.caseTimeline||[]).map((ev,i) => {
+      const col = ev.status==='Completed'?'#16a34a':ev.status==='Urgent'?'#d97706':ev.status==='Failed'?'#dc2626':'#6366f1';
+      return (
+      <div key={i} style={{ display:'flex', gap:12, marginBottom:8, alignItems:'flex-start' }}>
+      <div style={{ width:10, height:10, borderRadius:'50%', background:col, border:'2px solid #fff', boxShadow:`0 0 0 2px ${col}40`, flexShrink:0, marginTop:3 }} />
+      <div style={{ flex:1, background:'#fff', borderRadius:7, padding:'7px 11px', border:'1px solid #e5e7eb' }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+      <span style={{ fontSize:12, fontWeight:600, color:'#111827' }}>{ev.event}</span>
+      <span style={{ fontSize:10, fontWeight:700, color:col, background:col+'15', padding:'2px 7px', borderRadius:10 }}>{ev.status}</span>
+      </div>
+      <div style={{ fontSize:11, color:'#6b7280', marginTop:2 }}>{ev.date}</div>
+      </div>
+      </div>
+      );
+      })}
+      </div>
+      </div>
+      )}
+
+      {/* ── NOTES ──────────────────────────────── */}
+      <div style={{ borderTop:'1.5px solid #e2e8f0', paddingTop:14 }}>
+      <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:10 }}>备注 ({normalizeNotes(viewJob.notes).length})</div>
+      <div style={{ display:'flex', gap:8, marginBottom:10 }}>
+      <input id="vj-note-inp" style={{ flex:1, background:'#fff', border:'2px solid #c7d2e0', borderRadius:9, padding:'8px 12px', fontSize:13, fontFamily:'inherit', outline:'none' }} placeholder="添加备注… (Enter 保存)"
+      onKeyDown={async e => {
+      if (e.key==='Enter' && e.target.value.trim()) {
+      const updated = { ...viewJob, notes:[makeNote(e.target.value.trim()), ...normalizeNotes(viewJob.notes)] };
+      setViewJob(updated); setJobs(prev=>prev.map(j=>j.id===viewJob.id?updated:j));
+      try { await sbUpdate('jobs', updated.id, {data:updated}); } catch(er){ console.warn(er); }
+      e.target.value='';
+      }
+      }}
+      />
+      <button style={{ padding:'8px 14px', background:'#4f46e5', border:'none', borderRadius:8, color:'#fff', fontSize:13, fontWeight:600, cursor:'pointer' }}
+      onClick={async () => {
+      const inp = document.getElementById('vj-note-inp');
+      if (!inp?.value.trim()) return;
+      const updated = { ...viewJob, notes:[makeNote(inp.value.trim()), ...normalizeNotes(viewJob.notes)] };
+      setViewJob(updated); setJobs(prev=>prev.map(j=>j.id===viewJob.id?updated:j));
+      try { await sbUpdate('jobs', updated.id, {data:updated}); } catch(er){ console.warn(er); }
+      inp.value='';
+      }}
+      >添加</button>
+      </div>
+      <div style={{ display:'flex', flexDirection:'column', gap:6, maxHeight:180, overflowY:'auto' }}>
+      {normalizeNotes(viewJob.notes).length===0
+      ? <div style={{ color:'#94a3b8', fontSize:13 }}>暂无备注</div>
+      : [...normalizeNotes(viewJob.notes)].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)).map(n=>(
+      <div key={n.id} style={{ background:'#f8fafc', borderRadius:8, padding:'9px 12px', border:'1.5px solid #e2e8f0' }}>
+      <div style={{ fontSize:13, color:'#111827', whiteSpace:'pre-wrap', lineHeight:1.55 }}>{n.text}</div>
+      <div style={{ fontSize:11, color:'#9ca3af', marginTop:4 }}>{fmtDateTime(n.createdAt)}</div>
+      </div>
+      ))
+      }
+      </div>
+      </div>
+
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:18, paddingTop:14, borderTop:'1.5px solid #e2e8f0' }}>
+      <div style={{ display:'flex', gap:8 }}>
+      <StatusBadge status={viewJob.status} />
+      <PriorityBadge priority={viewJob.priority} />
+      </div>
+      <div style={{ display:'flex', gap:10 }}>
+      <button onClick={()=>setViewJob(null)} style={{ padding:'8px 16px', background:'#f1f5f9', border:'1.5px solid #cbd5e1', borderRadius:8, color:'#374151', fontSize:13 }}>关闭</button>
+      <button onClick={()=>{ setViewJob(null); openEdit(viewJob); }} style={{ padding:'8px 18px', background:'linear-gradient(135deg,#4f46e5,#7c3aed)', border:'none', borderRadius:8, color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer' }}>✏️ 编辑案件</button>
+      </div>
+      </div>
+      </Modal>
+      );
+      })()}
     </div>
   );
 }
 
 /* ─── TEAM ─────────────────────────────────────────────────────────────────── */
-function Team({ team, jobs, clients, setTeam }) {
+function Team({ team, jobs, clients, setTeam, setJobs: setJobsOuter }) {
+  const getMember = id => team.find(t => t.id === id);
+  const setJobs = setJobsOuter || (() => {});
   const [editing, setEditing]       = useState(null);
   const [form, setForm]             = useState({});
   const [drillMember, setDrillMember] = useState(null);  // member whose full case list is shown
@@ -2778,7 +2875,163 @@ function Team({ team, jobs, clients, setTeam }) {
       })()}
 
       {/* ── Job detail modal (opened by clicking a case row) ── */}
-        {viewJob && <CaseViewModal viewJob={viewJob} setViewJob={setViewJob} getClient={id=>clients.find(c=>c.id===id)} getMember={id=>team.find(t=>t.id===id)} setJobs={()=>{}} openEdit={()=>{}} />}
+      {viewJob && (() => {
+      const vc2 = getClient(viewJob.clientId);
+      const checklist2 = DOC_CHECKLISTS[viewJob.type] || [];
+      const docs2 = viewJob.docs || {};
+      const pct2 = STATUS_PROGRESS[viewJob.status] ?? viewJob.progress ?? 0;
+      const docsReceived2 = checklist2.filter(d=>docs2[d]).length;
+      return (
+      <Modal title={viewJob.title} onClose={()=>setViewJob(null)} wide>
+      {/* ── PROGRESS BANNER ─────────────────────── */}
+      <div style={{ background:'linear-gradient(135deg,#1e1b4b,#312e81)', borderRadius:12, padding:'14px 18px', marginBottom:16, color:'#fff' }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:8 }}>
+      <div>
+      <div style={{ fontSize:10, color:'rgba(255,255,255,0.55)', textTransform:'uppercase', letterSpacing:'0.12em', marginBottom:3 }}>案件进度</div>
+      <div style={{ fontSize:15, fontWeight:700 }}>{vc2?.name||'—'} · {viewJob.type}</div>
+      <div style={{ fontSize:12, color:'rgba(255,255,255,0.65)', marginTop:2 }}>负责人: {getMember(viewJob.assignedTo)?.name||'—'} · Due {fmtDate(viewJob.dueDate)||'—'}</div>
+      </div>
+      <div style={{ textAlign:'right', flexShrink:0 }}>
+      <div style={{ fontSize:28, fontWeight:800, color: pct2>=100?'#34d399':pct2>=70?'#a5b4fc':'#fbbf24', lineHeight:1 }}>{pct2}%</div>
+      <div style={{ fontSize:11, color:'rgba(255,255,255,0.55)', marginTop:2 }}>{viewJob.status}</div>
+      </div>
+      </div>
+      <div style={{ height:5, borderRadius:5, background:'rgba(255,255,255,0.15)', overflow:'hidden' }}>
+      <div style={{ height:'100%', width:`${pct2}%`, background: pct2>=100?'#34d399':pct2>=70?'#818cf8':'#fbbf24', borderRadius:5, transition:'width 0.4s' }} />
+      </div>
+      </div>
+
+      {/* ── EDITABLE SNAPSHOT ───────────────────── */}
+      <div style={{ marginBottom:14 }}>
+      <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:6 }}>最新进展 <span style={{ color:'#9ca3af', fontWeight:400, textTransform:'none', letterSpacing:0, fontSize:11 }}>(失焦自动保存)</span></div>
+      <textarea
+      style={{ width:'100%', background:'#f8fafc', border:'2px solid #c7d2e0', borderRadius:9, padding:'9px 12px', fontSize:13, color:'#111827', resize:'vertical', minHeight:72, fontFamily:'inherit', lineHeight:1.55, outline:'none', boxSizing:'border-box' }}
+      placeholder="记录最新案件进展..."
+      defaultValue={viewJob.snapshot||''}
+      onBlur={async e => {
+      if (e.target.value === (viewJob.snapshot||'')) return;
+      const updated = { ...viewJob, snapshot: e.target.value };
+      setViewJob(updated);
+      setJobs(prev => prev.map(j => j.id===viewJob.id ? updated : j));
+      try { await sbUpdate('jobs', updated.id, { data: updated }); } catch(er){ console.warn(er); }
+      }}
+      />
+      </div>
+
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:14 }}>
+      {/* Case info */}
+      <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
+      <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:2 }}>案件信息</div>
+      {[['客户', vc2?.name||'—'], ['类型', viewJob.type], ['截止日期', fmtDate(viewJob.dueDate)], ['创建', fmtDate(viewJob.createdAt)]].map(([l,v]) => (
+      <div key={l} style={{ display:'flex', justifyContent:'space-between', background:'#f8fafc', borderRadius:8, padding:'7px 11px', border:'1.5px solid #e2e8f0' }}>
+      <span style={{ fontSize:11, color:'#374151', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.05em' }}>{l}</span>
+      <span style={{ fontSize:13, color:'#111827', fontWeight:500 }}>{v}</span>
+      </div>
+      ))}
+      {(() => { const vm = getMember(viewJob.assignedTo); return vm ? (
+      <div style={{ display:'flex', alignItems:'center', gap:8, background:'#f8fafc', borderRadius:8, padding:'7px 11px', border:'1.5px solid #e2e8f0' }}>
+      <span style={{ fontSize:11, color:'#374151', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.05em', flex:1 }}>负责人</span>
+      <Avatar name={vm.name} color={vm.color} size={22} />
+      <span style={{ fontSize:13, color:'#111827', fontWeight:500 }}>{vm.name}</span>
+      </div>
+      ) : null; })()}
+      </div>
+      {/* Docs checklist */}
+      <div>
+      {checklist2.length > 0 ? (
+      <>
+      <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:6 }}>材料清单 ({docsReceived2}/{checklist2.length})</div>
+      <div style={{ background:'#f9fafb', borderRadius:8, padding:'8px 10px', maxHeight:180, overflowY:'auto', border:'1.5px solid #e2e8f0' }}>
+      {checklist2.map(doc=>(
+      <div key={doc} style={{ display:'flex', alignItems:'center', gap:8, padding:'5px 4px', borderBottom:'1px solid #f1f5f9' }}>
+      <span style={{ fontSize:14, color: docs2[doc]?'#34d399':'#cbd5e1' }}>{docs2[doc]?'✓':'○'}</span>
+      <span style={{ fontSize:12, color: docs2[doc]?'#94a3b8':'#374151', textDecoration: docs2[doc]?'line-through':'none' }}>{doc}</span>
+      </div>
+      ))}
+      </div>
+      </>
+      ) : (
+      <div style={{ fontSize:12, color:'#94a3b8', paddingTop:8 }}>无材料清单</div>
+      )}
+      </div>
+      </div>
+
+      {/* ── CASE TIMELINE ───────────────────────── */}
+      {(viewJob.caseTimeline||[]).length > 0 && (
+      <div style={{ borderTop:'1.5px solid #e2e8f0', paddingTop:14, marginBottom:14 }}>
+      <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:10 }}>大事记</div>
+      <div style={{ position:'relative', paddingLeft:18, maxHeight:180, overflowY:'auto' }}>
+      <div style={{ position:'absolute', left:5, top:6, bottom:6, width:2, background:'linear-gradient(to bottom,#6366f1,#e2e8f0)', borderRadius:2 }} />
+      {(viewJob.caseTimeline||[]).map((ev,i) => {
+      const col = ev.status==='Completed'?'#16a34a':ev.status==='Urgent'?'#d97706':ev.status==='Failed'?'#dc2626':'#6366f1';
+      return (
+      <div key={i} style={{ display:'flex', gap:12, marginBottom:8, alignItems:'flex-start' }}>
+      <div style={{ width:10, height:10, borderRadius:'50%', background:col, border:'2px solid #fff', boxShadow:`0 0 0 2px ${col}40`, flexShrink:0, marginTop:3 }} />
+      <div style={{ flex:1, background:'#fff', borderRadius:7, padding:'7px 11px', border:'1px solid #e5e7eb' }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+      <span style={{ fontSize:12, fontWeight:600, color:'#111827' }}>{ev.event}</span>
+      <span style={{ fontSize:10, fontWeight:700, color:col, background:col+'15', padding:'2px 7px', borderRadius:10 }}>{ev.status}</span>
+      </div>
+      <div style={{ fontSize:11, color:'#6b7280', marginTop:2 }}>{ev.date}</div>
+      </div>
+      </div>
+      );
+      })}
+      </div>
+      </div>
+      )}
+
+      {/* ── NOTES ──────────────────────────────── */}
+      <div style={{ borderTop:'1.5px solid #e2e8f0', paddingTop:14 }}>
+      <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:10 }}>备注 ({normalizeNotes(viewJob.notes).length})</div>
+      <div style={{ display:'flex', gap:8, marginBottom:10 }}>
+      <input id="vj-note-inp" style={{ flex:1, background:'#fff', border:'2px solid #c7d2e0', borderRadius:9, padding:'8px 12px', fontSize:13, fontFamily:'inherit', outline:'none' }} placeholder="添加备注… (Enter 保存)"
+      onKeyDown={async e => {
+      if (e.key==='Enter' && e.target.value.trim()) {
+      const updated = { ...viewJob, notes:[makeNote(e.target.value.trim()), ...normalizeNotes(viewJob.notes)] };
+      setViewJob(updated); setJobs(prev=>prev.map(j=>j.id===viewJob.id?updated:j));
+      try { await sbUpdate('jobs', updated.id, {data:updated}); } catch(er){ console.warn(er); }
+      e.target.value='';
+      }
+      }}
+      />
+      <button style={{ padding:'8px 14px', background:'#4f46e5', border:'none', borderRadius:8, color:'#fff', fontSize:13, fontWeight:600, cursor:'pointer' }}
+      onClick={async () => {
+      const inp = document.getElementById('vj-note-inp');
+      if (!inp?.value.trim()) return;
+      const updated = { ...viewJob, notes:[makeNote(inp.value.trim()), ...normalizeNotes(viewJob.notes)] };
+      setViewJob(updated); setJobs(prev=>prev.map(j=>j.id===viewJob.id?updated:j));
+      try { await sbUpdate('jobs', updated.id, {data:updated}); } catch(er){ console.warn(er); }
+      inp.value='';
+      }}
+      >添加</button>
+      </div>
+      <div style={{ display:'flex', flexDirection:'column', gap:6, maxHeight:180, overflowY:'auto' }}>
+      {normalizeNotes(viewJob.notes).length===0
+      ? <div style={{ color:'#94a3b8', fontSize:13 }}>暂无备注</div>
+      : [...normalizeNotes(viewJob.notes)].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)).map(n=>(
+      <div key={n.id} style={{ background:'#f8fafc', borderRadius:8, padding:'9px 12px', border:'1.5px solid #e2e8f0' }}>
+      <div style={{ fontSize:13, color:'#111827', whiteSpace:'pre-wrap', lineHeight:1.55 }}>{n.text}</div>
+      <div style={{ fontSize:11, color:'#9ca3af', marginTop:4 }}>{fmtDateTime(n.createdAt)}</div>
+      </div>
+      ))
+      }
+      </div>
+      </div>
+
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:18, paddingTop:14, borderTop:'1.5px solid #e2e8f0' }}>
+      <div style={{ display:'flex', gap:8 }}>
+      <StatusBadge status={viewJob.status} />
+      <PriorityBadge priority={viewJob.priority} />
+      </div>
+      <div style={{ display:'flex', gap:10 }}>
+      <button onClick={()=>setViewJob(null)} style={{ padding:'8px 16px', background:'#f1f5f9', border:'1.5px solid #cbd5e1', borderRadius:8, color:'#374151', fontSize:13 }}>关闭</button>
+      <button onClick={()=>{ setViewJob(null); }} style={{ padding:'8px 18px', background:'linear-gradient(135deg,#4f46e5,#7c3aed)', border:'none', borderRadius:8, color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer' }}>✏️ 编辑案件</button>
+      </div>
+      </div>
+      </Modal>
+      );
+      })()}
 
       {/* ── Edit member modal ── */}
       {editing && (
@@ -3067,7 +3320,7 @@ function CalendarPage({ appointments, setAppointments, jobs, clients, team }) {
     if (parseInt(y)===curMonth.y && parseInt(mo)-1===curMonth.m && dd) {
       const key = parseInt(dd);
       if (!apptsByDay[key]) apptsByDay[key] = [];
-      apptsByDay[key].push({ id:'jd_'+j.id, title:`📋 ${j.type||'Case'} Deadline`, type:'Deadline', isDeadline:true });
+      apptsByDay[key].push({ id:'jd_'+j.id, title:`📋 ${j.type||'Job'} Deadline`, type:'Deadline', isDeadline:true });
     }
   });
 
@@ -3283,7 +3536,7 @@ function Invoices({ invoices, setInvoices, clients, jobs }) {
         <table style={{ width:'100%', borderCollapse:'collapse' }}>
           <thead>
             <tr style={{ background:'#e9eaf3' }}>
-              {['Invoice #','Client','Case','Amount','Status','Due Date',''].map(h=>(
+              {['Invoice #','Client','Job','Amount','Status','Due Date',''].map(h=>(
                 <th key={h} style={{ padding:'10px 14px', textAlign:'left', fontSize:11, color:'#1f2937', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.06em' }}>{h}</th>
               ))}
             </tr>
@@ -3330,7 +3583,7 @@ function Invoices({ invoices, setInvoices, clients, jobs }) {
                 {clients.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </FormField>
-            <FormField label="Related Case">
+            <FormField label="Related Job">
               <select value={form.jobId||''} onChange={e=>setForm(f=>({...f,jobId:e.target.value}))} style={{ ...inputStyle }}>
                 <option value="">— None —</option>
                 {jobs.filter(j=>!form.clientId||j.clientId===form.clientId).map(j=><option key={j.id} value={j.id}>{j.type?.slice(0,40)}</option>)}
@@ -3967,7 +4220,7 @@ function App() {
             )}
             {view === 'clients'   && <Clients   clients={clients} jobs={jobs} setClients={setClients} setJobs={setJobs} team={team} />}
             {view === 'jobs'      && <Jobs       jobs={jobs} clients={clients} team={team} setJobs={setJobs} />}
-            {view === 'team'      && isManager && <Team       team={team} jobs={jobs} clients={clients} setTeam={setTeam} />}
+            {view === 'team'      && isManager && <Team       team={team} jobs={jobs} clients={clients} setTeam={setTeam} setJobs={setJobs} />}
             {view === 'leads'     && <Leads      leads={leads} setLeads={setLeads} clients={clients} setClients={setClients} jobs={jobs} setJobs={setJobs} team={team} agents={agents} />}
             {view === 'calendar'  && <CalendarPage appointments={appointments} setAppointments={setAppointments} jobs={jobs} clients={clients} team={team} />}
             {view === 'invoices'  && <Invoices   invoices={invoices} setInvoices={setInvoices} clients={clients} jobs={jobs} />}
