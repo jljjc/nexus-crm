@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import * as mammoth from 'mammoth';
 /* ─── STYLES ───────────────────────────────────────────────────────────────── */
 const GLOBAL_CSS = `
@@ -213,16 +214,30 @@ function Card({ children, style, onClick }) {
 }
 
 function Modal({ title, onClose, children, wide }) {
-  return (
-    <div style={{ position:'fixed', inset:0, background:'#000000b0', backdropFilter:'blur(4px)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:20 }} onClick={e => e.target===e.currentTarget && onClose()}>
-      <div className="animate-fade" style={{ background:'#0f1623', border:'1px solid #2a3a52', borderRadius:16, padding:28, width:'100%', maxWidth: wide?720:520, maxHeight:'90vh', overflowY:'auto' }}>
+  useEffect(() => {
+    const prevBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prevBodyOverflow; };
+  }, []);
+
+  return createPortal(
+    <div
+      style={{ position:'fixed', inset:0, background:'#000000b0', backdropFilter:'blur(4px)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}
+      onClick={e => e.target===e.currentTarget && onClose()}
+    >
+      <div
+        className="animate-fade"
+        style={{ background:'#0f1623', border:'1px solid #2a3a52', borderRadius:16, padding:28, width:'min(100%, 720px)', maxWidth: wide ? 720 : 520, maxHeight:'min(90vh, calc(100dvh - 40px))', overflowY:'auto' }}
+        onClick={e => e.stopPropagation()}
+      >
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
           <h2 style={{ fontSize:18, fontWeight:600, color:'#e2e8f0' }}>{title}</h2>
           <button onClick={onClose} style={{ background:'#1e2d40', border:'none', borderRadius:8, width:32, height:32, color:'#94a3b8', fontSize:18, display:'flex', alignItems:'center', justifyContent:'center' }}>×</button>
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
