@@ -1148,7 +1148,7 @@ CRITICAL RULES FOR VISA HISTORY:
 - Only populate fields you are certain about. Use null for anything unclear or not yet done.
 
 Document:
-\${rawText.slice(0,8000)}
+${rawText.slice(0,8000)}
 
 Return this exact structure (use null for missing fields, keep English for field values):
 {
