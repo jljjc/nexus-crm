@@ -266,13 +266,15 @@ function Card({ children, style, onClick }) {
 
 function Modal({ title, onClose, children, wide }) {
   return (
-    <div style={{ position:'fixed', inset:0, background:'#000000b0', backdropFilter:'blur(4px)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:20 }} onClick={e => e.target===e.currentTarget && onClose()}>
-      <div className="animate-fade" onClick={e => e.stopPropagation()} style={{ background:'#1e293b', border:'1px solid #334c6e', borderRadius:16, padding:28, width:'100%', maxWidth: wide?720:520, maxHeight:'90vh', overflowY:'auto', boxShadow:'0 25px 70px rgba(0,0,0,0.6)' }}>
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
-          <h2 style={{ fontSize:18, fontWeight:600, color:'#f1f5f9' }}>{title}</h2>
-          <button onClick={onClose} style={{ background:'#2e4460', border:'none', borderRadius:8, width:32, height:32, color:'#a0b0c8', fontSize:18, display:'flex', alignItems:'center', justifyContent:'center' }}>×</button>
+    <div style={{ position:'fixed', inset:0, background:'rgba(4,10,24,0.85)', backdropFilter:'blur(4px)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:20 }} onClick={e => e.target===e.currentTarget && onClose()}>
+      <div className="animate-fade" onClick={e => e.stopPropagation()} style={{ background:'#1a2c42', border:'1px solid #2e5070', borderRadius:16, width:'100%', maxWidth: wide?720:520, maxHeight:'90vh', display:'flex', flexDirection:'column', boxShadow:'0 25px 70px rgba(0,0,0,0.7)' }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'20px 28px 16px', borderBottom:'1px solid #2e4460', flexShrink:0 }}>
+          <h2 style={{ fontSize:18, fontWeight:700, color:'#f1f5f9' }}>{title}</h2>
+          <button onClick={onClose} style={{ background:'#2e4460', border:'none', borderRadius:8, width:32, height:32, color:'#a0b0c8', fontSize:20, display:'flex', alignItems:'center', justifyContent:'center', lineHeight:1 }}>×</button>
         </div>
-        {children}
+        <div style={{ padding:'20px 28px 24px', overflowY:'auto', flex:1 }}>
+          {children}
+        </div>
       </div>
     </div>
   );
@@ -770,7 +772,7 @@ function ClientDetailModal({ client, jobs, onClose, onEdit, onSaveProfile }) {
 
       {/* ── PROFILE TAB ──────────────────────────────────── */}
       {tab === 'profile' && (
-        <div style={{ maxHeight:'65vh', overflowY:'auto', paddingRight:4 }}>
+        <div style={{ paddingRight:4 }}>
           {/* Header */}
           <div style={{ display:'flex', alignItems:'center', gap:14, marginBottom:22, padding:'14px 16px', background:'linear-gradient(135deg,#0d1f33,#162032)', borderRadius:10, border:'1px solid #1e3a5f' }}>
             <div style={{ width:52, height:52, borderRadius:'50%', background:'#1e3a5f', display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, fontWeight:700, color:'#38bdf8', flexShrink:0 }}>{initials(client.name)}</div>
@@ -785,14 +787,14 @@ function ClientDetailModal({ client, jobs, onClose, onEdit, onSaveProfile }) {
             </div>
           </div>
 
-          <S icon="📸" title="Snapshot Overview">
+          <S icon="📸" title="概况">
             <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8 }}>
-              <Field label="Client Since" value={fmtDate(client.createdAt)} />
-              <Field label="Total Jobs" value={String(clientJobs.length)} />
-              <Field label="Active Jobs" value={String(activeJobs.length)} />
-              <Field label="Email" value={client.email} />
-              <Field label="Phone" value={client.phone} />
-              <Field label="Nationality" value={client.nationality} />
+              <Field label="客户时间" value={fmtDate(client.createdAt)} />
+              <Field label="案件总数" value={String(clientJobs.length)} />
+              <Field label="进行中" value={String(activeJobs.length)} />
+              <Field label="邮箱" value={client.email} />
+              <Field label="电话" value={client.phone} />
+              <Field label="国籍" value={client.nationality} />
             </div>
             <div style={{ marginTop:8, background:'#162032', borderRadius:8, padding:'10px 13px', border:'1px solid #253650' }}>
               <div style={{ fontSize:10, color:'#7a8fa8', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:4 }}>Latest Note</div>
@@ -801,46 +803,46 @@ function ClientDetailModal({ client, jobs, onClose, onEdit, onSaveProfile }) {
             </div>
           </S>
 
-          <S icon="👤" title="一、Main Applicant 主申请人">
+          <S icon="👤" title="主申请人">
             <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8 }}>
-              <Field label="姓名 Full Name"       value={client.name} />
-              <Field label="性别 Gender"          value={p.sex} />
-              <Field label="出生日期 Date of Birth"   value={p.dob} />
-              <Field label="出生地 Birthplace"      value={p.birthplace} />
-              <Field label="国籍 Nationality"     value={client.nationality} />
-              <Field label="邮箱 Email"           value={client.email} />
-              <Field label="手机 Mobile"          value={client.phone} />
+              <Field label="姓名"       value={client.name} />
+              <Field label="性别"          value={p.sex} />
+              <Field label="出生日期"   value={p.dob} />
+              <Field label="出生地"      value={p.birthplace} />
+              <Field label="国籍"     value={client.nationality} />
+              <Field label="邮箱"           value={client.email} />
+              <Field label="手机"          value={client.phone} />
               <Field label="QQ"                  value={p.qq} />
-              <Field label="EA档案号 EA File No"  value={p.eaFileNo} />
-              <Field label="护照号码 Passport No"     value={p.passportNo} />
-              <Field label="护照有效期 Passport Expiry" value={p.passportExpiry} />
-              <Field label="身份证号 China ID"        value={p.chinaId} />
-              <Field label="澳洲地址 AU Address"      value={p.auAddress} />
-              <Field label="婚姻状况 Marital Status"  value={p.maritalStatus} />
-              <Field label="负责顾问 Consultant"    value={p.responsibleConsultant} />
+              <Field label="EA档案号"  value={p.eaFileNo} />
+              <Field label="护照号码"     value={p.passportNo} />
+              <Field label="护照有效期" value={p.passportExpiry} />
+              <Field label="身份证号"        value={p.chinaId} />
+              <Field label="澳洲地址"      value={p.auAddress} />
+              <Field label="婚姻状况"  value={p.maritalStatus} />
+              <Field label="负责顾问"    value={p.responsibleConsultant} />
             </div>
           </S>
 
           {(p.visaHistory?.length > 0) && (
-            <S icon="📋" title="Visa History">
+            <S icon="📋" title="签证历史">
               <Table heads={['签证类型 Type','申请编号 App No','递签日期 Lodged','下签日期 Granted','到期 Expiry','Status']} rows={(p.visaHistory||[]).map(v=>[v.type,v.number||v.appNo,v.lodgeDate,v.grantDate,v.expiry,v.status||'—'])} />
             </S>
           )}
 
           {(p.addressHistory?.length > 0) && (
-            <S icon="🏠" title="Address History (AU)">
+            <S icon="🏠" title="澳洲地址历史">
               <Table heads={['From','To','Address']} rows={(p.addressHistory||[]).map(r=>[r.from,r.to,r.address])} />
             </S>
           )}
 
           {(p.employmentHistory?.length > 0) && (
-            <S icon="💼" title="Employment History">
+            <S icon="💼" title="工作经历">
               <Table heads={['From','To','Company','Role','Country']} rows={(p.employmentHistory||[]).map(r=>[r.from,r.to,r.company,r.role,r.country])} />
             </S>
           )}
 
           {p.character && (
-            <S icon="✅" title="Character / Police Checks">
+            <S icon="✅" title="品格证明">
               <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8 }}>
                 {[['Form 80', p.character.form80], ['AFP Police Check', p.character.afpCheck], ['China PCC', p.character.pcc]].map(([l,v])=>(
                   <div key={l} style={{ background:'#162032', borderRadius:8, padding:'9px 13px', border:'1px solid #253650', display:'flex', alignItems:'center', gap:8 }}>
@@ -856,38 +858,38 @@ function ClientDetailModal({ client, jobs, onClose, onEdit, onSaveProfile }) {
           )}
 
           {p.sponsor?.name && (
-            <S icon="🧑" title="Sponsor">
+            <S icon="🧑" title="担保人">
               <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8 }}>
-                <Field label="Name"           value={p.sponsor.name} />
-                <Field label="Gender"         value={p.sponsor.sex} />
-                <Field label="Date of Birth"  value={p.sponsor.dob} />
-                <Field label="Nationality"    value={p.sponsor.nationality} />
-                <Field label="Passport No"    value={p.sponsor.passportNo} />
-                <Field label="Occupation"     value={p.sponsor.occupation} />
-                <Field label="AU Address"     value={p.sponsor.address} />
-                <Field label="Prior Marital"  value={p.sponsor.priorMaritalStatus} />
+                <Field label="姓名"           value={p.sponsor.name} />
+                <Field label="性别"         value={p.sponsor.sex} />
+                <Field label="出生日期"  value={p.sponsor.dob} />
+                <Field label="国籍"    value={p.sponsor.nationality} />
+                <Field label="护照号码"    value={p.sponsor.passportNo} />
+                <Field label="职业"     value={p.sponsor.occupation} />
+                <Field label="澳洲地址"     value={p.sponsor.address} />
+                <Field label="之前婚史"  value={p.sponsor.priorMaritalStatus} />
               </div>
             </S>
           )}
 
           {p.marriage?.date && (
-            <S icon="💍" title="Marriage / Relationship">
+            <S icon="💍" title="婚姻/关系">
               <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8 }}>
-                <Field label="Date of Marriage"   value={p.marriage.date} />
-                <Field label="Location"           value={p.marriage.location} />
-                <Field label="Registration No"    value={p.marriage.registrationNo} />
+                <Field label="结婚日期"   value={p.marriage.date} />
+                <Field label="地点"           value={p.marriage.location} />
+                <Field label="登记号"    value={p.marriage.registrationNo} />
               </div>
             </S>
           )}
 
           {(p.documents?.length > 0) && (
-            <S icon="📁" title="Documents Checklist">
+            <S icon="📁" title="材料清单">
               <Table heads={['Document','Main Applicant','Sponsor','Secondary']} rows={(p.documents||[]).map(d=>[d.name, d.mainApplicant, d.sponsor, d.secondary])} />
             </S>
           )}
 
           {(p.keyIssues?.length > 0) && (
-            <S icon="🚨" title="Key Issues & Action Items">
+            <S icon="🚨" title="重要事项">
               <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
                 {(p.keyIssues||[]).map((issue, i) => {
                   const col = issue.priority === 'High' ? '#ef4444' : issue.priority === 'Medium' ? '#f59e0b' : '#22c55e';
@@ -918,7 +920,7 @@ function ClientDetailModal({ client, jobs, onClose, onEdit, onSaveProfile }) {
 
       {/* ── JOBS TAB ─────────────────────────────────────── */}
       {tab === 'jobs' && (
-        <div style={{ maxHeight:'65vh', overflowY:'auto' }}>
+        <div>
           {clientJobs.length === 0
             ? <div style={{ color:'#475569', fontSize:14, padding:20, textAlign:'center' }}>No jobs assigned yet.</div>
             : clientJobs.map(j => (
@@ -938,7 +940,7 @@ function ClientDetailModal({ client, jobs, onClose, onEdit, onSaveProfile }) {
 
       {/* ── NOTES TAB ────────────────────────────────────── */}
       {tab === 'notes' && (
-        <div style={{ maxHeight:'65vh', overflowY:'auto' }}>
+        <div>
           {normalizeNotes(client.notes).length === 0
             ? <div style={{ color:'#475569', fontSize:14, padding:20, textAlign:'center' }}>No notes yet.</div>
             : [...normalizeNotes(client.notes)].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)).map(n => (
@@ -953,7 +955,7 @@ function ClientDetailModal({ client, jobs, onClose, onEdit, onSaveProfile }) {
 
       {/* ── IMPORT TAB ───────────────────────────────────── */}
       {tab === 'import' && (
-        <div style={{ maxHeight:'65vh', overflowY:'auto' }}>
+        <div>
           {applyMsg && <div style={{ padding:'10px 14px', background:'#052e16', border:'1px solid #166534', borderRadius:8, color:'#4ade80', fontSize:13, marginBottom:14 }}>{applyMsg}</div>}
 
           {!importPreview && (
@@ -1217,9 +1219,9 @@ function Clients({ clients, jobs, setClients }) {
         <Modal title={modal === 'add' ? 'Add New Client' : `Edit Client – ${form.name}`} onClose={closeModal} wide>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
             <FormField label="Full Name" required><input style={inputStyle} value={form.name||''} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="John Smith" /></FormField>
-            <FormField label="Email"><input style={inputStyle} value={form.email||''} onChange={e=>setForm(f=>({...f,email:e.target.value}))} placeholder="john@email.com" /></FormField>
-            <FormField label="Phone"><input style={inputStyle} value={form.phone||''} onChange={e=>setForm(f=>({...f,phone:e.target.value}))} placeholder="04xx xxx xxx" /></FormField>
-            <FormField label="Nationality"><input style={inputStyle} value={form.nationality||''} onChange={e=>setForm(f=>({...f,nationality:e.target.value}))} placeholder="e.g. Chinese" /></FormField>
+            <FormField label="邮箱"><input style={inputStyle} value={form.email||''} onChange={e=>setForm(f=>({...f,email:e.target.value}))} placeholder="john@email.com" /></FormField>
+            <FormField label="电话"><input style={inputStyle} value={form.phone||''} onChange={e=>setForm(f=>({...f,phone:e.target.value}))} placeholder="04xx xxx xxx" /></FormField>
+            <FormField label="国籍"><input style={inputStyle} value={form.nationality||''} onChange={e=>setForm(f=>({...f,nationality:e.target.value}))} placeholder="e.g. Chinese" /></FormField>
             <FormField label="Client Type">
               <select style={selectStyle} value={form.type||'Student'} onChange={e=>setForm(f=>({...f,type:e.target.value}))}>
                 {CLIENT_TYPES.map(t=><option key={t}>{t}</option>)}
@@ -1933,9 +1935,9 @@ function Team({ team, jobs, clients, setTeam }) {
       {/* ── Edit member modal ── */}
       {editing && (
         <Modal title="Edit Team Member" onClose={() => setEditing(null)}>
-          <FormField label="Name"><input style={inputStyle} value={form.name||''} onChange={e => setForm(f => ({...f, name:e.target.value}))} /></FormField>
+          <FormField label="姓名"><input style={inputStyle} value={form.name||''} onChange={e => setForm(f => ({...f, name:e.target.value}))} /></FormField>
           <FormField label="Role"><input style={inputStyle} value={form.role||''} onChange={e => setForm(f => ({...f, role:e.target.value}))} /></FormField>
-          <FormField label="Email"><input style={inputStyle} value={form.email||''} onChange={e => setForm(f => ({...f, email:e.target.value}))} /></FormField>
+          <FormField label="邮箱"><input style={inputStyle} value={form.email||''} onChange={e => setForm(f => ({...f, email:e.target.value}))} /></FormField>
           <FormField label="Color">
             <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginTop:4 }}>
               {TEAM_COLORS.map(c => (
