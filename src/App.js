@@ -1034,6 +1034,7 @@ function ClientDetailModal({ client, jobs, setJobs, team, onClose, onEdit, onSav
   const [contractBusy, setContractBusy] = useState(false);
   const [quickJob, setQuickJob]         = useState(false);
   const [qform, setQform]               = useState({});
+  const [viewJob, setViewJob]           = useState(null); // case detail from client tab
 
   const handleGenerateContract = async () => {
     try {
@@ -1473,7 +1474,7 @@ Return this exact structure (use null for missing fields, keep English for value
           {clientJobs.length === 0 && !quickJob
             ? <div style={{ color:'#374151', fontSize:14, padding:'20px 0', textAlign:'center' }}>暂无关联案件，点击"新建案件"开始。</div>
             : clientJobs.map(j => (
-              <div key={j.id} style={{ background:'#ffffff', borderRadius:10, padding:'13px 16px', border:'1.5px solid #cbd5e1', marginBottom:8 }}>
+              <div key={j.id} onClick={()=>setViewJob(j)} style={{ background:'#ffffff', borderRadius:10, padding:'13px 16px', border:'1.5px solid #cbd5e1', cursor:'pointer', marginBottom:8 }}>
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
                   <span style={{ fontSize:14, fontWeight:600, color:'#111827' }}>{j.title}</span>
                   <StatusBadge status={j.status} />
@@ -1486,6 +1487,135 @@ Return this exact structure (use null for missing fields, keep English for value
           }
         </div>
       )}
+
+      {/* ── CASE DETAIL MODAL from Client tab ──────────── */}
+      {viewJob && (() => {
+        const checklist3 = DOC_CHECKLISTS[viewJob.type] || [];
+        const docs3 = viewJob.docs || {};
+        const pct3 = STATUS_PROGRESS[viewJob.status] ?? viewJob.progress ?? 0;
+        const docsReceived3 = checklist3.filter(d=>docs3[d]).length;
+        const getMember3 = id => team.find(t=>t.id===id);
+        return (
+          <Modal title={viewJob.title} onClose={()=>setViewJob(null)} wide>
+            <div style={{ background:'linear-gradient(135deg,#1e1b4b,#312e81)', borderRadius:12, padding:'14px 18px', marginBottom:16, color:'#fff' }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:8 }}>
+                <div>
+                  <div style={{ fontSize:10, color:'rgba(255,255,255,0.55)', textTransform:'uppercase', letterSpacing:'0.12em', marginBottom:3 }}>案件进度</div>
+                  <div style={{ fontSize:15, fontWeight:700 }}>{client.name} · {viewJob.type}</div>
+                  <div style={{ fontSize:12, color:'rgba(255,255,255,0.65)', marginTop:2 }}>负责人: {getMember3(viewJob.assignedTo)?.name||'—'} · Due {fmtDate(viewJob.dueDate)||'—'}</div>
+                </div>
+                <div style={{ textAlign:'right', flexShrink:0 }}>
+                  <div style={{ fontSize:28, fontWeight:800, color: pct3>=100?'#34d399':pct3>=70?'#a5b4fc':'#fbbf24', lineHeight:1 }}>{pct3}%</div>
+                  <div style={{ fontSize:11, color:'rgba(255,255,255,0.55)', marginTop:2 }}>{viewJob.status}</div>
+                </div>
+              </div>
+              <div style={{ height:5, borderRadius:5, background:'rgba(255,255,255,0.15)', overflow:'hidden' }}>
+                <div style={{ height:'100%', width:`${pct3}%`, background: pct3>=100?'#34d399':pct3>=70?'#818cf8':'#fbbf24', borderRadius:5 }} />
+              </div>
+            </div>
+            <div style={{ marginBottom:14 }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
+                <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em' }}>最新进展 <span style={{ color:'#9ca3af', fontWeight:400, textTransform:'none', letterSpacing:0, fontSize:11 }}>(失焦自动保存)</span></div>
+                <label style={{ display:'flex', alignItems:'center', gap:5, padding:'4px 10px', background:'#f1f5f9', border:'1.5px solid #cbd5e1', borderRadius:6, color:'#374151', fontSize:11, fontWeight:600, cursor:'pointer' }}>
+                  📄 上传快照
+                  <input type="file" accept=".docx,.pdf" style={{display:'none'}} onChange={async e => {
+                    const file = e.target.files?.[0]; if (!file) return;
+                    try {
+                      const buf = await file.arrayBuffer();
+                      const { value: rawText } = await mammoth.extractRawText({ arrayBuffer: buf });
+                      const res = await fetch('/api/claude', { method:'POST', headers:{'Content-Type':'application/json'},
+                        body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:2000,
+                          messages:[{ role:'user', content:`Extract case timeline and current status from this immigration snapshot. Return ONLY valid JSON:
+{"snapshot":"brief 1-2 sentence current status","caseTimeline":[{"date":"","event":"","status":"Completed"}]}
+Status values: Completed/In Progress/Urgent/Pending
+Document:
+${rawText.slice(0,5000)}` }]
+                        })
+                      });
+                      const d = await res.json();
+                      const txt = (d.content?.[0]?.text||'').replace(/```json|```/g,'').trim();
+                      const parsed = JSON.parse(txt);
+                      const updated = { ...viewJob, ...(parsed.snapshot?{snapshot:parsed.snapshot}:{}), ...(parsed.caseTimeline?.length?{caseTimeline:parsed.caseTimeline}:{}) };
+                      setViewJob(updated); setJobs(prev=>prev.map(j=>j.id===viewJob.id?updated:j));
+                      try { await sbUpdate('jobs', updated.id, {data:updated}); } catch(er){ console.warn(er); }
+                    } catch(err) { window.alert('Import failed: '+err.message); }
+                    e.target.value='';
+                  }} />
+                </label>
+              </div>
+              <textarea style={{ width:'100%', background:'#f8fafc', border:'2px solid #c7d2e0', borderRadius:9, padding:'9px 12px', fontSize:13, color:'#111827', resize:'vertical', minHeight:72, fontFamily:'inherit', lineHeight:1.55, outline:'none', boxSizing:'border-box' }}
+                placeholder="记录最新案件进展..." defaultValue={viewJob.snapshot||''}
+                onBlur={async e => {
+                  if (e.target.value===(viewJob.snapshot||'')) return;
+                  const updated={...viewJob,snapshot:e.target.value};
+                  setViewJob(updated); setJobs(prev=>prev.map(j=>j.id===viewJob.id?updated:j));
+                  try { await sbUpdate('jobs',updated.id,{data:updated}); } catch(er){ console.warn(er); }
+                }}
+              />
+            </div>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:14 }}>
+              <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
+                <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:2 }}>案件信息</div>
+                {[['类型', viewJob.type], ['截止日期', fmtDate(viewJob.dueDate)], ['创建', fmtDate(viewJob.createdAt)]].map(([l,v]) => (
+                  <div key={l} style={{ display:'flex', justifyContent:'space-between', background:'#f8fafc', borderRadius:8, padding:'7px 11px', border:'1.5px solid #e2e8f0' }}>
+                    <span style={{ fontSize:11, color:'#374151', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.05em' }}>{l}</span>
+                    <span style={{ fontSize:13, color:'#111827', fontWeight:500 }}>{v}</span>
+                  </div>
+                ))}
+                {(() => { const vm = getMember3(viewJob.assignedTo); return vm ? (
+                  <div style={{ display:'flex', alignItems:'center', gap:8, background:'#f8fafc', borderRadius:8, padding:'7px 11px', border:'1.5px solid #e2e8f0' }}>
+                    <span style={{ fontSize:11, color:'#374151', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.05em', flex:1 }}>负责人</span>
+                    <Avatar name={vm.name} color={vm.color} size={22} />
+                    <span style={{ fontSize:13, color:'#111827', fontWeight:500 }}>{vm.name}</span>
+                  </div>
+                ) : null; })()}
+              </div>
+              {checklist3.length > 0 && (
+                <div>
+                  <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:6 }}>材料清单 ({docsReceived3}/{checklist3.length})</div>
+                  <div style={{ background:'#f9fafb', borderRadius:8, padding:'8px 10px', maxHeight:150, overflowY:'auto', border:'1.5px solid #e2e8f0' }}>
+                    {checklist3.map(doc=>(
+                      <div key={doc} style={{ display:'flex', alignItems:'center', gap:8, padding:'5px 4px', borderBottom:'1px solid #f1f5f9' }}>
+                        <span style={{ fontSize:14, color:docs3[doc]?'#34d399':'#cbd5e1' }}>{docs3[doc]?'✓':'○'}</span>
+                        <span style={{ fontSize:12, color:docs3[doc]?'#94a3b8':'#374151', textDecoration:docs3[doc]?'line-through':'none' }}>{doc}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            {(viewJob.caseTimeline||[]).length > 0 && (
+              <div style={{ borderTop:'1.5px solid #e2e8f0', paddingTop:14, marginBottom:14 }}>
+                <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:10 }}>大事记</div>
+                <div style={{ position:'relative', paddingLeft:18, maxHeight:160, overflowY:'auto' }}>
+                  <div style={{ position:'absolute', left:5, top:6, bottom:6, width:2, background:'linear-gradient(to bottom,#6366f1,#e2e8f0)', borderRadius:2 }} />
+                  {(viewJob.caseTimeline||[]).map((ev,i) => {
+                    const col=ev.status==='Completed'?'#16a34a':ev.status==='Urgent'?'#d97706':ev.status==='Failed'?'#dc2626':'#6366f1';
+                    return (
+                      <div key={i} style={{ display:'flex', gap:12, marginBottom:8, alignItems:'flex-start' }}>
+                        <div style={{ width:10, height:10, borderRadius:'50%', background:col, border:'2px solid #fff', flexShrink:0, marginTop:3 }} />
+                        <div style={{ flex:1, background:'#fff', borderRadius:7, padding:'7px 11px', border:'1px solid #e5e7eb' }}>
+                          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                            <span style={{ fontSize:12, fontWeight:600, color:'#111827' }}>{ev.event}</span>
+                            <span style={{ fontSize:10, fontWeight:700, color:col, background:col+'15', padding:'2px 7px', borderRadius:10 }}>{ev.status}</span>
+                          </div>
+                          <div style={{ fontSize:11, color:'#6b7280', marginTop:2 }}>{ev.date}</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            <div style={{ borderTop:'1.5px solid #e2e8f0', paddingTop:12 }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                <div style={{ display:'flex', gap:8 }}><StatusBadge status={viewJob.status} /><PriorityBadge priority={viewJob.priority} /></div>
+                <button onClick={()=>setViewJob(null)} style={{ padding:'8px 16px', background:'#f1f5f9', border:'1.5px solid #cbd5e1', borderRadius:8, color:'#374151', fontSize:13 }}>关闭</button>
+              </div>
+            </div>
+          </Modal>
+        );
+      })()}
 
       {/* ── NOTES TAB ────────────────────────────────────── */}
       {tab === 'notes' && (
@@ -2177,7 +2307,35 @@ function Jobs({ jobs, clients, team, setJobs }) {
 
         {/* ── EDITABLE SNAPSHOT ───────────────────── */}
         <div style={{ marginBottom:14 }}>
-        <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:6 }}>最新进展 <span style={{ color:'#9ca3af', fontWeight:400, textTransform:'none', letterSpacing:0, fontSize:11 }}>(失焦自动保存)</span></div>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
+          <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em' }}>最新进展 <span style={{ color:'#9ca3af', fontWeight:400, textTransform:'none', letterSpacing:0, fontSize:11 }}>(失焦自动保存)</span></div>
+          <label style={{ display:'flex', alignItems:'center', gap:5, padding:'4px 10px', background:'#f1f5f9', border:'1.5px solid #cbd5e1', borderRadius:6, color:'#374151', fontSize:11, fontWeight:600, cursor:'pointer' }}>
+            📄 上传快照
+            <input type="file" accept=".docx,.pdf" style={{display:'none'}} onChange={async e => {
+              const file = e.target.files?.[0]; if (!file) return;
+              try {
+                const buf = await file.arrayBuffer();
+                const { value: rawText } = await mammoth.extractRawText({ arrayBuffer: buf });
+                const res = await fetch('/api/claude', { method:'POST', headers:{'Content-Type':'application/json'},
+                  body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:2000,
+                    messages:[{ role:'user', content:`Extract case timeline and current status from this immigration snapshot. Return ONLY valid JSON:
+{"snapshot":"brief 1-2 sentence current status","caseTimeline":[{"date":"","event":"","status":"Completed"}]}
+Status values: Completed/In Progress/Urgent/Pending
+Document:
+${rawText.slice(0,5000)}` }]
+                  })
+                });
+                const d = await res.json();
+                const txt = (d.content?.[0]?.text||'').replace(/```json|```/g,'').trim();
+                const parsed = JSON.parse(txt);
+                const updated = { ...viewJob, ...(parsed.snapshot?{snapshot:parsed.snapshot}:{}), ...(parsed.caseTimeline?.length?{caseTimeline:parsed.caseTimeline}:{}) };
+                setViewJob(updated); setJobs(prev=>prev.map(j=>j.id===viewJob.id?updated:j));
+                try { await sbUpdate('jobs', updated.id, {data:updated}); } catch(er){ console.warn(er); }
+              } catch(err) { window.alert('Import failed: '+err.message); }
+              e.target.value='';
+            }} />
+          </label>
+        </div>
         <textarea
         style={{ width:'100%', background:'#f8fafc', border:'2px solid #c7d2e0', borderRadius:9, padding:'9px 12px', fontSize:13, color:'#111827', resize:'vertical', minHeight:72, fontFamily:'inherit', lineHeight:1.55, outline:'none', boxSizing:'border-box' }}
         placeholder="记录最新案件进展..."
