@@ -363,7 +363,7 @@ const GLOBAL_CSS = `
 `;
 
 /* ─── CONSTANTS ─────────────────────────────────────────────────────────────── */
-const JOB_STATUSES = ['New', 'In Progress', 'Awaiting Docs', 'Under Review', 'Completed', 'On Hold'];
+const JOB_STATUSES = ['New', 'In Progress', 'Awaiting Docs', 'Under Review', 'Awaiting Decision', 'Completed', 'On Hold'];
 const JOB_TYPES = [
   // Skill Assessments
   'Skills Assessment – ACS (IT)',
@@ -415,6 +415,7 @@ const STATUS_STYLES = {
   'Awaiting Docs': { bg: '#a78bfa20', text: '#c4b5fd', dot: '#a78bfa' },
   'Under Review':  { bg: '#fb923c20', text: '#fdba74', dot: '#fb923c' },
   'Completed':     { bg: '#10b98120', text: '#34d399', dot: '#10b981' },
+  'Awaiting Decision': { bg: '#64748b20', text: '#94a3b8', dot: '#64748b' },
   'On Hold':       { bg: '#94a3b820', text: '#94a3b8', dot: '#64748b' },
   'Active':        { bg: '#10b98120', text: '#34d399', dot: '#10b981' },
   'Pending':       { bg: '#f59e0b20', text: '#fbbf24', dot: '#f59e0b' },
@@ -775,9 +776,10 @@ function Dashboard({ clients, jobs, team, onGoTo }) {
 
   const active = clients.filter(c=>c.status==='Active').length;
   const inProgress = jobs.filter(j=>j.status==='In Progress').length;
+  const awaitingDecision = jobs.filter(j=>j.status==='Awaiting Decision').length;
   const urgent = jobs.filter(j=>j.priority==='Urgent' && j.status!=='Completed').length;
   const completed = jobs.filter(j=>j.status==='Completed').length;
-  const overdue = jobs.filter(j=> j.status!=='Completed' && isOverdue(j.dueDate)).length;
+  const overdue = jobs.filter(j=> j.status!=='Completed' && j.status!=='Awaiting Decision' && isOverdue(j.dueDate)).length;
   const recentJobs = [...jobs].sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).slice(0,5);
   const getClient = id => clients.find(c=>c.id===id);
   const getMember = id => team.find(t=>t.id===id);
@@ -797,7 +799,7 @@ function Dashboard({ clients, jobs, team, onGoTo }) {
   const now = new Date();
   const in14 = new Date(now); in14.setDate(now.getDate()+14);
   const upcoming = jobs
-    .filter(j => j.status!=='Completed' && j.dueDate)
+    .filter(j => j.status!=='Completed' && j.status!=='Awaiting Decision' && j.dueDate)
     .filter(j => { const d = new Date(j.dueDate); return d >= now && d <= in14; })
     .sort((a,b) => a.dueDate.localeCompare(b.dueDate))
     .slice(0,5);
@@ -815,7 +817,7 @@ function Dashboard({ clients, jobs, team, onGoTo }) {
     { label:'Active Clients',   value:active,     icon:'👥', color:'#6366f1', sub:`of ${clients.length} total`,   onClick:()=>onGoTo('clients') },
     { label:'Jobs In Progress', value:inProgress, icon:'⚡', color:'#f59e0b', sub:`${jobs.length} total jobs`,     onClick:()=>onGoTo('jobs') },
     { label:'Urgent Jobs',      value:urgent,     icon:'🔴', color:'#f87171', sub:'need immediate attention',       onClick:()=>onGoTo('jobs') },
-    { label:'Completed',        value:completed,  icon:'✅', color:'#34d399', sub:'jobs finished',                  onClick:()=>onGoTo('jobs') },
+    { label:'Awaiting Decision', value:awaitingDecision, icon:'⏳', color:'#94a3b8', sub:'lodged · pending outcome', onClick:()=>onGoTo('jobs') },
   ];
 
   const selectedClient = selectedJob ? getClient(selectedJob.clientId) : null;
