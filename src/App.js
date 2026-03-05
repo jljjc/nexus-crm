@@ -1141,11 +1141,22 @@ Return ONLY valid JSON (no markdown, no explanation):
           messages: [{ role:'user', content:
 `Extract client data from this Australian immigration document and return ONLY valid JSON, no markdown.
 
-CRITICAL RULES FOR VISA HISTORY:
-- "lodgeDate" = the date the actual visa APPLICATION was formally submitted to the Department of Home Affairs. This is NOT an EOI (Expression of Interest) date, NOT a state nomination date, NOT an invitation date.
-- If a visa has only had an EOI or nomination submitted but NO actual visa application lodged yet, set lodgeDate to null and status to "In Progress" or "EOI Submitted".
-- "appNo" = Department application ID (e.g. 1585679838). NOT an EOI reference number.
-- Only populate fields you are certain about. Use null for anything unclear or not yet done.
+CRITICAL RULES:
+
+VISA HISTORY:
+- "lodgeDate" = actual visa application lodged with Department of Home Affairs. NOT an EOI, NOT state nomination, NOT invitation date.
+- If only EOI/nomination submitted, lodgeDate=null, status="EOI Submitted" or "In Progress".
+- "appNo" = Department application ID (numeric, e.g. 1840716978). NOT EOI reference number.
+
+SKILLS ASSESSMENT (section 四/Skills Assessment): Extract each assessment as a separate object in skillsAssessments[]. Include applicationId, body (e.g. "Engineers Australia"), occupation, submitted date, outcome, furtherDocs, reason, appealDeadline. If there are multiple assessment applications, include all of them.
+
+CASE TIMELINE (section 五/大事记): Extract ALL timeline events into caseTimeline[]. Each event: date (exact date string), event (description), status ("Completed", "In Progress", "Urgent", or "Pending").
+
+CURRENT STATUS & NEXT STEPS (section 六): 
+- "currentStatus" = the overall status summary text (e.g. "491已递交，等待审理")
+- "nextSteps" = array of action items, each with priority ("High"/"Medium"/"Low"), action (short label), details (full description)
+
+Only populate fields you are certain about. Use null/empty for anything unclear or not present.
 
 Document:
 ${rawText.slice(0,8000)}
@@ -1165,7 +1176,13 @@ Return this exact structure (use null for missing fields, keep English for field
     "marriage":{"date":null,"location":null,"registrationNo":null},
     "keyIssues":[{"priority":"High","item":"","detail":""}],
     "documents":[{"name":"","mainApplicant":"","sponsor":"","secondary":""}],
-    "serviceAgreement":{"visaTarget":null,"contractDate":null,"totalFee":null}
+    "serviceAgreement":{"visaTarget":null,"contractDate":null,"totalFee":null,"payment1Amount":null,"payment1Status":null,"payment2Amount":null,"payment2Status":null},
+    "skillsAssessments":[{
+      "applicationId":"","occupation":"","body":"","submitted":"","furtherDocs":"","outcome":"","reason":"","reviewApplication":"","appealDeadline":""
+    }],
+    "caseTimeline":[{"date":"","event":"","status":"Completed"}],
+    "currentStatus":"",
+    "nextSteps":[{"priority":"High","action":"","details":""}]
   }
 }` }] })
       });
@@ -1182,6 +1199,8 @@ Return this exact structure (use null for missing fields, keep English for field
 
   const applyImport = async () => {
     if (!importPreview) return;
+    const ip = importPreview.profile || {};
+    const cp = client.profile || {};
     const merged = {
       ...client,
       ...(importPreview.name        ? { name: importPreview.name }               : {}),
@@ -1190,10 +1209,19 @@ Return this exact structure (use null for missing fields, keep English for field
       ...(importPreview.nationality ? { nationality: importPreview.nationality } : {}),
       ...(importPreview.type        ? { type: importPreview.type }               : {}),
       profile: {
-        ...(client.profile||{}),
-        ...(importPreview.profile||{}),
-        // also sync top-level fields back into profile for display consistency
-        ...(importPreview.profile?.auAddress ? {} : {}),
+        ...cp, ...ip,
+        // Merge arrays: prefer imported if non-empty, keep existing otherwise
+        visaHistory:        (ip.visaHistory||[]).length       ? ip.visaHistory       : (cp.visaHistory||[]),
+        addressHistory:     (ip.addressHistory||[]).length    ? ip.addressHistory    : (cp.addressHistory||[]),
+        employmentHistory:  (ip.employmentHistory||[]).length ? ip.employmentHistory : (cp.employmentHistory||[]),
+        skillsAssessments:  (ip.skillsAssessments||[]).length ? ip.skillsAssessments : (cp.skillsAssessments||[]),
+        caseTimeline:       (ip.caseTimeline||[]).length      ? ip.caseTimeline      : (cp.caseTimeline||[]),
+        nextSteps:          (ip.nextSteps||[]).length         ? ip.nextSteps         : (cp.nextSteps||[]),
+        keyIssues:          (ip.keyIssues||[]).length         ? ip.keyIssues         : (cp.keyIssues||[]),
+        documents:          (ip.documents||[]).length         ? ip.documents         : (cp.documents||[]),
+        // Scalars: prefer imported non-empty value
+        currentStatus:      ip.currentStatus  || cp.currentStatus  || '',
+        serviceAgreement:   { ...(cp.serviceAgreement||{}), ...(ip.serviceAgreement||{}) },
       }
     };
     await onSaveProfile(merged);
