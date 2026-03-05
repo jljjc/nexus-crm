@@ -1977,7 +1977,7 @@ ${rawText.slice(0,6000)}` }]
         })
       });
       const d = await res.json();
-      const txt = (d.content?.[0]?.text||'').replace(/\`\`\`json|\`\`\`/g,'').trim();
+      const txt = (d.content?.[0]?.text||'').replace(/```json|```/g,'').trim();
       const parsed = JSON.parse(txt);
       const updated = {
         ...viewJob,
