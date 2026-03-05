@@ -264,17 +264,25 @@ function Card({ children, style, onClick }) {
   );
 }
 
-function Modal({ title, onClose, children, wide }) {
+function Modal({ title, onClose, children, footer, wide }) {
   return (
     <div style={{ position:'fixed', inset:0, background:'rgba(4,10,24,0.85)', backdropFilter:'blur(4px)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:20 }} onClick={e => e.target===e.currentTarget && onClose()}>
       <div className="animate-fade" onClick={e => e.stopPropagation()} style={{ background:'#1a2c42', border:'1px solid #2e5070', borderRadius:16, width:'100%', maxWidth: wide?720:520, maxHeight:'90vh', display:'flex', flexDirection:'column', boxShadow:'0 25px 70px rgba(0,0,0,0.7)' }}>
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'20px 28px 16px', borderBottom:'1px solid #2e4460', flexShrink:0 }}>
-          <h2 style={{ fontSize:18, fontWeight:700, color:'#f1f5f9' }}>{title}</h2>
-          <button onClick={onClose} style={{ background:'#2e4460', border:'none', borderRadius:8, width:32, height:32, color:'#a0b0c8', fontSize:20, display:'flex', alignItems:'center', justifyContent:'center', lineHeight:1 }}>×</button>
+        {/* Sticky header */}
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'18px 24px 16px', borderBottom:'1px solid #2e4460', flexShrink:0, borderRadius:'16px 16px 0 0', background:'#1a2c42' }}>
+          <h2 style={{ fontSize:17, fontWeight:700, color:'#f1f5f9', margin:0 }}>{title}</h2>
+          <button onClick={onClose} style={{ background:'#253650', border:'1px solid #2e4460', borderRadius:8, width:32, height:32, color:'#a0b0c8', fontSize:18, display:'flex', alignItems:'center', justifyContent:'center', lineHeight:1, flexShrink:0 }}>×</button>
         </div>
-        <div style={{ padding:'20px 28px 24px', overflowY:'auto', flex:1 }}>
+        {/* Scrollable body */}
+        <div style={{ padding:'20px 24px', overflowY:'auto', flex:1, minHeight:0 }}>
           {children}
         </div>
+        {/* Sticky footer */}
+        {footer && (
+          <div style={{ padding:'14px 24px', borderTop:'1px solid #2e4460', flexShrink:0, background:'#162032', borderRadius:'0 0 16px 16px' }}>
+            {footer}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -320,7 +328,7 @@ function NotesPanel({ notes, onAddNote, onDeleteNote }) {
       </div>
       {/* Notes list */}
       <div style={{ display:'flex', flexDirection:'column', gap:8, maxHeight:260, overflowY:'auto' }}>
-        {sorted.length === 0 && <div style={{ fontSize:13, color:'#475569', textAlign:'center', padding:'16px 0' }}>No notes yet</div>}
+        {sorted.length === 0 && <div style={{ fontSize:13, color:'#475569', textAlign:'center', padding:'16px 0' }}>暂无备注</div>}
         {sorted.map((n, i) => (
           <div key={n.id} style={{ background:'#0f172a', border:'1px solid #2e4460', borderRadius:8, padding:'10px 12px', position:'relative' }}>
             {i === 0 && <span style={{ position:'absolute', top:8, right:36, fontSize:10, background:'#38bdf820', color:'#38bdf8', borderRadius:6, padding:'1px 6px' }}>Latest</span>}
@@ -377,10 +385,10 @@ function ClientSnapshot({ client, jobs, visible, anchorRef }) {
         ))}
         {activeJobs.length > 3 && <div style={{ fontSize:11, color:'#475569' }}>+{activeJobs.length-3} more</div>}
       </div>
-      {/* Latest note */}
+      {/* 最新备注 */}
       {latestNote && (
         <div style={{ background:'#0f172a', borderRadius:8, padding:'8px 10px', borderLeft:'3px solid #38bdf840' }}>
-          <div style={{ fontSize:11, color:'#475569', marginBottom:4 }}>📝 Latest note · {fmtDateTime(latestNote.createdAt)}</div>
+          <div style={{ fontSize:11, color:'#475569', marginBottom:4 }}>📝 最新备注 · {fmtDateTime(latestNote.createdAt)}</div>
           <div style={{ fontSize:12, color:'#a0b0c8', lineHeight:1.4 }}>{latestNote.text.length > 90 ? latestNote.text.slice(0,90)+'…' : latestNote.text}</div>
         </div>
       )}
@@ -755,14 +763,27 @@ function ClientDetailModal({ client, jobs, onClose, onEdit, onSaveProfile }) {
   };
 
   const tabs = [
-    { id:'profile',  label:'👤 Profile' },
-    { id:'jobs',     label:`📋 Jobs (${clientJobs.length})` },
-    { id:'notes',    label:`📝 Notes (${normalizeNotes(client.notes).length})` },
-    { id:'import',   label:'📥 Import Doc' },
+    { id:'profile',  label:'👤 档案' },
+    { id:'jobs',     label:`📋 案件 (${clientJobs.length})` },
+    { id:'notes',    label:`📝 备注 (${normalizeNotes(client.notes).length})` },
+    { id:'import',   label:'📥 导入文档' },
   ];
 
   return (
-    <Modal title={`Client — ${client.name}`} onClose={onClose} wide>
+    <Modal title={`客户 — ${client.name}`} onClose={onClose} wide
+      footer={
+        <div style={{ display:'flex', justifyContent:'space-between', gap:10 }}>
+          <button onClick={handleGenerateContract} disabled={contractBusy}
+            style={{ padding:'9px 18px', background: contractBusy?'#253650':'linear-gradient(135deg,#0f766e,#0d9488)', border:'none', borderRadius:8, color: contractBusy?'#64748b':'#fff', fontSize:13, fontWeight:600, cursor:contractBusy?'not-allowed':'pointer' }}>
+            {contractBusy ? '生成中…' : '📄 生成合同'}
+          </button>
+          <div style={{ display:'flex', gap:10 }}>
+            <button onClick={onClose} style={{ padding:'9px 18px', background:'#253650', border:'1px solid #2e4460', borderRadius:8, color:'#a0b0c8', fontSize:13 }}>关闭</button>
+            <button onClick={onEdit} style={{ padding:'9px 20px', background:'#38bdf8', border:'none', borderRadius:8, color:'#0f172a', fontSize:13, fontWeight:700 }}>✏️ 编辑</button>
+          </div>
+        </div>
+      }
+    >
       {/* Tabs */}
       <div style={{ display:'flex', gap:4, marginBottom:20, borderBottom:'1px solid #2e4460', paddingBottom:0 }}>
         {tabs.map(t => (
@@ -797,8 +818,8 @@ function ClientDetailModal({ client, jobs, onClose, onEdit, onSaveProfile }) {
               <Field label="国籍" value={client.nationality} />
             </div>
             <div style={{ marginTop:8, background:'#162032', borderRadius:8, padding:'10px 13px', border:'1px solid #253650' }}>
-              <div style={{ fontSize:10, color:'#7a8fa8', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:4 }}>Latest Note</div>
-              <div style={{ fontSize:13, color:'#f1f5f9', fontWeight:500, lineHeight:1.5 }}>{latestNote?.text || 'No notes yet'}</div>
+              <div style={{ fontSize:10, color:'#7a8fa8', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:4 }}>最新备注</div>
+              <div style={{ fontSize:13, color:'#f1f5f9', fontWeight:500, lineHeight:1.5 }}>{latestNote?.text || '暂无备注'}</div>
               {latestNote && <div style={{ fontSize:11, color:'#7a8fa8', marginTop:6 }}>{fmtDateTime(latestNote.createdAt)}</div>}
             </div>
           </S>
@@ -844,7 +865,7 @@ function ClientDetailModal({ client, jobs, onClose, onEdit, onSaveProfile }) {
           {p.character && (
             <S icon="✅" title="品格证明">
               <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8 }}>
-                {[['Form 80', p.character.form80], ['AFP Police Check', p.character.afpCheck], ['China PCC', p.character.pcc]].map(([l,v])=>(
+                {[['Form 80', p.character.form80], ['AFP查询', p.character.afpCheck], ['无犯罪证明 PCC', p.character.pcc]].map(([l,v])=>(
                   <div key={l} style={{ background:'#162032', borderRadius:8, padding:'9px 13px', border:'1px solid #253650', display:'flex', alignItems:'center', gap:8 }}>
                     <span style={{ fontSize:16 }}>{v === true ? '✅' : v === false ? '❌' : '❓'}</span>
                     <div>
@@ -910,8 +931,8 @@ function ClientDetailModal({ client, jobs, onClose, onEdit, onSaveProfile }) {
           {!p.dob && !p.passportNo && !p.visaHistory?.length && (
             <div style={{ textAlign:'center', padding:'40px 20px', color:'#475569' }}>
               <div style={{ fontSize:32, marginBottom:12 }}>📥</div>
-              <div style={{ fontSize:14, marginBottom:8 }}>No detailed profile yet</div>
-              <div style={{ fontSize:12 }}>Upload a client information card to auto-fill this section</div>
+              <div style={{ fontSize:14, marginBottom:8 }}>暂无详细档案</div>
+              <div style={{ fontSize:12 }}>上传客户信息卡自动填写此部分</div>
               <button onClick={()=>setTab('import')} style={{ marginTop:14, padding:'9px 18px', background:'#38bdf8', border:'none', borderRadius:8, color:'#0f172a', fontWeight:700, fontSize:13, cursor:'pointer' }}>Import Document →</button>
             </div>
           )}
@@ -922,7 +943,7 @@ function ClientDetailModal({ client, jobs, onClose, onEdit, onSaveProfile }) {
       {tab === 'jobs' && (
         <div>
           {clientJobs.length === 0
-            ? <div style={{ color:'#475569', fontSize:14, padding:20, textAlign:'center' }}>No jobs assigned yet.</div>
+            ? <div style={{ color:'#475569', fontSize:14, padding:20, textAlign:'center' }}>暂无关联案件。</div>
             : clientJobs.map(j => (
               <div key={j.id} style={{ background:'#1e293b', borderRadius:10, padding:'13px 16px', border:'1px solid #2e4460', marginBottom:10 }}>
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
@@ -942,7 +963,7 @@ function ClientDetailModal({ client, jobs, onClose, onEdit, onSaveProfile }) {
       {tab === 'notes' && (
         <div>
           {normalizeNotes(client.notes).length === 0
-            ? <div style={{ color:'#475569', fontSize:14, padding:20, textAlign:'center' }}>No notes yet.</div>
+            ? <div style={{ color:'#475569', fontSize:14, padding:20, textAlign:'center' }}>暂无备注。</div>
             : [...normalizeNotes(client.notes)].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)).map(n => (
               <div key={n.id} style={{ background:'#1e293b', borderRadius:8, padding:'12px 14px', border:'1px solid #2e4460', marginBottom:8 }}>
                 <div style={{ fontSize:13, color:'#e2e8f0', whiteSpace:'pre-wrap', lineHeight:1.55 }}>{n.text}</div>
@@ -961,7 +982,7 @@ function ClientDetailModal({ client, jobs, onClose, onEdit, onSaveProfile }) {
           {!importPreview && (
             <div style={{ textAlign:'center', padding:'40px 24px', border:'2px dashed #2e4460', borderRadius:12 }}>
               <div style={{ fontSize:40, marginBottom:12 }}>📄</div>
-              <div style={{ fontSize:15, fontWeight:600, color:'#f1f5f9', marginBottom:6 }}>Upload Client Information Card</div>
+              <div style={{ fontSize:15, fontWeight:600, color:'#f1f5f9', marginBottom:6 }}>上传客户信息卡</div>
               <div style={{ fontSize:13, color:'#7a8fa8', marginBottom:20 }}>Supports <strong style={{color:'#a0b0c8'}}>.docx</strong> files — AI will extract all fields automatically</div>
               <input ref={fileRef} type="file" accept=".docx,.pdf" onChange={handleFile} style={{ display:'none' }} />
               <button
@@ -969,16 +990,16 @@ function ClientDetailModal({ client, jobs, onClose, onEdit, onSaveProfile }) {
                 disabled={importing}
                 style={{ padding:'11px 24px', background: importing ? '#2e4460' : '#38bdf8', border:'none', borderRadius:9, color: importing ? '#7a8fa8' : '#0f172a', fontWeight:700, fontSize:14, cursor: importing ? 'default' : 'pointer' }}
               >
-                {importing ? '⏳ Analysing document...' : '📥 Select .docx or .pdf File'}
+                {importing ? '⏳ 分析中...' : '📥 选择文件 (.docx / .pdf)'}
               </button>
-              <div style={{ marginTop:16, fontSize:11, color:'#475569' }}>Powered by Claude AI · Your files are not stored</div>
+              <div style={{ marginTop:16, fontSize:11, color:'#475569' }}>由 Claude AI 提供支持 · 文件不会被储存</div>
             </div>
           )}
 
           {importPreview && (
             <div>
               <div style={{ padding:'10px 14px', background:'#052e16', border:'1px solid #166534', borderRadius:8, color:'#4ade80', fontSize:13, marginBottom:16 }}>
-                ✅ Document analysed — review the extracted data below, then click <strong>Apply to Record</strong>
+                ✅ 文档已分析，确认数据后点击 <strong>应用到档案</strong>
               </div>
               <div style={{ display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:8, marginBottom:16 }}>
                 {[
@@ -1014,7 +1035,7 @@ function ClientDetailModal({ client, jobs, onClose, onEdit, onSaveProfile }) {
               )}
 
               <div style={{ display:'flex', gap:10 }}>
-                <button onClick={()=>setImportPreview(null)} style={{ padding:'9px 18px', background:'#2e4460', border:'none', borderRadius:8, color:'#a0b0c8', fontWeight:500, cursor:'pointer' }}>← Re-upload</button>
+                <button onClick={()=>setImportPreview(null)} style={{ padding:'9px 18px', background:'#253650', border:'none', borderRadius:8, color:'#a0b0c8', fontWeight:500, cursor:'pointer' }}>← Re-upload</button>
                 <button onClick={applyImport} style={{ flex:1, padding:'10px 20px', background:'#38bdf8', border:'none', borderRadius:8, color:'#0f172a', fontWeight:700, fontSize:14, cursor:'pointer' }}>✅ Apply to Client Record</button>
               </div>
             </div>
@@ -1022,20 +1043,6 @@ function ClientDetailModal({ client, jobs, onClose, onEdit, onSaveProfile }) {
         </div>
       )}
 
-      {/* Footer */}
-      <div style={{ display:'flex', justifyContent:'space-between', gap:10, marginTop:18, borderTop:'1px solid #2e4460', paddingTop:14, flexWrap:'wrap' }}>
-        <button
-          onClick={handleGenerateContract}
-          disabled={contractBusy}
-          style={{ padding:'9px 18px', background: contractBusy ? '#2e4460' : '#0f766e', border:'none', borderRadius:8, color: contractBusy ? '#7a8fa8' : '#ecfeff', fontWeight:700, cursor: contractBusy ? 'default' : 'pointer' }}
-        >
-          {contractBusy ? 'Generating…' : '📄 Generate Contract'}
-        </button>
-        <div style={{ display:'flex', gap:10 }}>
-          <button onClick={onClose} style={{ padding:'9px 18px', background:'#2e4460', border:'none', borderRadius:8, color:'#a0b0c8', fontWeight:500, cursor:'pointer' }}>Close</button>
-          <button onClick={onEdit}  style={{ padding:'9px 20px', background:'#38bdf8', border:'none', borderRadius:8, color:'#0f172a', fontWeight:700, cursor:'pointer' }}>✏️ Edit Client</button>
-        </div>
-      </div>
     </Modal>
   );
 }
