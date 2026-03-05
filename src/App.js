@@ -608,7 +608,7 @@ function Card({ children, style, onClick }) {
   );
 }
 
-function Modal({ title, onClose, children, wide }) {
+function Modal({ title, onClose, children, wide, footer }) {
   // Lock body scroll while modal open
   useEffect(() => {
     const prev = document.body.style.overflow;
@@ -655,6 +655,11 @@ function Modal({ title, onClose, children, wide }) {
         <div style={{ padding:'22px 26px 28px' }}>
           {children}
         </div>
+        {footer && (
+          <div style={{ padding:'14px 26px 20px', borderTop:'1.5px solid #e2e8f0', borderRadius:'0 0 18px 18px', background:'#fafafa' }}>
+            {footer}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -789,17 +794,12 @@ function Dashboard({ clients, jobs, team, onGoTo }) {
   const recentJobs = [...jobs].sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).slice(0,5);
   const getClient = id => clients.find(c=>c.id===id);
   const getMember = id => team.find(t=>t.id===id);
-  // Always show Liang (t1) and Mansi (t2) first, then rest by workload
-  const memberLoad = (() => {
-    const withCount = team.map(m => ({
-      ...m,
-      count: jobs.filter(j=>j.assignedTo===m.id && j.status!=='Completed').length
-    }));
-    const priority = ['t1','t2']; // Liang, Mansi always top
-    const top = priority.map(id => withCount.find(m=>m.id===id)).filter(Boolean);
-    const rest = withCount.filter(m=>!priority.includes(m.id)).sort((a,b)=>b.count-a.count);
-    return [...top, ...rest].slice(0,6);
-  })();
+  // Exclude owners (Liang t1, Mansi t2) - show staff workload only
+  const memberLoad = team
+    .filter(m => m.id !== 't1' && m.id !== 't2')
+    .map(m => ({ ...m, count: jobs.filter(j=>j.assignedTo===m.id && j.status!=='Completed').length }))
+    .sort((a,b)=>b.count-a.count)
+    .slice(0,6);
 
   // Upcoming deadlines in next 14 days
   const now = new Date();
@@ -1031,12 +1031,16 @@ function Dashboard({ clients, jobs, team, onGoTo }) {
 function ClientDetailModal({ client, jobs, setJobs, team, onClose, onEdit, onSaveProfile }) {
   const { t } = useLang();
   const [tab, setTab]               = useState('profile');
+  const switchTab = (t) => { setTab(t); setProfileDraft(null); };
   const [importing, setImporting]   = useState(false);
   const [importPreview, setImportPreview] = useState(null);
   const [applyMsg, setApplyMsg]     = useState('');
   const fileRef                     = useRef(null);
   const [contractBusy, setContractBusy] = useState(false);
   const [quickJob, setQuickJob]         = useState(false);
+  // Inline-editable profile snapshot
+  const [profileDraft, setProfileDraft] = useState(null); // null = view mode, obj = editing
+
   const [qform, setQform]               = useState({});
 
   const handleGenerateContract = async () => {
@@ -1195,12 +1199,39 @@ Return this exact structure (use null for missing fields, keep English for value
     </div>
   );
 
-  const Field = ({ label, value, warn }) => (
-    <div style={{ background:'#f9fafb', borderRadius:8, padding:'9px 13px', border: warn ? '1px solid #f59e0b60' : '1px solid #e5e7eb' }}>
-      <div style={{ fontSize:10, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:3 }}>{label}</div>
-      <div style={{ fontSize:13, color: warn ? '#d97706' : '#111827', fontWeight:500, wordBreak:'break-word' }}>{value || '—'}</div>
-    </div>
-  );
+  // Field: click to edit inline. Pass fieldPath like "sex" or "profile.sex"
+  const Field = ({ label, value, warn, fieldPath }) => {
+    const editing = profileDraft !== null && fieldPath;
+    const draftVal = editing && fieldPath ? (fieldPath.includes('.')
+      ? fieldPath.split('.').reduce((o,k)=>o?.[k], profileDraft)
+      : profileDraft[fieldPath]) : undefined;
+    if (editing) return (
+      <div style={{ background:'#fff', borderRadius:8, padding:'6px 10px', border: warn?'2px solid #f59e0b':'2px solid #6366f1' }}>
+        <div style={{ fontSize:10, color:'#374151', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:3 }}>{label}</div>
+        <input
+          style={{ width:'100%', border:'none', outline:'none', fontSize:13, color:'#111827', fontWeight:500, background:'transparent', fontFamily:'inherit' }}
+          value={draftVal ?? ''}
+          onChange={e => {
+            if (!fieldPath) return;
+            setProfileDraft(prev => {
+              if (fieldPath.includes('.')) {
+                const [top, ...rest] = fieldPath.split('.');
+                return { ...prev, [top]: { ...(prev[top]||{}), [rest.join('.')]: e.target.value } };
+              }
+              return { ...prev, [fieldPath]: e.target.value };
+            });
+          }}
+          placeholder={label}
+        />
+      </div>
+    );
+    return (
+      <div style={{ background:'#f9fafb', borderRadius:8, padding:'9px 13px', border: warn ? '1px solid #f59e0b60' : '1px solid #e2e8f0' }}>
+        <div style={{ fontSize:10, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:3 }}>{label}</div>
+        <div style={{ fontSize:13, color: warn ? '#d97706' : '#111827', fontWeight:500, wordBreak:'break-word' }}>{value || '—'}</div>
+      </div>
+    );
+  };
 
   const Table = ({ heads, rows }) => (
     <div style={{ overflowX:'auto', borderRadius:8, border:'1px solid #e5e7eb' }}>
@@ -1237,7 +1268,7 @@ Return this exact structure (use null for missing fields, keep English for value
       {/* Tabs */}
       <div style={{ display:'flex', gap:4, marginBottom:20, borderBottom:'2px solid #e2e8f0', paddingBottom:0 }}>
         {tabs.map(t => (
-          <button key={t.id} onClick={()=>setTab(t.id)} style={{ padding:'8px 16px', background:'none', border:'none', color: tab===t.id ? '#6366f1' : '#6b7280', fontWeight: tab===t.id ? 700 : 400, fontSize:13, borderBottom: tab===t.id ? '2px solid #6366f1' : '2px solid transparent', cursor:'pointer', marginBottom:-1 }}>{t.label}</button>
+          <button key={t.id} onClick={()=>switchTab(t.id)} style={{ padding:'8px 16px', background:'none', border:'none', color: tab===t.id ? '#6366f1' : '#6b7280', fontWeight: tab===t.id ? 700 : 400, fontSize:13, borderBottom: tab===t.id ? '2px solid #6366f1' : '2px solid transparent', cursor:'pointer', marginBottom:-1 }}>{t.label}</button>
         ))}
       </div>
 
@@ -1258,6 +1289,24 @@ Return this exact structure (use null for missing fields, keep English for value
             </div>
             <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:6 }}>
               <StatusBadge status={client.status} />
+              {profileDraft === null
+                ? <button onClick={() => setProfileDraft({ ...p, _name: client.name, _email: client.email, _phone: client.phone, _nationality: client.nationality })} style={{ background:'rgba(255,255,255,0.15)', border:'1px solid rgba(255,255,255,0.3)', borderRadius:7, padding:'5px 12px', color:'#fff', fontSize:12, cursor:'pointer' }}>✏️ 编辑快照</button>
+                : <div style={{ display:'flex', gap:6 }}>
+                    <button onClick={async () => {
+                      const merged = {
+                        ...client,
+                        name: profileDraft._name ?? client.name,
+                        email: profileDraft._email ?? client.email,
+                        phone: profileDraft._phone ?? client.phone,
+                        nationality: profileDraft._nationality ?? client.nationality,
+                        profile: { ...p, sex:profileDraft.sex, dob:profileDraft.dob, birthplace:profileDraft.birthplace, passportNo:profileDraft.passportNo, passportExpiry:profileDraft.passportExpiry, chinaId:profileDraft.chinaId, auAddress:profileDraft.auAddress, maritalStatus:profileDraft.maritalStatus, qq:profileDraft.qq, eaFileNo:profileDraft.eaFileNo, consultant:profileDraft.consultant }
+                      };
+                      await onSaveProfile(merged);
+                      setProfileDraft(null);
+                    }} style={{ background:'#34d399', border:'none', borderRadius:7, padding:'5px 12px', color:'#fff', fontSize:12, fontWeight:700, cursor:'pointer' }}>💾 保存</button>
+                    <button onClick={() => setProfileDraft(null)} style={{ background:'rgba(255,255,255,0.15)', border:'1px solid rgba(255,255,255,0.3)', borderRadius:7, padding:'5px 12px', color:'#fff', fontSize:12, cursor:'pointer' }}>取消</button>
+                  </div>
+              }
               <button onClick={onEdit} style={{ background:'rgba(255,255,255,0.15)', border:'1px solid rgba(255,255,255,0.3)', borderRadius:8, padding:'5px 12px', color:'#fff', fontSize:11, fontWeight:600, cursor:'pointer' }}>✏️ {t('Edit Profile')}</button>
             </div>
           </div>
@@ -1265,21 +1314,21 @@ Return this exact structure (use null for missing fields, keep English for value
           {/* ── 一、PERSONAL INFORMATION ────────────────── */}
           <S icon="👤" title={`一、${t('PERSONAL INFORMATION')}`}>
             <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8 }}>
-              <Field label={t('Full Name')}       value={client.name} />
-              <Field label={t('Gender')}          value={p.sex} />
-              <Field label={t('Date of Birth')}   value={p.dob} />
-              <Field label={t('Birthplace')}      value={p.birthplace} />
-              <Field label={t('Nationality')}     value={client.nationality} />
-              <Field label={t('Email')}           value={client.email} />
-              <Field label={t('Mobile')}          value={client.phone} />
-              <Field label="QQ"                   value={p.qq} />
-              <Field label={t('EA File No')}      value={p.eaFileNo} />
-              <Field label={t('Passport No')}     value={p.passportNo} />
-              <Field label={t('Passport Expiry')} value={p.passportExpiry} warn={p.passportExpiry && new Date(p.passportExpiry) < new Date(Date.now()+6*30*24*3600*1000)} />
-              <Field label={t('China ID')}        value={p.chinaId} />
-              <Field label={t('AU Address')}      value={p.auAddress} />
-              <Field label={t('Marital Status')}  value={p.maritalStatus} />
-              <Field label={t('Consultant')}      value={p.consultant} />
+              <Field label={t('Full Name')}       value={profileDraft?._name??client.name}      fieldPath="_name" />
+              <Field label={t('Gender')}          value={profileDraft?.sex??p.sex}               fieldPath="sex" />
+              <Field label={t('Date of Birth')}   value={profileDraft?.dob??p.dob}               fieldPath="dob" />
+              <Field label={t('Birthplace')}      value={profileDraft?.birthplace??p.birthplace} fieldPath="birthplace" />
+              <Field label={t('Nationality')}     value={profileDraft?._nationality??client.nationality} fieldPath="_nationality" />
+              <Field label={t('Email')}           value={profileDraft?._email??client.email}     fieldPath="_email" />
+              <Field label={t('Mobile')}          value={profileDraft?._phone??client.phone}     fieldPath="_phone" />
+              <Field label="QQ"                   value={profileDraft?.qq??p.qq}                 fieldPath="qq" />
+              <Field label={t('EA File No')}      value={profileDraft?.eaFileNo??p.eaFileNo}     fieldPath="eaFileNo" />
+              <Field label={t('Passport No')}     value={profileDraft?.passportNo??p.passportNo} fieldPath="passportNo" />
+              <Field label={t('Passport Expiry')} value={profileDraft?.passportExpiry??p.passportExpiry} fieldPath="passportExpiry" warn={p.passportExpiry && new Date(p.passportExpiry) < new Date(Date.now()+6*30*24*3600*1000)} />
+              <Field label={t('China ID')}        value={profileDraft?.chinaId??p.chinaId}       fieldPath="chinaId" />
+              <Field label={t('AU Address')}      value={profileDraft?.auAddress??p.auAddress}   fieldPath="auAddress" />
+              <Field label={t('Marital Status')}  value={profileDraft?.maritalStatus??p.maritalStatus} fieldPath="maritalStatus" />
+              <Field label={t('Consultant')}      value={profileDraft?.consultant??p.consultant} fieldPath="consultant" />
             </div>
           </S>
 
@@ -2157,40 +2206,137 @@ function Jobs({ jobs, clients, team, setJobs }) {
           const vc2 = getClient(viewJob.clientId);
           const checklist2 = DOC_CHECKLISTS[viewJob.type] || [];
           const docs2 = viewJob.docs || {};
+          const pct2 = STATUS_PROGRESS[viewJob.status] ?? viewJob.progress ?? 0;
           return (
-            <Modal title={viewJob.title} onClose={()=>setViewJob(null)} wide>
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20, marginBottom:18 }}>
-                <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-                  {[['Client', vc2?.name||'—'], ['Type', viewJob.type], ['Status', viewJob.status], ['Priority', viewJob.priority], ['Due Date', fmtDate(viewJob.dueDate)||'—']].map(([l,v])=>(
-                    <div key={l} style={{ display:'flex', justifyContent:'space-between', background:'#ffffff', borderRadius:8, padding:'9px 14px' }}>
-                      <span style={{ fontSize:11, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.06em' }}>{l}</span>
+            <Modal
+              title={viewJob.title}
+              onClose={()=>setViewJob(null)}
+              wide
+              footer={
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                  <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+                    <StatusBadge status={viewJob.status} />
+                    <PriorityBadge priority={viewJob.priority} />
+                  </div>
+                  <div style={{ display:'flex', gap:10 }}>
+                    <button onClick={()=>setViewJob(null)} style={{ padding:'8px 16px', background:'#f1f5f9', border:'1.5px solid #cbd5e1', borderRadius:8, color:'#374151', fontSize:13, fontWeight:500 }}>关闭</button>
+                    <button onClick={()=>{ setViewJob(null); openEdit(viewJob); }} style={{ padding:'8px 18px', background:'linear-gradient(135deg,#4f46e5,#7c3aed)', border:'none', borderRadius:8, color:'#fff', fontSize:13, fontWeight:700 }}>✏️ 编辑案件</button>
+                  </div>
+                </div>
+              }
+            >
+              {/* ── SNAPSHOT BANNER ─────────────────────────── */}
+              <div style={{ background:'linear-gradient(135deg,#1e1b4b,#312e81)', borderRadius:12, padding:'16px 20px', marginBottom:18, color:'#fff' }}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:10 }}>
+                  <div>
+                    <div style={{ fontSize:10, color:'rgba(255,255,255,0.55)', textTransform:'uppercase', letterSpacing:'0.12em', marginBottom:4 }}>案件快照</div>
+                    <div style={{ fontSize:16, fontWeight:700 }}>{vc2?.name||'—'} · {viewJob.type}</div>
+                    <div style={{ fontSize:12, color:'rgba(255,255,255,0.65)', marginTop:3 }}>
+                      负责人: {getMember(viewJob.assignedTo)?.name||'—'} · Due {fmtDate(viewJob.dueDate)||'—'}
+                    </div>
+                  </div>
+                  <div style={{ textAlign:'right', flexShrink:0 }}>
+                    <div style={{ fontSize:30, fontWeight:800, color: pct2>=100?'#34d399':pct2>=70?'#a5b4fc':'#fbbf24', lineHeight:1 }}>{pct2}%</div>
+                    <div style={{ fontSize:11, color:'rgba(255,255,255,0.55)', marginTop:2 }}>{viewJob.status}</div>
+                  </div>
+                </div>
+                <div style={{ height:6, borderRadius:6, background:'rgba(255,255,255,0.15)', overflow:'hidden' }}>
+                  <div style={{ height:'100%', width:`${pct2}%`, background: pct2>=100?'#34d399':pct2>=70?'#818cf8':'#fbbf24', borderRadius:6, transition:'width 0.4s' }} />
+                </div>
+              </div>
+
+              {/* ── EDITABLE LATEST PROGRESS ─────────────────── */}
+              <div style={{ marginBottom:18 }}>
+                <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:6 }}>最新进展 <span style={{ color:'#9ca3af', fontWeight:400, textTransform:'none', letterSpacing:0 }}>(自动保存)</span></div>
+                <textarea
+                  style={{ width:'100%', background:'#f8fafc', border:'2px solid #c7d2e0', borderRadius:9, padding:'10px 13px', fontSize:13, color:'#111827', resize:'vertical', minHeight:80, fontFamily:'inherit', lineHeight:1.55, outline:'none', boxSizing:'border-box' }}
+                  placeholder="记录最新案件进展、备忘事项..."
+                  defaultValue={viewJob.snapshot||''}
+                  onBlur={async e => {
+                    if (e.target.value === (viewJob.snapshot||'')) return;
+                    const updated = { ...viewJob, snapshot: e.target.value };
+                    setViewJob(updated);
+                    setJobs(prev => prev.map(j => j.id===viewJob.id ? updated : j));
+                    try { await sbUpdate('jobs', updated.id, { data: updated }); } catch(err) { console.warn(err); }
+                  }}
+                  onFocus={e => e.target.style.borderColor='#6366f1'}
+                  onBlurCapture={e => e.target.style.borderColor='#c7d2e0'}
+                />
+              </div>
+
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:18 }}>
+                {/* Key info */}
+                <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
+                  <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:2 }}>案件信息</div>
+                  {[['客户', vc2?.name||'—'], ['签证类型', viewJob.type], ['优先级', viewJob.priority], ['截止日期', fmtDate(viewJob.dueDate)||'—']].map(([l,v]) => (
+                    <div key={l} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', background:'#f8fafc', borderRadius:8, padding:'8px 12px', border:'1.5px solid #e2e8f0' }}>
+                      <span style={{ fontSize:11, color:'#374151', textTransform:'uppercase', letterSpacing:'0.05em', fontWeight:600 }}>{l}</span>
                       <span style={{ fontSize:13, color:'#111827', fontWeight:500 }}>{v}</span>
                     </div>
                   ))}
                 </div>
-                <div>
-                  <div style={{ marginBottom:14 }}>
-                    <div style={{ fontSize:11, color:'#1f2937', letterSpacing:'0.08em', marginBottom:6 }}>Progress – {viewJob.progress}%</div>
-                    <ProgressBar value={viewJob.progress} />
-                  </div>
-                  {checklist2.length > 0 && (
-                    <div>
-                      <div style={{ fontSize:11, color:'#1f2937', letterSpacing:'0.08em', marginBottom:8 }}>Documents – {checklist2.filter(d=>docs2[d]).length}/{checklist2.length}</div>
-                      <div style={{ background:'#f9fafb', borderRadius:8, padding:10, maxHeight:180, overflowY:'auto' }}>
-                        {checklist2.map(doc=>(
-                          <div key={doc} style={{ display:'flex', alignItems:'center', gap:8, padding:'5px 4px', borderBottom:'2px solid #e2e8f0' }}>
-                            <span style={{ fontSize:14, color: docs2[doc]?'#34d399':'#334155' }}>{docs2[doc]?'✓':'○'}</span>
-                            <span style={{ fontSize:12, color: docs2[doc]?'#94a3b8':'#475569', textDecoration: docs2[doc]?'line-through':'none' }}>{doc}</span>
-                          </div>
-                        ))}
-                      </div>
+                {/* Doc checklist */}
+                {checklist2.length > 0 && (
+                  <div>
+                    <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:6 }}>
+                      材料清单 ({Object.values(docs2).filter(Boolean).length}/{checklist2.length})
                     </div>
-                  )}
-                </div>
+                    <div style={{ background:'#f9fafb', borderRadius:8, padding:'8px 10px', maxHeight:160, overflowY:'auto', border:'1.5px solid #e2e8f0' }}>
+                      {checklist2.map(doc=>(
+                        <div key={doc} style={{ display:'flex', alignItems:'center', gap:8, padding:'5px 4px', borderBottom:'1px solid #f1f5f9' }}>
+                          <span style={{ fontSize:14, color: docs2[doc]?'#34d399':'#cbd5e1' }}>{docs2[doc]?'✓':'○'}</span>
+                          <span style={{ fontSize:12, color: docs2[doc]?'#94a3b8':'#374151', textDecoration: docs2[doc]?'line-through':'none' }}>{doc}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-              <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:18 }}>
-                <button onClick={()=>setViewJob(null)} style={{ background:'#e5e7eb', border:'none', borderRadius:8, padding:'9px 18px', color:'#1f2937', fontWeight:500 }}>Close</button>
-                <button onClick={()=>{ setViewJob(null); openEdit(viewJob); }} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, padding:'9px 20px', color:'#fff', fontWeight:700 }}>Edit Job</button>
+
+              {/* ── NOTES ──────────────────────────────────────── */}
+              <div style={{ borderTop:'1.5px solid #e2e8f0', paddingTop:16 }}>
+                <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:10 }}>
+                  备注 ({normalizeNotes(viewJob.notes).length})
+                </div>
+                <div style={{ display:'flex', gap:8, marginBottom:12 }}>
+                  <input
+                    id="vj-note-input"
+                    style={{ flex:1, background:'#ffffff', border:'2px solid #c7d2e0', borderRadius:9, padding:'8px 12px', fontSize:13, fontFamily:'inherit', outline:'none' }}
+                    placeholder="添加备注… (Enter 保存)"
+                    onKeyDown={async e => {
+                      if (e.key==='Enter' && e.target.value.trim()) {
+                        const updated = { ...viewJob, notes: [makeNote(e.target.value.trim()), ...normalizeNotes(viewJob.notes)] };
+                        setViewJob(updated);
+                        setJobs(prev => prev.map(j => j.id===viewJob.id ? updated : j));
+                        try { await sbUpdate('jobs', updated.id, { data: updated }); } catch(er){ console.warn(er); }
+                        e.target.value = '';
+                      }
+                    }}
+                  />
+                  <button
+                    style={{ padding:'8px 16px', background:'#4f46e5', border:'none', borderRadius:8, color:'#fff', fontSize:13, fontWeight:600, cursor:'pointer' }}
+                    onClick={async () => {
+                      const inp = document.getElementById('vj-note-input');
+                      if (!inp?.value.trim()) return;
+                      const updated = { ...viewJob, notes: [makeNote(inp.value.trim()), ...normalizeNotes(viewJob.notes)] };
+                      setViewJob(updated);
+                      setJobs(prev => prev.map(j => j.id===viewJob.id ? updated : j));
+                      try { await sbUpdate('jobs', updated.id, { data: updated }); } catch(er){ console.warn(er); }
+                      inp.value = '';
+                    }}
+                  >添加</button>
+                </div>
+                <div style={{ display:'flex', flexDirection:'column', gap:6, maxHeight:200, overflowY:'auto' }}>
+                  {normalizeNotes(viewJob.notes).length === 0
+                    ? <div style={{ color:'#94a3b8', fontSize:13, padding:'6px 0' }}>暂无备注</div>
+                    : [...normalizeNotes(viewJob.notes)].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)).map(n => (
+                      <div key={n.id} style={{ background:'#f8fafc', borderRadius:8, padding:'10px 13px', border:'1.5px solid #e2e8f0' }}>
+                        <div style={{ fontSize:13, color:'#111827', whiteSpace:'pre-wrap', lineHeight:1.55 }}>{n.text}</div>
+                        <div style={{ fontSize:11, color:'#9ca3af', marginTop:5 }}>{fmtDateTime(n.createdAt)}</div>
+                      </div>
+                    ))
+                  }
+                </div>
               </div>
             </Modal>
           );
