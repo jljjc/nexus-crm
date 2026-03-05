@@ -1014,6 +1014,68 @@ function Clients({ clients, jobs, setClients }) {
   const addNote = (text) => setForm(f => ({ ...f, notes: [makeNote(text), ...normalizeNotes(f.notes)] }));
   const deleteNote = (nid) => setForm(f => ({ ...f, notes: normalizeNotes(f.notes).filter(n=>n.id!==nid) }));
 
+  const generateContract = async () => {
+    if (!form.name?.trim()) {
+      window.alert('Please enter the client name first.');
+      return;
+    }
+
+    const linkedJobs = form.id ? jobs.filter(j => j.clientId === form.id) : [];
+    const primaryJob = linkedJobs[0];
+    const inferredVisaType = primaryJob?.type || (form.type === 'Student' ? 'Subclass 500 – Student Visa' : 'Migration Service');
+
+    const payload = {
+      clientName: form.name || '',
+      clientAddress: form.address || '',
+      clientEmail: form.email || '',
+      clientPhone: form.phone || '',
+      visaTypes: [inferredVisaType],
+      serviceDescription: primaryJob
+        ? `Professional services for ${primaryJob.type}`
+        : (form.type === 'Student'
+            ? 'Student visa and enrolment support services'
+            : 'Migration advisory and lodgement support services'),
+      totalFee: primaryJob?.fee || 'TBC',
+      gstIncluded: true,
+      paymentMode: 'two',
+      payment1Amount: primaryJob?.fee || 'TBC',
+      payment1Desc: 'Initial deposit / commencement fee',
+      payment2Amount: 'TBC',
+      payment2Desc: 'Balance before final lodgement',
+      contractDate: new Date().toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' }),
+      consultant: 'Liang Jiang',
+      marn: '1800784',
+      disbursements: [],
+    };
+
+    try {
+      const res = await fetch('/api/generate-contract', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const errText = await res.text().catch(() => '');
+        throw new Error(errText || `HTTP ${res.status}`);
+      }
+
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const safeName = (form.name || 'Client').replace(/[^a-zA-Z0-9_\- ]/g, '').trim().replace(/\s+/g, '_') || 'Client';
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${safeName}_Migration_Agreement.docx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error('Contract generation error:', e);
+      window.alert('Contract generator is not connected in this build. Make sure /api/generate-contract is deployed.');
+    }
+  };
+
   const handleRowEnter = (e, id) => {
     clearTimeout(hoverTimer.current);
     const rect = e.currentTarget.getBoundingClientRect();
@@ -1139,7 +1201,8 @@ function Clients({ clients, jobs, setClients }) {
           <div style={{ borderTop:'1px solid #1e2d40', marginTop:8, paddingTop:18 }}>
             <NotesPanel notes={normalizeNotes(form.notes)} onAddNote={addNote} onDeleteNote={deleteNote} />
           </div>
-          <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:18 }}>
+          <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:18, flexWrap:'wrap' }}>
+            <button onClick={generateContract} style={{ background:'#0f172a', border:'1px solid #1e40af55', borderRadius:8, padding:'9px 16px', color:'#93c5fd', fontWeight:600 }}>Generate Contract</button>
             <button onClick={closeModal} style={{ background:'#1e2d40', border:'none', borderRadius:8, padding:'9px 18px', color:'#94a3b8', fontWeight:500 }}>Cancel</button>
             <button onClick={save} style={{ background:'#38bdf8', border:'none', borderRadius:8, padding:'9px 20px', color:'#080c14', fontWeight:700 }}>Save Client</button>
           </div>
