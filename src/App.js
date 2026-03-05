@@ -778,7 +778,7 @@ function Dashboard({ clients, jobs, team, onGoTo }) {
   const inProgress = jobs.filter(j=>j.status==='In Progress').length;
   const awaitingDecision = jobs.filter(j=>j.status==='Awaiting Decision').length;
   const urgent = jobs.filter(j=>j.priority==='Urgent' && j.status!=='Completed').length;
-  const completed = jobs.filter(j=>j.status==='Completed').length;
+  const completed = jobs.filter(j=>j.status==='Completed').length; // eslint-disable-line no-unused-vars
   const overdue = jobs.filter(j=> j.status!=='Completed' && j.status!=='Awaiting Decision' && isOverdue(j.dueDate)).length;
   const recentJobs = [...jobs].sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).slice(0,5);
   const getClient = id => clients.find(c=>c.id===id);
