@@ -21,7 +21,7 @@ const W = 9360; // content width DXA (A4 with 1.5cm margins each side ~ 9360)
 // ── helpers ──────────────────────────────────────────────────────────────────
 const p = (text, opts = {}) => new Paragraph({
   alignment: opts.align || AlignmentType.LEFT,
-  spacing: { before: opts.before ?? 80, after: opts.after ?? 80 },
+  spacing: { before: opts.before ?? 50, after: opts.after ?? 50 },
   children: [new TextRun({
     text: text || '',
     bold: opts.bold,
@@ -34,7 +34,7 @@ const p = (text, opts = {}) => new Paragraph({
 });
 
 const heading = (text, level = 1) => new Paragraph({
-  spacing: { before: 200, after: 100 },
+  spacing: { before: 140, after: 60 },
   children: [new TextRun({
     text, bold: true, size: level === 1 ? 24 : 22,
     font: 'Arial', color: TEAL,
@@ -57,7 +57,7 @@ const twoColRow = (label, value, headerRow = false) => new TableRow({
   ]
 });
 
-const spacer = (n = 1) => Array.from({ length: n }, () => p('', { size: 18, before: 0, after: 0 }));
+const spacer = (n = 1) => Array.from({ length: n }, () => p('', { size: 8, before: 0, after: 0 }));
 
 const bullet = (text, numbered = false) => new Paragraph({
   spacing: { before: 60, after: 60 },
@@ -117,7 +117,7 @@ module.exports = async function handler(req, res) {
       properties: {
         page: {
           size: { width: 11906, height: 16838 }, // A4
-          margin: { top: 1134, right: 1134, bottom: 1134, left: 1134 }
+          margin: { top: 1080, right: 1080, bottom: 1080, left: 1080 }
         }
       },
       children: [
@@ -125,7 +125,7 @@ module.exports = async function handler(req, res) {
         // ── HEADER ─────────────────────────────────────────────────────────────
         new Paragraph({
           alignment: AlignmentType.CENTER,
-          spacing: { before: 400, after: 120 },
+          spacing: { before: 160, after: 60 },
           border: { bottom: { style: BorderStyle.SINGLE, size: 12, color: TEAL, space: 6 } },
           children: [
             new TextRun({ text: 'OZSKY INTERNATIONAL', bold: true, size: 36, font: 'Arial', color: TEAL }),
@@ -133,16 +133,16 @@ module.exports = async function handler(req, res) {
             new TextRun({ text: 'Education and Migration Agency', size: 22, font: 'Arial', color: '555555' }),
           ]
         }),
-        p('Level 2, 731 Hay St, Perth WA 6000  |  +61 430 270 005  |  l.jiang@ozs.com.au', { align: AlignmentType.CENTER, size: 18, color: '777777', before: 100, after: 400 }),
+        p('Level 2, 731 Hay St, Perth WA 6000  |  +61 430 270 005  |  l.jiang@ozs.com.au', { align: AlignmentType.CENTER, size: 18, color: '777777', before: 60, after: 120 }),
 
         new Paragraph({
           alignment: AlignmentType.CENTER,
-          spacing: { before: 300, after: 120 },
+          spacing: { before: 80, after: 60 },
           children: [new TextRun({ text: 'Migration Agent Clients Agreement', bold: true, size: 40, font: 'Arial', color: DARK })]
         }),
         new Paragraph({
           alignment: AlignmentType.CENTER,
-          spacing: { before: 0, after: 600 },
+          spacing: { before: 0, after: 160 },
           children: [new TextRun({ text: 'Immigration Advisory & Service', size: 26, font: 'Arial', color: TEAL, italics: true })]
         }),
 
@@ -160,8 +160,6 @@ module.exports = async function handler(req, res) {
           ]
         }),
 
-        ...spacer(2),
-
         // ── 2. CLIENT DETAILS ─────────────────────────────────────────────────
         heading('CLIENT DETAILS'),
         new Table({
@@ -174,8 +172,6 @@ module.exports = async function handler(req, res) {
           ]
         }),
 
-        ...spacer(2),
-
         // ── 3. SERVICE CATEGORY ───────────────────────────────────────────────
         heading('SERVICE CATEGORY'),
         new Table({
@@ -186,13 +182,9 @@ module.exports = async function handler(req, res) {
           ]
         }),
 
-        ...spacer(2),
-
         // ── FEES ──────────────────────────────────────────────────────────────
         heading('FEES & CHARGES'),
         p('Fees and charges are set out in the SCHEDULE OF FEES below. All fees must be paid in accordance with the Payment Method and Structure.', { size: 19 }),
-
-        ...spacer(1),
 
         // ── 4. WARNINGS ───────────────────────────────────────────────────────
         heading('WARNINGS'),
@@ -386,8 +378,6 @@ module.exports = async function handler(req, res) {
             ]})
           ]
         }),
-        ...spacer(2),
-
         // Payment Structure
         p('4.  PAYMENT METHOD AND STRUCTURE', { bold: true, size: 20 }),
         p('Payment should be made by Direct Deposit or Credit Card (a surcharge of 2% applies to credit card payments). Please also refer to invoices received from the Agent.', { size: 19, before: 40 }),
@@ -443,8 +433,6 @@ module.exports = async function handler(req, res) {
         heading('SIGNATURES'),
 
         p('By signing below, both parties agree to the terms of this Agreement and confirm that the Client has received a copy of the Consumer Guide for Migration Services (OMARA).', { size: 19 }),
-        ...spacer(2),
-
         // Agent sig
         p('AGENT: OZSKY PERTH PTY LTD T/A OZSKY INTERNATIONAL', { bold: true, size: 20 }),
         ...spacer(1),
@@ -452,13 +440,13 @@ module.exports = async function handler(req, res) {
           width: { size: W, type: WidthType.DXA }, columnWidths: [4680, 4680],
           rows: [new TableRow({ children: [
             new TableCell({ borders: noBorders, width: { size: 4680, type: WidthType.DXA }, margins: cellMargins, children: [
-              new Paragraph({ spacing: { before: 0, after: 600 }, children: [new TextRun({ text: 'Signature: ___________________________', size: 19, font: 'Arial' })] }),
+              new Paragraph({ spacing: { before: 0, after: 300 }, children: [new TextRun({ text: 'Signature: ___________________________', size: 19, font: 'Arial' })] }),
               p(`Name: ${consultant || 'Liang Jiang'}`, { size: 19 }),
               p('Position: Principal Migration Agent', { size: 19 }),
               p(`Date: ${date}`, { size: 19 }),
             ]}),
             new TableCell({ borders: noBorders, width: { size: 4680, type: WidthType.DXA }, margins: cellMargins, children: [
-              new Paragraph({ spacing: { before: 0, after: 600 }, children: [new TextRun({ text: 'Signature: ___________________________', size: 19, font: 'Arial' })] }),
+              new Paragraph({ spacing: { before: 0, after: 300 }, children: [new TextRun({ text: 'Signature: ___________________________', size: 19, font: 'Arial' })] }),
               p(`Name: ${clientName || ''}`, { size: 19 }),
               p('Position: Client', { size: 19 }),
               new Paragraph({ spacing: { before: 80, after: 80 }, children: [new TextRun({ text: 'Date: ___________________________', size: 19, font: 'Arial' })] }),
@@ -466,7 +454,7 @@ module.exports = async function handler(req, res) {
           ]})]
         }),
 
-        ...spacer(3),
+        ...spacer(1),
         new Paragraph({
           alignment: AlignmentType.CENTER,
           border: { top: { style: BorderStyle.SINGLE, size: 6, color: TEAL, space: 6 } },

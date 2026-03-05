@@ -1121,20 +1121,22 @@ Return ONLY valid JSON (no markdown, no explanation):
 Document:
 ${rawText.slice(0,8000)}
 
-Return this exact structure (use null for missing, keep English for field values):
+Return this exact structure (use null for missing fields, keep English for values):
 {
-  "name":"","email":"","phone":"","nationality":"",
+  "name":"","nameChinese":"","email":"","phone":"","nationality":"","type":"Migration",
   "profile":{
     "sex":null,"dob":null,"birthplace":null,"passportNo":null,"passportExpiry":null,
-    "auAddress":null,"maritalStatus":null,"chinaId":null,
-    "visaHistory":[{"type":"","number":"","grantDate":"","expiry":""}],
+    "auAddress":null,"maritalStatus":null,"chinaId":null,"qq":null,"eaFileNo":null,
+    "consultant":null,"visaTarget":null,
+    "visaHistory":[{"type":"","appNo":"","lodgeDate":"","grantDate":"","expiry":"","status":""}],
     "addressHistory":[{"from":"","to":"","address":""}],
     "employmentHistory":[{"from":"","to":"","company":"","role":"","country":""}],
     "character":{"form80":null,"afpCheck":null,"pcc":null},
     "sponsor":{"name":null,"sex":null,"dob":null,"nationality":null,"passportNo":null,"address":null,"occupation":null,"priorMaritalStatus":null},
     "marriage":{"date":null,"location":null,"registrationNo":null},
     "keyIssues":[{"priority":"High","item":"","detail":""}],
-    "documents":[{"name":"","mainApplicant":"","sponsor":"","secondary":""}]
+    "documents":[{"name":"","mainApplicant":"","sponsor":"","secondary":""}],
+    "serviceAgreement":{"visaTarget":null,"contractDate":null,"totalFee":null}
   }
 }` }] })
       });
@@ -1153,10 +1155,17 @@ Return this exact structure (use null for missing, keep English for field values
     if (!importPreview) return;
     const merged = {
       ...client,
-      ...(importPreview.email     ? { email: importPreview.email }         : {}),
-      ...(importPreview.phone     ? { phone: importPreview.phone }         : {}),
+      ...(importPreview.name        ? { name: importPreview.name }               : {}),
+      ...(importPreview.email       ? { email: importPreview.email }             : {}),
+      ...(importPreview.phone       ? { phone: importPreview.phone }             : {}),
       ...(importPreview.nationality ? { nationality: importPreview.nationality } : {}),
-      profile: { ...(client.profile||{}), ...(importPreview.profile||{}) }
+      ...(importPreview.type        ? { type: importPreview.type }               : {}),
+      profile: {
+        ...(client.profile||{}),
+        ...(importPreview.profile||{}),
+        // also sync top-level fields back into profile for display consistency
+        ...(importPreview.profile?.auAddress ? {} : {}),
+      }
     };
     await onSaveProfile(merged);
     setApplyMsg('✅ Client record updated!');
@@ -1588,7 +1597,7 @@ Return this exact structure (use null for missing, keep English for field values
               <div style={{ fontSize:40, marginBottom:12 }}>📄</div>
               <div style={{ fontSize:15, fontWeight:600, color:'#111827', marginBottom:6 }}>Upload Client Information Card</div>
               <div style={{ fontSize:13, color:'#1f2937', marginBottom:20 }}>Supports <strong style={{color:'#1f2937'}}>.docx</strong> files — AI will extract all fields automatically</div>
-              <input ref={fileRef} type="file" accept=".docx" onChange={handleFile} style={{ display:'none' }} />
+              <input ref={fileRef} type="file" accept=".docx,.pdf" onChange={handleFile} style={{ display:'none' }} />
               <button
                 onClick={() => fileRef.current?.click()}
                 disabled={importing}
