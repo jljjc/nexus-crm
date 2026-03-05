@@ -2,6 +2,55 @@ import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import * as mammoth from 'mammoth';
 
+
+/* ─── CONFIRM DIALOG ────────────────────────────────────────────────────────── */
+function ConfirmDialog({ title, message, onConfirm, onCancel, danger=true }) {
+  return createPortal(
+    <div style={{
+      position:'fixed', inset:0, background:'rgba(17,24,39,0.6)',
+      backdropFilter:'blur(4px)', zIndex:10000,
+      display:'flex', alignItems:'center', justifyContent:'center', padding:24
+    }}>
+      <div className="animate-fade" style={{
+        background:'#fff', borderRadius:16, padding:'28px 28px 24px',
+        maxWidth:420, width:'100%', boxShadow:'0 24px 60px rgba(0,0,0,0.2)',
+        textAlign:'center'
+      }}>
+        <div style={{ fontSize:36, marginBottom:12 }}>{danger ? '🗑️' : '⚠️'}</div>
+        <div style={{ fontSize:17, fontWeight:700, color:'#111827', marginBottom:8 }}>{title}</div>
+        <div style={{ fontSize:14, color:'#6b7280', lineHeight:1.6, marginBottom:24 }}>{message}</div>
+        <div style={{ display:'flex', gap:10, justifyContent:'center' }}>
+          <button onClick={onCancel}
+            style={{ padding:'10px 24px', background:'#f3f4f6', border:'1px solid #e5e7eb', borderRadius:10, fontSize:14, fontWeight:600, color:'#374151', cursor:'pointer', minWidth:100 }}>
+            Cancel
+          </button>
+          <button onClick={onConfirm}
+            style={{ padding:'10px 24px', background: danger?'linear-gradient(135deg,#ef4444,#dc2626)':'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:10, fontSize:14, fontWeight:700, color:'#fff', cursor:'pointer', minWidth:100 }}>
+            {danger ? 'Delete' : 'Confirm'}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+/* hook for confirm dialog */
+function useConfirm() {
+  const [cfg, setCfg] = useState(null);
+  const confirm = (title, message, danger=true) => new Promise(resolve => {
+    setCfg({ title, message, danger, resolve });
+  });
+  const dialog = cfg ? (
+    <ConfirmDialog
+      title={cfg.title} message={cfg.message} danger={cfg.danger}
+      onConfirm={() => { cfg.resolve(true);  setCfg(null); }}
+      onCancel={()  => { cfg.resolve(false); setCfg(null); }}
+    />
+  ) : null;
+  return { confirm, dialog };
+}
+
 /* ─── i18n LANGUAGE SYSTEM ──────────────────────────────────────────────────── */
 const LANG_ZH = {
   // Nav
@@ -724,7 +773,7 @@ function ClientSnapshot({ client, jobs, visible, anchorRef }) {
 
 /* ─── DASHBOARD ─────────────────────────────────────────────────────────────── */
 function Dashboard({ clients, jobs, team, onGoTo }) {
-  const { t } = useLang(); // eslint-disable-line no-unused-vars
+  const { t, lang } = useLang(); // eslint-disable-line no-unused-vars
   const [selectedJob, setSelectedJob] = useState(null);
 
   const active = clients.filter(c=>c.status==='Active').length;
@@ -966,7 +1015,7 @@ function Dashboard({ clients, jobs, team, onGoTo }) {
 
 /* ─── CLIENT DETAIL MODAL (tabbed + AI import) ────────────────────────────── */
 function ClientDetailModal({ client, jobs, onClose, onEdit, onSaveProfile }) {
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const [tab, setTab]               = useState('profile');
   const [importing, setImporting]   = useState(false);
   const [importPreview, setImportPreview] = useState(null);
@@ -1050,25 +1099,67 @@ Return ONLY valid JSON (no markdown, no explanation):
           model: 'claude-sonnet-4-20250514',
           max_tokens: 4000,
           messages: [{ role:'user', content:
-`Extract client data from this Australian immigration document and return ONLY valid JSON, no markdown.
+`You are an Australian immigration CRM assistant. Extract ALL data from this client snapshot document and return ONLY valid JSON with no markdown, no explanation.
 
 Document:
-${rawText.slice(0,8000)}
+${rawText.slice(0,10000)}
 
-Return this exact structure (use null for missing, keep English for field values):
+Return this EXACT structure (use null for missing fields, preserve original English text for values):
 {
-  "name":"","email":"","phone":"","nationality":"",
-  "profile":{
-    "sex":null,"dob":null,"birthplace":null,"passportNo":null,"passportExpiry":null,
-    "auAddress":null,"maritalStatus":null,"chinaId":null,
-    "visaHistory":[{"type":"","number":"","grantDate":"","expiry":""}],
-    "addressHistory":[{"from":"","to":"","address":""}],
-    "employmentHistory":[{"from":"","to":"","company":"","role":"","country":""}],
-    "character":{"form80":null,"afpCheck":null,"pcc":null},
-    "sponsor":{"name":null,"sex":null,"dob":null,"nationality":null,"passportNo":null,"address":null,"occupation":null,"priorMaritalStatus":null},
-    "marriage":{"date":null,"location":null,"registrationNo":null},
-    "keyIssues":[{"priority":"High","item":"","detail":""}],
-    "documents":[{"name":"","mainApplicant":"","sponsor":"","secondary":""}]
+  "name": "",
+  "email": "",
+  "phone": "",
+  "nationality": "",
+  "profile": {
+    "nameChinese": null,
+    "sex": null,
+    "dob": null,
+    "birthplace": null,
+    "passportNo": null,
+    "passportExpiry": null,
+    "auAddress": null,
+    "maritalStatus": null,
+    "chinaId": null,
+    "qq": null,
+    "eaFileNo": null,
+    "consultant": null,
+    "visaTarget": null,
+    "serviceAgreement": {
+      "contractDate": null,
+      "totalFee": null,
+      "payment1Amount": null,
+      "payment1Details": null,
+      "payment2Amount": null,
+      "payment2Details": null
+    },
+    "visaHistory": [
+      {"type": "", "number": "", "lodged": "", "grantDate": "", "expiry": null, "status": "Approved"}
+    ],
+    "skillsAssessments": [
+      {
+        "applicationId": "",
+        "occupation": "",
+        "submitted": "",
+        "furtherDocs": null,
+        "outcome": "",
+        "reason": null,
+        "appealDeadline": null
+      }
+    ],
+    "caseTimeline": [
+      {"date": "", "event": "", "status": "Completed"}
+    ],
+    "currentStatus": null,
+    "nextSteps": [
+      {"action": "", "details": "", "priority": "High"}
+    ],
+    "addressHistory": [],
+    "employmentHistory": [],
+    "character": {"form80": null, "afpCheck": null, "pcc": null},
+    "sponsor": null,
+    "marriage": null,
+    "keyIssues": [],
+    "documents": []
   }
 }` }] })
       });
@@ -1176,7 +1267,7 @@ Return this exact structure (use null for missing, keep English for field values
           </div>
 
           {/* ── 一、PERSONAL INFORMATION ────────────────── */}
-          <S icon="👤" title={`一、${t('PERSONAL INFORMATION')}`}>
+          <S icon="👤" title={`${lang==='zh'?'':'1. '}${t('PERSONAL INFORMATION')}`}>
             <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8 }}>
               <Field label={t('Full Name')}       value={client.name} />
               <Field label={t('Gender')}          value={p.sex} />
@@ -1197,8 +1288,7 @@ Return this exact structure (use null for missing, keep English for field values
           </S>
 
           {/* ── 二、SERVICE AGREEMENT ───────────────────── */}
-          {(p.serviceAgreement?.contractDate || p.serviceAgreement?.totalFee || p.visaTarget) && (
-            <S icon="📄" title={`二、${t('SERVICE AGREEMENT')}`}>
+          <S icon="📄" title={`${lang==='zh'?'':'2. '}${t('SERVICE AGREEMENT')}`}>
               <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8, marginBottom:10 }}>
                 <Field label={t('Visa Target')}    value={p.visaTarget || p.serviceAgreement?.visaTarget} />
                 <Field label={t('Contract Date')}  value={p.serviceAgreement?.contractDate} />
@@ -1225,10 +1315,9 @@ Return this exact structure (use null for missing, keep English for field values
                 />
               )}
             </S>
-          )}
 
           {/* ── 三、VISA HISTORY ────────────────────────── */}
-          <S icon="🛂" title={`三、${t('VISA HISTORY')}`}>
+          <S icon="🛂" title={`${lang==='zh'?'':'3. '}${t('VISA HISTORY')}`}>
             {(p.visaHistory||[]).length === 0
               ? <div style={{ fontSize:12, color:'#9ca3af', padding:'8px 0' }}>{t('No records')}</div>
               : <Table
@@ -1242,8 +1331,10 @@ Return this exact structure (use null for missing, keep English for field values
           </S>
 
           {/* ── 四、SKILLS ASSESSMENT ───────────────────── */}
-          {(p.skillsAssessments||[]).length > 0 && (
-            <S icon="📊" title={`四、${t('SKILLS ASSESSMENT')}`}>
+          <S icon="📊" title={`${lang==='zh'?'':'4. '}${t('SKILLS ASSESSMENT')}`}>
+              {(p.skillsAssessments||[]).length === 0 && (
+                <div style={{ fontSize:12, color:'#9ca3af', padding:'8px 0' }}>{t('No records')}</div>
+              )}
               {(p.skillsAssessments||[]).map((sa, idx) => {
                 const isUnsuc = sa.outcome?.toLowerCase().includes('unsuccessful') || sa.outcome?.toLowerCase().includes('不通过');
                 const outColor = sa.outcome ? (isUnsuc ? '#ef4444' : '#16a34a') : '#6b7280';
@@ -1265,12 +1356,13 @@ Return this exact structure (use null for missing, keep English for field values
                 );
               })}
             </S>
-          )}
 
           {/* ── 五、CASE TIMELINE ───────────────────────── */}
-          {(p.caseTimeline||[]).length > 0 && (
-            <S icon="📅" title={`五、${t('CASE TIMELINE')}`}>
-              <div style={{ position:'relative', paddingLeft:20 }}>
+          <S icon="📅" title={`${lang==='zh'?'':'5. '}${t('CASE TIMELINE')}`}>
+              {(p.caseTimeline||[]).length === 0 && (
+                <div style={{ fontSize:12, color:'#9ca3af', padding:'8px 0' }}>{t('No records')}</div>
+              )}
+              {(p.caseTimeline||[]).length > 0 && <div style={{ position:'relative', paddingLeft:20 }}>
                 <div style={{ position:'absolute', left:7, top:8, bottom:8, width:2, background:'linear-gradient(to bottom, #6366f1, #e5e7eb)', borderRadius:2 }} />
                 {(p.caseTimeline||[]).map((ev, i) => {
                   const stCol = ev.status==='Completed'?'#16a34a':ev.status==='Failed'?'#dc2626':ev.status==='Urgent'?'#d97706':ev.status==='Maintained'?'#dc2626':'#6366f1';
@@ -1287,13 +1379,11 @@ Return this exact structure (use null for missing, keep English for field values
                     </div>
                   );
                 })}
-              </div>
+              </div>}
             </S>
-          )}
 
           {/* ── 六、CURRENT STATUS & NEXT STEPS ──────────── */}
-          {(p.currentStatus || (p.nextSteps||[]).length > 0) && (
-            <S icon="⚡" title={`六、${t('CURRENT STATUS & NEXT STEPS')}`}>
+          <S icon="⚡" title={`${lang==='zh'?'':'6. '}${t('CURRENT STATUS & NEXT STEPS')}`}>
               {p.currentStatus && (
                 <div style={{ background:'#fef2f2', border:'1px solid #fecaca', borderRadius:10, padding:'12px 16px', marginBottom:12 }}>
                   <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
@@ -1302,6 +1392,9 @@ Return this exact structure (use null for missing, keep English for field values
                   </div>
                   <div style={{ fontSize:13, color:'#7f1d1d', lineHeight:1.6 }}>{p.currentStatus}</div>
                 </div>
+              )}
+              {!p.currentStatus && (p.nextSteps||[]).length === 0 && (
+                <div style={{ fontSize:12, color:'#9ca3af', padding:'8px 0' }}>{t('No records')}</div>
               )}
               {(p.nextSteps||[]).length > 0 && (
                 <div>
@@ -1321,22 +1414,12 @@ Return this exact structure (use null for missing, keep English for field values
                 </div>
               )}
             </S>
-          )}
 
           {/* ── 七、NOTES ───────────────────────────────── */}
-          <S icon="📝" title={`七、${t('NOTES')}`}>
+          <S icon="📝" title={`${lang==='zh'?'':'7. '}${t('NOTES')}`}>
             <NotesPanel notes={normalizeNotes(client.notes)} onAddNote={(text) => onSaveProfile({...client, notes:[makeNote(text),...normalizeNotes(client.notes)]})} onDeleteNote={(nid)=>onSaveProfile({...client,notes:normalizeNotes(client.notes).filter(n=>n.id!==nid)})} />
           </S>
 
-          {/* empty state */}
-          {!p.dob && !p.passportNo && !(p.visaHistory?.length) && !(p.skillsAssessments?.length) && !(p.caseTimeline?.length) && (
-            <div style={{ textAlign:'center', padding:'30px 20px', color:'#9ca3af', background:'#f9fafb', borderRadius:12, border:'2px dashed #e5e7eb' }}>
-              <div style={{ fontSize:32, marginBottom:10 }}>📥</div>
-              <div style={{ fontSize:14, fontWeight:600, color:'#6b7280', marginBottom:6 }}>No detailed profile yet</div>
-              <div style={{ fontSize:12, marginBottom:14 }}>Import a document or fill in manually via Edit</div>
-              <button onClick={()=>setTab('import')} style={{ padding:'9px 18px', background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, color:'#fff', fontWeight:700, fontSize:13, cursor:'pointer' }}>📥 Import Document →</button>
-            </div>
-          )}
         </div>
       )}
 
@@ -1591,6 +1674,7 @@ Return this exact structure (use null for missing, keep English for field values
 /* ─── CLIENTS ────────────────────────────────────────────────────────────────── */
 function Clients({ clients, jobs, setClients }) {
   const { t } = useLang(); // eslint-disable-line no-unused-vars
+  const { confirm: deleteConfirm, dialog: confirmDialog } = useConfirm();
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState('All');
   const [filterStatus, setFilterStatus] = useState('All');
@@ -1631,7 +1715,8 @@ function Clients({ clients, jobs, setClients }) {
   };
 
   const del = async (id) => {
-    if (window.confirm('Delete this client?')) {
+    const ok = await deleteConfirm('Delete Client', 'This will permanently delete this client and cannot be undone.');
+    if (ok) {
       setClients(prev=>prev.filter(c=>c.id!==id));
       try { await sbDelete('clients', id); } catch(e) { console.warn('Delete error:', e); }
     }
@@ -1772,6 +1857,7 @@ function Clients({ clients, jobs, setClients }) {
           </div>
         </Modal>
       )}
+      {confirmDialog}
       {viewClient && (
         <ClientDetailModal
           client={viewClient}
@@ -1791,7 +1877,8 @@ function Clients({ clients, jobs, setClients }) {
 
 /* ─── JOBS ────────────────────────────────────────────────────────────────────── */
 function Jobs({ jobs, clients, team, setJobs }) {
-  const { t } = useLang(); // eslint-disable-line no-unused-vars
+  const { t, lang } = useLang(); // eslint-disable-line no-unused-vars
+  const { confirm: deleteConfirm, dialog: confirmDialog } = useConfirm();
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('All');
   const [filterAssigned, setFilterAssigned] = useState('All');
@@ -1835,7 +1922,8 @@ function Jobs({ jobs, clients, team, setJobs }) {
   };
 
   const del = async (id) => {
-    if(window.confirm('Delete this job?')) {
+    const ok = await deleteConfirm('Delete Job', 'This will permanently delete this job and cannot be undone.');
+    if(ok) {
       setJobs(prev=>prev.filter(j=>j.id!==id));
       try { await sbDelete('jobs', id); } catch(e) { console.warn('Delete error:', e); }
     }
@@ -1898,8 +1986,9 @@ function Jobs({ jobs, clients, team, setJobs }) {
             );
           })}
         </div>
-        {modal && (
-          <Modal title={modal==='add'?'New Job':'Edit Job'} onClose={closeModal} wide>
+      {confirmDialog}
+      {modal && (
+        <Modal title={modal==='add'?'New Job':'Edit Job'} onClose={closeModal} wide>
                 <>
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
         <FormField label="Job Title" required>
