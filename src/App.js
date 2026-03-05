@@ -583,11 +583,17 @@ function Avatar({ name, color, size=32 }) {
   );
 }
 
-function ProgressBar({ value }) {
-  const color = value >= 100 ? '#10b981' : value >= 60 ? '#6366f1' : value >= 30 ? '#f59e0b' : '#fb923c';
+const STATUS_PROGRESS = {
+  'New': 5, 'In Progress': 40, 'Awaiting Docs': 25,
+  'Under Review': 70, 'Awaiting Decision': 100, 'Completed': 100, 'On Hold': 15,
+};
+
+function ProgressBar({ value, status }) {
+  const pct = status ? (STATUS_PROGRESS[status] ?? value ?? 0) : (value ?? 0);
+  const color = pct >= 100 ? '#10b981' : pct >= 70 ? '#6366f1' : pct >= 40 ? '#f59e0b' : '#fb923c';
   return (
     <div style={{ height:4, borderRadius:4, background:'#1e293b', overflow:'hidden' }}>
-      <div style={{ height:'100%', width:`${Math.min(value, 100)}%`, background:color, borderRadius:4, transition:'width 0.3s ease' }} />
+      <div style={{ height:'100%', width:`${Math.min(pct, 100)}%`, background:color, borderRadius:4, transition:'width 0.3s ease' }} />
     </div>
   );
 }
@@ -894,7 +900,7 @@ function Dashboard({ clients, jobs, team, onGoTo }) {
                     <StatusBadge status={j.status} small />
                   </div>
                   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                    <div style={{ flex:1 }}><ProgressBar value={j.progress} /></div>
+                    <div style={{ flex:1 }}><ProgressBar value={j.progress} status={j.status} status={j.status} /></div>
                     {member && <div style={{ display:'flex', alignItems:'center', gap:5, marginLeft:10, flexShrink:0 }}><Avatar name={member.name} color={member.color} size={20} /><span style={{ fontSize:11, color:'#1f2937' }}>{member.name.split(' ')[0]}</span></div>}
                   </div>
                 </div>
@@ -1020,7 +1026,7 @@ function Dashboard({ clients, jobs, team, onGoTo }) {
 
 
 /* ─── CLIENT DETAIL MODAL (tabbed + AI import) ────────────────────────────── */
-function ClientDetailModal({ client, jobs, onClose, onEdit, onSaveProfile }) {
+function ClientDetailModal({ client, jobs, setJobs, team, onClose, onEdit, onSaveProfile }) {
   const { t } = useLang();
   const [tab, setTab]               = useState('profile');
   const [importing, setImporting]   = useState(false);
@@ -1028,6 +1034,8 @@ function ClientDetailModal({ client, jobs, onClose, onEdit, onSaveProfile }) {
   const [applyMsg, setApplyMsg]     = useState('');
   const fileRef                     = useRef(null);
   const [contractBusy, setContractBusy] = useState(false);
+  const [quickJob, setQuickJob]         = useState(false);
+  const [qform, setQform]               = useState({});
 
   const handleGenerateContract = async () => {
     try {
@@ -1420,18 +1428,61 @@ Return this exact structure (use null for missing fields, keep English for value
       {/* ── JOBS TAB ─────────────────────────────────────── */}
       {/* ── JOBS TAB ─────────────────────────────────────── */}
       {tab === 'jobs' && (
-        <div style={{ maxHeight:'65vh', overflowY:'auto' }}>
-          {clientJobs.length === 0
-            ? <div style={{ color:'#1f2937', fontSize:14, padding:20, textAlign:'center' }}>No jobs assigned yet.</div>
+        <div>
+          {/* Header with Add button */}
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
+            <span style={{ fontSize:13, color:'#374151', fontWeight:600 }}>{clientJobs.length} 个案件</span>
+            <button onClick={() => { setQform({ title:'', type:'Subclass 500 – Student Visa', clientId:client.id, assignedTo:team[0]?.id||'', status:'New', priority:'Medium', dueDate:'', progress:0 }); setQuickJob(true); }}
+              style={{ padding:'6px 14px', background:'linear-gradient(135deg,#4f46e5,#7c3aed)', border:'none', borderRadius:7, color:'#fff', fontSize:12, fontWeight:600, cursor:'pointer' }}>
+              + 新建案件
+            </button>
+          </div>
+
+          {/* Quick create form */}
+          {quickJob && (
+            <div style={{ background:'#f8fafc', border:'1.5px solid #6366f130', borderRadius:10, padding:'14px 16px', marginBottom:14 }}>
+              <div style={{ fontSize:12, fontWeight:700, color:'#4f46e5', marginBottom:12, textTransform:'uppercase', letterSpacing:'0.07em' }}>新建案件</div>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:10 }}>
+                <input style={{ ...inputStyle, fontSize:13 }} placeholder="案件标题 *" value={qform.title||''} onChange={e=>setQform(f=>({...f,title:e.target.value}))} />
+                <select style={{ ...selectStyle, fontSize:13 }} value={qform.type} onChange={e=>setQform(f=>({...f,type:e.target.value}))}>
+                  {JOB_TYPES.map(t=><option key={t}>{t}</option>)}
+                </select>
+                <select style={{ ...selectStyle, fontSize:13 }} value={qform.assignedTo} onChange={e=>setQform(f=>({...f,assignedTo:e.target.value}))}>
+                  {team.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}
+                </select>
+                <select style={{ ...selectStyle, fontSize:13 }} value={qform.status} onChange={e=>setQform(f=>({...f,status:e.target.value}))}>
+                  {JOB_STATUSES.map(s=><option key={s}>{s}</option>)}
+                </select>
+                <select style={{ ...selectStyle, fontSize:13 }} value={qform.priority} onChange={e=>setQform(f=>({...f,priority:e.target.value}))}>
+                  {PRIORITIES.map(p=><option key={p}>{p}</option>)}
+                </select>
+                <input type="date" style={{ ...inputStyle, fontSize:13 }} value={qform.dueDate||''} onChange={e=>setQform(f=>({...f,dueDate:e.target.value}))} />
+              </div>
+              <div style={{ display:'flex', gap:8, justifyContent:'flex-end' }}>
+                <button onClick={() => setQuickJob(false)} style={{ padding:'7px 16px', background:'#f1f5f9', border:'1.5px solid #cbd5e1', borderRadius:7, color:'#374151', fontSize:12 }}>取消</button>
+                <button onClick={async () => {
+                  if (!qform.title?.trim()) return;
+                  const newJob = { ...qform, id: 'j'+uid(), createdAt: new Date().toISOString(), progress: 0 };
+                  setJobs(prev => [...prev, newJob]);
+                  try { await sbInsert('jobs', { id: newJob.id, data: newJob }); } catch(e) { console.warn(e); }
+                  setQuickJob(false);
+                }} style={{ padding:'7px 16px', background:'linear-gradient(135deg,#4f46e5,#7c3aed)', border:'none', borderRadius:7, color:'#fff', fontSize:12, fontWeight:600 }}>保存案件</button>
+              </div>
+            </div>
+          )}
+
+          {/* Jobs list */}
+          {clientJobs.length === 0 && !quickJob
+            ? <div style={{ color:'#374151', fontSize:14, padding:'20px 0', textAlign:'center' }}>暂无关联案件，点击"新建案件"开始。</div>
             : clientJobs.map(j => (
-              <div key={j.id} style={{ background:'#ffffff', borderRadius:10, padding:'13px 16px', border:'1.5px solid #cbd5e1', marginBottom:10 }}>
+              <div key={j.id} style={{ background:'#ffffff', borderRadius:10, padding:'13px 16px', border:'1.5px solid #cbd5e1', marginBottom:8 }}>
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
                   <span style={{ fontSize:14, fontWeight:600, color:'#111827' }}>{j.title}</span>
                   <StatusBadge status={j.status} />
                 </div>
-                <div style={{ fontSize:12, color:'#1f2937', marginBottom:8 }}>{j.type} · Due {fmtDate(j.dueDate)||'—'}</div>
-                <ProgressBar value={j.progress} />
-                {j.priority && <PriorityBadge priority={j.priority} />}
+                <div style={{ fontSize:12, color:'#374151', marginBottom:8 }}>{j.type} · Due {fmtDate(j.dueDate)||'—'}</div>
+                <ProgressBar value={j.progress} status={j.status} />
+                {j.priority && <div style={{marginTop:6}}><PriorityBadge priority={j.priority} /></div>}
               </div>
             ))
           }
@@ -1675,7 +1726,7 @@ Return this exact structure (use null for missing fields, keep English for value
 }
 
 /* ─── CLIENTS ────────────────────────────────────────────────────────────────── */
-function Clients({ clients, jobs, setClients }) {
+function Clients({ clients, jobs, setClients, setJobs, team }) {
   const { t } = useLang(); // eslint-disable-line no-unused-vars
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState('All');
@@ -1875,6 +1926,8 @@ function Clients({ clients, jobs, setClients }) {
         <ClientDetailModal
           client={viewClient}
           jobs={jobs}
+          setJobs={setJobs}
+          team={team}
           onClose={() => setViewClient(null)}
           onEdit={() => { setViewClient(null); openEdit(viewClient); }}
           onSaveProfile={async (merged) => {
@@ -1899,6 +1952,10 @@ function Jobs({ jobs, clients, team, setJobs }) {
   const [modal, setModal] = useState(null);
   const [form, setForm] = useState({});
   const [viewJob, setViewJob] = useState(null);
+  const [clientSearch, setClientSearch] = useState('');
+  const [clientDropOpen, setClientDropOpen] = useState(false);
+  const sortedClients = [...clients].sort((a,b) => a.name.localeCompare(b.name));
+
   // doc checks handled via form.docs directly
 
   const getClient = id => clients.find(c=>c.id===id);
@@ -1916,7 +1973,7 @@ function Jobs({ jobs, clients, team, setJobs }) {
   });
 
   const openAdd = () => { setForm({ title:'', type:'Subclass 500 – Student Visa', clientId: clients[0]?.id||'', assignedTo: team[0]?.id||'', status:'New', priority:'Medium', dueDate:'', notes:[], progress:0, createdAt:today() }); setModal('add'); };
-  const openEdit = (j) => { setForm({ ...j, notes: normalizeNotes(j.notes) }); setModal(j); };
+  const openEdit = (j) => { setClientSearch(clients.find(c=>c.id===j.clientId)?.name||''); setForm({ ...j, notes: normalizeNotes(j.notes) }); setClientSearch(sortedClients[0]?.name||''); setModal(j); };
   const closeModal = () => setModal(null);
 
   const save = async () => {
@@ -1980,7 +2037,7 @@ function Jobs({ jobs, clients, team, setJobs }) {
                         onMouseLeave={e=>e.currentTarget.style.borderColor='#e5e7eb'}>
                         <div style={{ fontSize:13, fontWeight:600, color:'#111827', marginBottom:5 }}>{j.title}</div>
                         <div style={{ fontSize:11, color:'#1f2937', marginBottom:8 }}>{client?.name} · {j.type}</div>
-                        <ProgressBar value={j.progress} />
+                        <ProgressBar value={j.progress} status={j.status} />
                         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:10 }}>
                           <PriorityBadge priority={j.priority} />
                           <div style={{ display:'flex', alignItems:'center', gap:6 }}>
@@ -2010,9 +2067,37 @@ function Jobs({ jobs, clients, team, setJobs }) {
           </select>
         </FormField>
         <FormField label="Client" required>
-          <select style={selectStyle} value={form.clientId} onChange={e=>setForm(f=>({...f,clientId:e.target.value}))}>
-            {clients.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
+          <div style={{ position:'relative' }}>
+            <input
+              style={{ ...inputStyle, paddingRight:28 }}
+              placeholder="Search client name..."
+              value={clientSearch}
+              onChange={e => {
+                setClientSearch(e.target.value);
+                const match = sortedClients.find(c => c.name.toLowerCase().startsWith(e.target.value.toLowerCase()));
+                if (match) setForm(f => ({...f, clientId: match.id}));
+              }}
+              onFocus={() => setClientDropOpen(true)}
+              onBlur={() => setTimeout(() => setClientDropOpen(false), 150)}
+            />
+            {clientDropOpen && (
+              <div style={{ position:'absolute', top:'100%', left:0, right:0, background:'#fff', border:'1.5px solid #cbd5e1', borderRadius:8, boxShadow:'0 8px 24px rgba(0,0,0,0.12)', zIndex:50, maxHeight:200, overflowY:'auto', marginTop:2 }}>
+                {sortedClients
+                  .filter(c => !clientSearch || c.name.toLowerCase().includes(clientSearch.toLowerCase()))
+                  .map(c => (
+                    <div key={c.id}
+                      onMouseDown={() => { setForm(f=>({...f,clientId:c.id})); setClientSearch(c.name); setClientDropOpen(false); }}
+                      style={{ padding:'8px 13px', fontSize:13, color:'#111827', cursor:'pointer', background: form.clientId===c.id ? '#eef2ff' : 'transparent', fontWeight: form.clientId===c.id ? 600 : 400 }}
+                      onMouseEnter={e => e.currentTarget.style.background='#f5f7ff'}
+                      onMouseLeave={e => e.currentTarget.style.background = form.clientId===c.id ? '#eef2ff' : 'transparent'}
+                    >
+                      {c.name}
+                    </div>
+                  ))
+                }
+              </div>
+            )}
+          </div>
         </FormField>
         <FormField label="Assign To">
           <select style={selectStyle} value={form.assignedTo} onChange={e=>setForm(f=>({...f,assignedTo:e.target.value}))}>
@@ -2160,7 +2245,7 @@ function Jobs({ jobs, clients, team, setJobs }) {
                 <div style={{ display:'flex', alignItems:'center', gap:10, flexShrink:0 }}>
                   <div style={{ width:120 }}>
                     <div style={{ fontSize:11, color:'#1f2937', marginBottom:4, textAlign:'right' }}>{j.progress}%</div>
-                    <ProgressBar value={j.progress} />
+                    <ProgressBar value={j.progress} status={j.status} />
                   </div>
                   <StatusBadge status={j.status} small />
                   {jnotes.length > 0 && <span style={{ fontSize:12, color:'#6366f1', background:'#eef2ff', borderRadius:10, padding:'2px 8px' }}>📝 {jnotes.length}</span>}
@@ -2194,9 +2279,37 @@ function Jobs({ jobs, clients, team, setJobs }) {
           </select>
         </FormField>
         <FormField label="Client" required>
-          <select style={selectStyle} value={form.clientId} onChange={e=>setForm(f=>({...f,clientId:e.target.value}))}>
-            {clients.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
+          <div style={{ position:'relative' }}>
+            <input
+              style={{ ...inputStyle, paddingRight:28 }}
+              placeholder="Search client name..."
+              value={clientSearch}
+              onChange={e => {
+                setClientSearch(e.target.value);
+                const match = sortedClients.find(c => c.name.toLowerCase().startsWith(e.target.value.toLowerCase()));
+                if (match) setForm(f => ({...f, clientId: match.id}));
+              }}
+              onFocus={() => setClientDropOpen(true)}
+              onBlur={() => setTimeout(() => setClientDropOpen(false), 150)}
+            />
+            {clientDropOpen && (
+              <div style={{ position:'absolute', top:'100%', left:0, right:0, background:'#fff', border:'1.5px solid #cbd5e1', borderRadius:8, boxShadow:'0 8px 24px rgba(0,0,0,0.12)', zIndex:50, maxHeight:200, overflowY:'auto', marginTop:2 }}>
+                {sortedClients
+                  .filter(c => !clientSearch || c.name.toLowerCase().includes(clientSearch.toLowerCase()))
+                  .map(c => (
+                    <div key={c.id}
+                      onMouseDown={() => { setForm(f=>({...f,clientId:c.id})); setClientSearch(c.name); setClientDropOpen(false); }}
+                      style={{ padding:'8px 13px', fontSize:13, color:'#111827', cursor:'pointer', background: form.clientId===c.id ? '#eef2ff' : 'transparent', fontWeight: form.clientId===c.id ? 600 : 400 }}
+                      onMouseEnter={e => e.currentTarget.style.background='#f5f7ff'}
+                      onMouseLeave={e => e.currentTarget.style.background = form.clientId===c.id ? '#eef2ff' : 'transparent'}
+                    >
+                      {c.name}
+                    </div>
+                  ))
+                }
+              </div>
+            )}
+          </div>
         </FormField>
         <FormField label="Assign To">
           <select style={selectStyle} value={form.assignedTo} onChange={e=>setForm(f=>({...f,assignedTo:e.target.value}))}>
@@ -3803,7 +3916,7 @@ function App() {
                 <Dashboard clients={clients} jobs={jobs} team={team} onGoTo={setView} />
               </>
             )}
-            {view === 'clients'   && <Clients   clients={clients} jobs={jobs} setClients={setClients} />}
+            {view === 'clients'   && <Clients   clients={clients} jobs={jobs} setClients={setClients} setJobs={setJobs} team={team} />}
             {view === 'jobs'      && <Jobs       jobs={jobs} clients={clients} team={team} setJobs={setJobs} />}
             {view === 'team'      && isManager && <Team       team={team} jobs={jobs} clients={clients} setTeam={setTeam} />}
             {view === 'leads'     && <Leads      leads={leads} setLeads={setLeads} clients={clients} setClients={setClients} jobs={jobs} setJobs={setJobs} team={team} agents={agents} />}
