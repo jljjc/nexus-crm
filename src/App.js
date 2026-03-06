@@ -403,7 +403,8 @@ const JOB_TYPES = [
   // Support Services
   'Enrollment Support',
   'Scholarship Application',
-  'Other',
+  'ART Appeal',  
+'Other',
 ];
 const PRIORITIES = ['Low', 'Medium', 'High', 'Urgent'];
 const CLIENT_TYPES = ['Student', 'Migration', 'Both'];
