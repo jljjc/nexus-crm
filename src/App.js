@@ -1130,9 +1130,9 @@ Return ONLY valid JSON (no markdown, no explanation):
 `Extract client data from this Australian immigration document and return ONLY valid JSON, no markdown.
 
 Document:
-${rawText.slice(0,8000)}
+${rawText.slice(0,10000)}
 
-Return this exact structure (use null for missing fields, keep English for values):
+Return this exact structure (use null for missing fields, keep English for field values unless the original is Chinese):
 {
   "name":"","nameChinese":"","email":"","phone":"","nationality":"","type":"Migration",
   "profile":{
@@ -1147,9 +1147,21 @@ Return this exact structure (use null for missing fields, keep English for value
     "marriage":{"date":null,"location":null,"registrationNo":null},
     "keyIssues":[{"priority":"High","item":"","detail":""}],
     "documents":[{"name":"","mainApplicant":"","sponsor":"","secondary":""}],
-    "serviceAgreement":{"visaTarget":null,"contractDate":null,"totalFee":null}
+    "serviceAgreement":{"visaTarget":null,"contractDate":null,"totalFee":null,"payment1Amount":null,"payment1Detail":null,"payment2Amount":null,"payment2Detail":null},
+    "skillsAssessments":[{"appId":"","occupation":"","body":"","lodgeDate":"","outcome":"Pending","rejectReason":null,"reviewApp":null,"appealDeadline":null}],
+    "caseTimeline":[{"date":"","event":"","status":"Completed"}],
+    "currentStatus":null,
+    "nextSteps":[]
   }
-}` }] })
+}
+
+IMPORTANT EXTRACTION RULES:
+- 四、职业评估 / SKILLS ASSESSMENT → extract into skillsAssessments array (one entry per application)
+- 五、大事记 / CASE TIMELINE → extract ALL timeline rows into caseTimeline array; status values: "Completed"/"In Progress"/"Urgent"/"Pending"
+- 六、当前状态 / CURRENT STATUS → extract summary text into currentStatus, bullet points into nextSteps array
+- For visaHistory: extract ALL visa rows including TRA PSA entries
+- Skip rows with only dashes/empty data
+- Return [] for arrays with no data, not null` }] })
       });
       const d = await res.json();
       const txt = (d.content?.[0]?.text || '').replace(/```json|```/g,'').trim();
@@ -1899,6 +1911,50 @@ ${rawText.slice(0,5000)}` }]
                   </div>
                 ) : null)}
               </div>
+
+              {/* ── 四、Skills Assessment preview ── */}
+              {(importPreview.profile?.skillsAssessments||[]).filter(s=>s.appId||s.occupation).length > 0 && (
+                <div style={{ marginBottom:14 }}>
+                  <div style={{ fontSize:11, color:'#6366f1', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:8, fontWeight:700 }}>📊 四、职业评估 ({importPreview.profile.skillsAssessments.filter(s=>s.appId||s.occupation).length} entries)</div>
+                  {importPreview.profile.skillsAssessments.filter(s=>s.appId||s.occupation).map((sa,i) => (
+                    <div key={i} style={{ background:'#f9fafb', borderRadius:7, padding:'8px 12px', border:'1px solid #e5e7eb', marginBottom:6, fontSize:12, color:'#374151' }}>
+                      <div style={{ fontWeight:600, color:'#111827' }}>{sa.occupation || '—'} {sa.appId ? `(ID: ${sa.appId})` : ''}</div>
+                      <div style={{ marginTop:2 }}>Lodge: {sa.lodgeDate||'—'} · Outcome: <span style={{ fontWeight:700, color: sa.outcome==='Pending'?'#d97706':'#16a34a' }}>{sa.outcome||'—'}</span></div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* ── 五、Case Timeline preview ── */}
+              {(importPreview.profile?.caseTimeline||[]).filter(e=>e.event).length > 0 && (
+                <div style={{ marginBottom:14 }}>
+                  <div style={{ fontSize:11, color:'#6366f1', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:8, fontWeight:700 }}>📅 五、大事记 ({importPreview.profile.caseTimeline.filter(e=>e.event).length} events)</div>
+                  <div style={{ maxHeight:160, overflowY:'auto', display:'flex', flexDirection:'column', gap:4 }}>
+                    {importPreview.profile.caseTimeline.filter(e=>e.event).map((ev,i) => {
+                      const col = ev.status==='Completed'?'#16a34a':ev.status==='Urgent'?'#dc2626':'#6366f1';
+                      return (
+                        <div key={i} style={{ background:'#f9fafb', borderRadius:7, padding:'7px 11px', border:'1px solid #e5e7eb', display:'flex', justifyContent:'space-between', alignItems:'center', gap:8 }}>
+                          <div style={{ fontSize:12, color:'#374151' }}><span style={{ fontWeight:600, color:'#111827' }}>{ev.date||'—'}</span> · {ev.event}</div>
+                          <span style={{ fontSize:10, fontWeight:700, color:col, background:col+'15', padding:'2px 7px', borderRadius:10, flexShrink:0 }}>{ev.status}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* ── 六、Current Status preview ── */}
+              {(importPreview.profile?.currentStatus || (importPreview.profile?.nextSteps||[]).length > 0) && (
+                <div style={{ marginBottom:14 }}>
+                  <div style={{ fontSize:11, color:'#6366f1', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:8, fontWeight:700 }}>⚡ 六、当前状态</div>
+                  {importPreview.profile.currentStatus && (
+                    <div style={{ background:'#fff7ed', borderRadius:7, padding:'8px 12px', border:'1px solid #fed7aa', fontSize:12, color:'#92400e', marginBottom:6, lineHeight:1.5 }}>{importPreview.profile.currentStatus}</div>
+                  )}
+                  {(importPreview.profile.nextSteps||[]).map((s,i) => (
+                    <div key={i} style={{ background:'#f0fdf4', borderRadius:7, padding:'6px 10px', border:'1px solid #86efac', fontSize:12, color:'#14532d', marginBottom:4 }}>→ {s}</div>
+                  ))}
+                </div>
+              )}
 
               {importPreview.profile?.keyIssues?.length > 0 && (
                 <div style={{ marginBottom:14 }}>
