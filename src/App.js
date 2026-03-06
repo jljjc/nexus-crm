@@ -2764,7 +2764,7 @@ ${rawText.slice(0,5000)}` }]
                 })
               });
               const d = await res.json();
-              const txt = (d.content?.[0]?.text||'').replace(/\`\`\`json|\`\`\`/g,'').trim();
+              const txt = (d.content?.[0]?.text||'').replace(/```json|```/g,'').trim();
               const parsed = JSON.parse(txt);
               const updated = { ...viewJob, ...(parsed.snapshot?{snapshot:parsed.snapshot}:{}), ...(parsed.caseTimeline?.length?{caseTimeline:parsed.caseTimeline}:{}) };
               setViewJob(updated); setJobs(prev=>prev.map(j=>j.id===viewJob.id?updated:j));
