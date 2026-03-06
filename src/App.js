@@ -1033,6 +1033,8 @@ function ClientDetailModal({ client, jobs, setJobs, team, onClose, onEdit, onSav
   const fileRef                     = useRef(null);
   const [contractBusy, setContractBusy] = useState(false);
   const [quickJob, setQuickJob]         = useState(false);
+  const [editingJob, setEditingJob]     = useState(null);
+  const [jobForm, setJobForm]           = useState({});
   const [qform, setQform]               = useState({});
   const [viewJob, setViewJob]           = useState(null); // case detail from client tab
 
@@ -1611,11 +1613,66 @@ ${rawText.slice(0,5000)}` }]
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
                 <div style={{ display:'flex', gap:8 }}><StatusBadge status={viewJob.status} /><PriorityBadge priority={viewJob.priority} /></div>
                 <button onClick={()=>setViewJob(null)} style={{ padding:'8px 16px', background:'#f1f5f9', border:'1.5px solid #cbd5e1', borderRadius:8, color:'#374151', fontSize:13 }}>关闭</button>
+                <button onClick={()=>{ setJobForm({...viewJob}); setEditingJob(viewJob); }} style={{ padding:'8px 18px', background:'linear-gradient(135deg,#4f46e5,#7c3aed)', border:'none', borderRadius:8, color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer' }}>✏️ 编辑案件</button>
               </div>
             </div>
           </Modal>
         );
       })()}
+
+      {/* ── INLINE JOB EDIT MODAL ── */}
+      {editingJob && (
+        <Modal title={`编辑案件: ${editingJob.title}`} onClose={()=>setEditingJob(null)} wide>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:14 }}>
+            <div>
+              <label style={{ fontSize:11, fontWeight:700, color:'#374151', textTransform:'uppercase', letterSpacing:'0.07em', display:'block', marginBottom:5 }}>状态</label>
+              <select value={jobForm.status||''} onChange={e=>setJobForm(f=>({...f,status:e.target.value}))} style={{ width:'100%', background:'#fff', border:'2px solid #c7d2e0', borderRadius:8, padding:'8px 10px', fontSize:13, color:'#111827', outline:'none' }}>
+                {['Preparing','Submitted','In Review','Awaiting Decision','Approved','Refused','Withdrawn','Completed'].map(s=><option key={s}>{s}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={{ fontSize:11, fontWeight:700, color:'#374151', textTransform:'uppercase', letterSpacing:'0.07em', display:'block', marginBottom:5 }}>优先级</label>
+              <select value={jobForm.priority||''} onChange={e=>setJobForm(f=>({...f,priority:e.target.value}))} style={{ width:'100%', background:'#fff', border:'2px solid #c7d2e0', borderRadius:8, padding:'8px 10px', fontSize:13, color:'#111827', outline:'none' }}>
+                {['Low','Medium','High','Urgent'].map(p=><option key={p}>{p}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={{ fontSize:11, fontWeight:700, color:'#374151', textTransform:'uppercase', letterSpacing:'0.07em', display:'block', marginBottom:5 }}>截止日期</label>
+              <input type="date" value={jobForm.dueDate?.slice(0,10)||''} onChange={e=>setJobForm(f=>({...f,dueDate:e.target.value}))} style={{ width:'100%', background:'#fff', border:'2px solid #c7d2e0', borderRadius:8, padding:'8px 10px', fontSize:13, color:'#111827', outline:'none', boxSizing:'border-box' }} />
+            </div>
+            <div>
+              <label style={{ fontSize:11, fontWeight:700, color:'#374151', textTransform:'uppercase', letterSpacing:'0.07em', display:'block', marginBottom:5 }}>负责人</label>
+              <select value={jobForm.assignedTo||''} onChange={e=>setJobForm(f=>({...f,assignedTo:e.target.value}))} style={{ width:'100%', background:'#fff', border:'2px solid #c7d2e0', borderRadius:8, padding:'8px 10px', fontSize:13, color:'#111827', outline:'none' }}>
+                <option value="">— 未分配 —</option>
+                {team.map(m=><option key={m.id} value={m.id}>{m.name}</option>)}
+              </select>
+            </div>
+          </div>
+          {(DOC_CHECKLISTS[editingJob.type]||[]).length > 0 && (
+            <div style={{ marginBottom:14 }}>
+              <div style={{ fontSize:11, fontWeight:700, color:'#374151', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:6 }}>材料清单</div>
+              <div style={{ background:'#f9fafb', borderRadius:8, padding:'8px 10px', border:'1.5px solid #e2e8f0' }}>
+                {(DOC_CHECKLISTS[editingJob.type]||[]).map(doc=>(
+                  <label key={doc} style={{ display:'flex', alignItems:'center', gap:8, padding:'5px 4px', cursor:'pointer' }}>
+                    <input type="checkbox" checked={!!(jobForm.docs||{})[doc]} onChange={e=>setJobForm(f=>({...f,docs:{...(f.docs||{}),[doc]:e.target.checked}}))} />
+                    <span style={{ fontSize:12, color:'#374151' }}>{doc}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+          <div style={{ display:'flex', justifyContent:'flex-end', gap:10, paddingTop:14, borderTop:'1.5px solid #e2e8f0' }}>
+            <button onClick={()=>setEditingJob(null)} style={{ padding:'9px 18px', background:'#f1f5f9', border:'1.5px solid #cbd5e1', borderRadius:8, color:'#374151', fontSize:13 }}>取消</button>
+            <button onClick={async()=>{
+              const updated = {...editingJob, ...jobForm};
+              setJobs(prev=>prev.map(j=>j.id===updated.id?updated:j));
+              setViewJob(updated);
+              setEditingJob(null);
+              try { await sbUpdate('jobs', updated.id, {data:updated}); } catch(er){ console.warn(er); }
+            }} style={{ padding:'9px 22px', background:'linear-gradient(135deg,#4f46e5,#7c3aed)', border:'none', borderRadius:8, color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer' }}>💾 保存</button>
+          </div>
+        </Modal>
+      )}
 
       {/* ── NOTES TAB ────────────────────────────────────── */}
       {tab === 'notes' && (
@@ -2662,7 +2719,31 @@ ${rawText.slice(0,5000)}` }]
 
       {/* ── EDITABLE SNAPSHOT ───────────────────── */}
       <div style={{ marginBottom:14 }}>
-      <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:6 }}>最新进展 <span style={{ color:'#9ca3af', fontWeight:400, textTransform:'none', letterSpacing:0, fontSize:11 }}>(失焦自动保存)</span></div>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
+        <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em' }}>最新进展 <span style={{ color:'#9ca3af', fontWeight:400, textTransform:'none', letterSpacing:0, fontSize:11 }}>(失焦自动保存)</span></div>
+        <label style={{ display:'flex', alignItems:'center', gap:5, padding:'4px 10px', background:'#f1f5f9', border:'1.5px solid #cbd5e1', borderRadius:6, color:'#374151', fontSize:11, fontWeight:600, cursor:'pointer' }}>
+          📄 上传快照
+          <input type="file" accept=".docx,.pdf" style={{display:'none'}} onChange={async e => {
+            const file = e.target.files?.[0]; if (!file) return;
+            try {
+              const buf = await file.arrayBuffer();
+              const { value: rawText } = await mammoth.extractRawText({ arrayBuffer: buf });
+              const res = await fetch('/api/claude', { method:'POST', headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:2000,
+                  messages:[{ role:'user', content:`Extract case timeline and current status from this immigration snapshot. Return ONLY valid JSON:\n{"snapshot":"brief 1-2 sentence current status","caseTimeline":[{"date":"","event":"","status":"Completed"}]}\nStatus values: Completed/In Progress/Urgent/Pending\nDocument:\n${rawText.slice(0,5000)}` }]
+                })
+              });
+              const d = await res.json();
+              const txt = (d.content?.[0]?.text||'').replace(/```json|```/g,'').trim();
+              const parsed = JSON.parse(txt);
+              const updated = { ...viewJob, ...(parsed.snapshot?{snapshot:parsed.snapshot}:{}), ...(parsed.caseTimeline?.length?{caseTimeline:parsed.caseTimeline}:{}) };
+              setViewJob(updated); setJobs(prev=>prev.map(j=>j.id===viewJob.id?updated:j));
+              try { await sbUpdate('jobs', updated.id, {data:updated}); } catch(er){ console.warn(er); }
+            } catch(err) { window.alert('Import failed: '+err.message); }
+            e.target.value='';
+          }} />
+        </label>
+      </div>
       <textarea
       style={{ width:'100%', background:'#f8fafc', border:'2px solid #c7d2e0', borderRadius:9, padding:'9px 12px', fontSize:13, color:'#111827', resize:'vertical', minHeight:72, fontFamily:'inherit', lineHeight:1.55, outline:'none', boxSizing:'border-box' }}
       placeholder="记录最新案件进展..."
