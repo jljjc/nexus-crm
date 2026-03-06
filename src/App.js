@@ -1211,11 +1211,12 @@ IMPORTANT EXTRACTION RULES:
         employmentHistory:  keep(newProfile.employmentHistory,  existingProfile.employmentHistory),
         keyIssues:          keep(newProfile.keyIssues,          existingProfile.keyIssues),
         documents:          keep(newProfile.documents,          existingProfile.documents),
-        // PRESERVE sections 4,5,6 completely – these are never in the snapshot doc
-        skillsAssessments:  existingProfile.skillsAssessments  || newProfile.skillsAssessments  || [],
-        caseTimeline:       existingProfile.caseTimeline       || newProfile.caseTimeline       || [],
-        currentStatus:      existingProfile.currentStatus      || newProfile.currentStatus      || null,
-        nextSteps:          existingProfile.nextSteps          || newProfile.nextSteps          || [],
+        // Sections 4,5,6: use new data if import has it, otherwise keep existing
+        // NOTE: must use keep() not ||, because [] is truthy so || skips non-empty new arrays
+        skillsAssessments:  keep(newProfile.skillsAssessments, existingProfile.skillsAssessments),
+        caseTimeline:       keep(newProfile.caseTimeline,       existingProfile.caseTimeline),
+        currentStatus:      newProfile.currentStatus      || existingProfile.currentStatus      || null,
+        nextSteps:          keep(newProfile.nextSteps,          existingProfile.nextSteps),
         // nested objects – merge carefully
         character:  { ...(existingProfile.character||{}),  ...(newProfile.character||{})  },
         sponsor:    { ...(existingProfile.sponsor||{}),    ...(newProfile.sponsor||{})    },
