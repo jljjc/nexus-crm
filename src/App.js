@@ -5,19 +5,19 @@ import * as mammoth from 'mammoth';
 /* ─── i18n LANGUAGE SYSTEM ──────────────────────────────────────────────────── */
 const LANG_ZH = {
   // Nav
-  'Dashboard':'仪表板','Clients':'客户','Jobs':'案件','Leads':'潜在客户',
+  'Dashboard':'仪表板','Clients':'客户','Cases':'案件','Leads':'潜在客户',
   'Calendar':'日历','Invoices':'发票','Agents':'推荐代理','Team':'团队','Reports':'报告',
   // Top bar / auth
   'Sign out':'退出登录','Staff':'员工','Manager':'经理',
   // Clients page
   'Add Client':'+ 添加客户','Search clients...':'搜索客户...',
   'All Types':'所有类型','All Status':'所有状态',
-  'CLIENT':'客户','TYPE':'类型','STATUS':'状态','JOBS':'案件',
+  'CLIENT':'客户','TYPE':'类型','STATUS':'状态','CASES':'案件',
   'NATIONALITY':'国籍','NOTES':'备注','CREATED':'创建日期',
   'Edit':'编辑','Del':'删除',
   'total clients':'位客户',
   // Client modal tabs
-  '👤 Profile':'👤 档案','📋 Jobs':'📋 案件','📝 Notes':'📝 备注',
+  '👤 Profile':'👤 档案','📋 Cases':'📋 案件','📝 Notes':'📝 备注',
   '💬 WeChat':'💬 微信','📥 Import Doc':'📥 导入文档',
   // Profile sections
   'Client —':'客户 —',
@@ -81,16 +81,16 @@ const LANG_ZH = {
   'Client Type':'客户类型','Phone':'电话',
   'Add New Client':'添加新客户','Edit Client':'编辑客户',
   // Jobs page
-  'New Job':'新案件','Save Job':'保存案件',
-  'Job Title':'案件标题','Job Type':'案件类型','Client':'客户',
+  'New Case':'新案件','Save Case':'保存案件',
+  'Case Title':'案件标题','Case Type':'案件类型','Client':'客户',
   'Assign To':'分配给','Priority':'优先级','Due Date':'截止日期',
   'Progress':'进度','CASE NOTES':'案件备注',
   'DOCUMENT CHECKLIST':'文件清单',
-  'Edit Job':'编辑案件','Open in Jobs →':'在案件页打开 →',
+  'Edit Case':'编辑案件','Open in Cases →':'在案件页打开 →',
   // Dashboard
   'Active Clients':'活跃客户','Jobs In Progress':'进行中案件',
   'Urgent Jobs':'紧急案件',
-  'of':'共','total jobs':'个案件总计','jobs finished':'个案件已完成',
+  'of':'共','total cases':'个案件总计','jobs finished':'个案件已完成',
   'need immediate attention':'需要立即处理',
   'Recent Activity':'近期动态','Upcoming Deadlines':'即将到期',
   'View all →':'查看全部 →','View team →':'查看团队 →',
@@ -766,7 +766,7 @@ function ClientSnapshot({ client, jobs, visible, anchorRef }) {
           <div style={{ fontSize:12, color:'#1f2937', lineHeight:1.4 }}>{latestNote.text.length > 90 ? latestNote.text.slice(0,90)+'…' : latestNote.text}</div>
         </div>
       )}
-      <div style={{ marginTop:10, fontSize:11, color:'#1f2937' }}>Client since {fmtDate(client.createdAt)} · {clientJobs.length} total jobs</div>
+      <div style={{ marginTop:10, fontSize:11, color:'#1f2937' }}>Client since {fmtDate(client.createdAt)} · {clientJobs.length} total cases</div>
     </div>
   );
 }
@@ -817,7 +817,7 @@ function Dashboard({ clients, jobs, team, onGoTo }) {
 
   const statCards = [
     { label:'Active Clients',   value:active,     icon:'👥', color:'#6366f1', sub:`of ${clients.length} total`,   onClick:()=>onGoTo('clients') },
-    { label:'Jobs In Progress', value:inProgress, icon:'⚡', color:'#f59e0b', sub:`${jobs.length} total jobs`,     onClick:()=>onGoTo('jobs') },
+    { label:'Jobs In Progress', value:inProgress, icon:'⚡', color:'#f59e0b', sub:`${jobs.length} total cases`,     onClick:()=>onGoTo('jobs') },
     { label:'Urgent Cases',      value:urgent,     icon:'🔴', color:'#f87171', sub:'need immediate attention',       onClick:()=>onGoTo('jobs') },
     { label:'Awaiting Decision', value:awaitingDecision, icon:'⏳', color:'#94a3b8', sub:'lodged · pending outcome', onClick:()=>onGoTo('jobs') },
   ];
@@ -877,7 +877,7 @@ function Dashboard({ clients, jobs, team, onGoTo }) {
         {/* Recent Jobs – clickable rows */}
         <Card>
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
-            <h3 style={{ fontSize:15, fontWeight:600, color:'#0f172a' }}>Recent Jobs</h3>
+            <h3 style={{ fontSize:15, fontWeight:600, color:'#0f172a' }}>Recent Cases</h3>
             <button onClick={()=>onGoTo('jobs')} style={{ background:'none', border:'none', color:'#6366f1', fontSize:13, cursor:'pointer' }}>View all →</button>
           </div>
           <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
@@ -974,7 +974,7 @@ function Dashboard({ clients, jobs, team, onGoTo }) {
 
       {/* Job Quick-View Modal (from dashboard) */}
       {selectedJob && (
-        <Modal title={`Job Details – ${selectedJob.title}`} onClose={()=>setSelectedJob(null)} wide>
+        <Modal title={`Case Details – ${selectedJob.title}`} onClose={()=>setSelectedJob(null)} wide>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20, marginBottom:20 }}>
             <div>
               <div style={{ fontSize:11, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:6 }}>Client</div>
@@ -1014,7 +1014,7 @@ function Dashboard({ clients, jobs, team, onGoTo }) {
           )}
           <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:4, borderTop:'1.5px solid #e2e8f0', paddingTop:16 }}>
             <button onClick={()=>setSelectedJob(null)} style={{ background:'#e5e7eb', border:'none', borderRadius:8, padding:'9px 18px', color:'#1f2937', fontWeight:500 }}>Close</button>
-            <button onClick={()=>{ setSelectedJob(null); onGoTo('jobs'); }} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, padding:'9px 20px', color:'#fff', fontWeight:700 }}>Open in Jobs →</button>
+            <button onClick={()=>{ setSelectedJob(null); onGoTo('jobs'); }} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, padding:'9px 20px', color:'#fff', fontWeight:700 }}>Open in Cases →</button>
           </div>
         </Modal>
       )}
@@ -1164,6 +1164,13 @@ Return this exact structure (use null for missing fields, keep English for value
 
   const applyImport = async () => {
     if (!importPreview) return;
+    const existingProfile = client.profile || {};
+    const newProfile = importPreview.profile || {};
+    // Helper: only use new value if it's non-null and (for arrays) non-empty
+    const keep = (newVal, oldVal) => {
+      if (Array.isArray(newVal)) return newVal.length > 0 ? newVal : oldVal;
+      return newVal != null && newVal !== '' ? newVal : oldVal;
+    };
     const merged = {
       ...client,
       ...(importPreview.name        ? { name: importPreview.name }               : {}),
@@ -1172,10 +1179,36 @@ Return this exact structure (use null for missing fields, keep English for value
       ...(importPreview.nationality ? { nationality: importPreview.nationality } : {}),
       ...(importPreview.type        ? { type: importPreview.type }               : {}),
       profile: {
-        ...(client.profile||{}),
-        ...(importPreview.profile||{}),
-        // also sync top-level fields back into profile for display consistency
-        ...(importPreview.profile?.auAddress ? {} : {}),
+        ...existingProfile,
+        // Import scalar fields – only overwrite if new value exists
+        ...(newProfile.sex            ? { sex: newProfile.sex }                         : {}),
+        ...(newProfile.dob            ? { dob: newProfile.dob }                         : {}),
+        ...(newProfile.birthplace     ? { birthplace: newProfile.birthplace }           : {}),
+        ...(newProfile.passportNo     ? { passportNo: newProfile.passportNo }           : {}),
+        ...(newProfile.passportExpiry ? { passportExpiry: newProfile.passportExpiry }   : {}),
+        ...(newProfile.auAddress      ? { auAddress: newProfile.auAddress }             : {}),
+        ...(newProfile.maritalStatus  ? { maritalStatus: newProfile.maritalStatus }     : {}),
+        ...(newProfile.chinaId        ? { chinaId: newProfile.chinaId }                 : {}),
+        ...(newProfile.qq             ? { qq: newProfile.qq }                           : {}),
+        ...(newProfile.eaFileNo       ? { eaFileNo: newProfile.eaFileNo }               : {}),
+        ...(newProfile.consultant     ? { consultant: newProfile.consultant }           : {}),
+        ...(newProfile.visaTarget     ? { visaTarget: newProfile.visaTarget }           : {}),
+        // Import array fields – only overwrite if import has actual entries
+        visaHistory:        keep(newProfile.visaHistory,        existingProfile.visaHistory),
+        addressHistory:     keep(newProfile.addressHistory,     existingProfile.addressHistory),
+        employmentHistory:  keep(newProfile.employmentHistory,  existingProfile.employmentHistory),
+        keyIssues:          keep(newProfile.keyIssues,          existingProfile.keyIssues),
+        documents:          keep(newProfile.documents,          existingProfile.documents),
+        // PRESERVE sections 4,5,6 completely – these are never in the snapshot doc
+        skillsAssessments:  existingProfile.skillsAssessments  || newProfile.skillsAssessments  || [],
+        caseTimeline:       existingProfile.caseTimeline       || newProfile.caseTimeline       || [],
+        currentStatus:      existingProfile.currentStatus      || newProfile.currentStatus      || null,
+        nextSteps:          existingProfile.nextSteps          || newProfile.nextSteps          || [],
+        // nested objects – merge carefully
+        character:  { ...(existingProfile.character||{}),  ...(newProfile.character||{})  },
+        sponsor:    { ...(existingProfile.sponsor||{}),    ...(newProfile.sponsor||{})    },
+        marriage:   { ...(existingProfile.marriage||{}),   ...(newProfile.marriage||{})   },
+        serviceAgreement: { ...(existingProfile.serviceAgreement||{}), ...(newProfile.serviceAgreement||{}) },
       }
     };
     await onSaveProfile(merged);
@@ -1225,7 +1258,7 @@ Return this exact structure (use null for missing fields, keep English for value
 
   const tabs = [
     { id:'profile',  label:'👤 Profile' },
-    { id:'jobs',     label:`📋 Jobs (${clientJobs.length})` },
+    { id:'jobs',     label:`📋 Cases (${clientJobs.length})` },
     { id:'notes',    label:`📝 ${t('Notes')||'Notes'} (${normalizeNotes(client.notes).length})` },
     { id:'wechat',   label:`💬 ${t('WeChat')||'WeChat'}` },
     { id:'import',   label:`📥 ${t('Import Doc')||'Import Doc'}` },
@@ -1620,28 +1653,24 @@ ${rawText.slice(0,5000)}` }]
         );
       })()}
 
-      {/* ── INLINE JOB EDIT MODAL ── */}
+      {/* ── INLINE CASE EDIT ── */}
       {editingJob && (
         <Modal title={`编辑案件: ${editingJob.title}`} onClose={()=>setEditingJob(null)} wide>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:14 }}>
-            <div>
-              <label style={{ fontSize:11, fontWeight:700, color:'#374151', textTransform:'uppercase', letterSpacing:'0.07em', display:'block', marginBottom:5 }}>状态</label>
+            <div><label style={{ fontSize:11, fontWeight:700, color:'#374151', textTransform:'uppercase', letterSpacing:'0.07em', display:'block', marginBottom:5 }}>状态</label>
               <select value={jobForm.status||''} onChange={e=>setJobForm(f=>({...f,status:e.target.value}))} style={{ width:'100%', background:'#fff', border:'2px solid #c7d2e0', borderRadius:8, padding:'8px 10px', fontSize:13, color:'#111827', outline:'none' }}>
                 {['Preparing','Submitted','In Review','Awaiting Decision','Approved','Refused','Withdrawn','Completed'].map(s=><option key={s}>{s}</option>)}
               </select>
             </div>
-            <div>
-              <label style={{ fontSize:11, fontWeight:700, color:'#374151', textTransform:'uppercase', letterSpacing:'0.07em', display:'block', marginBottom:5 }}>优先级</label>
+            <div><label style={{ fontSize:11, fontWeight:700, color:'#374151', textTransform:'uppercase', letterSpacing:'0.07em', display:'block', marginBottom:5 }}>优先级</label>
               <select value={jobForm.priority||''} onChange={e=>setJobForm(f=>({...f,priority:e.target.value}))} style={{ width:'100%', background:'#fff', border:'2px solid #c7d2e0', borderRadius:8, padding:'8px 10px', fontSize:13, color:'#111827', outline:'none' }}>
                 {['Low','Medium','High','Urgent'].map(p=><option key={p}>{p}</option>)}
               </select>
             </div>
-            <div>
-              <label style={{ fontSize:11, fontWeight:700, color:'#374151', textTransform:'uppercase', letterSpacing:'0.07em', display:'block', marginBottom:5 }}>截止日期</label>
+            <div><label style={{ fontSize:11, fontWeight:700, color:'#374151', textTransform:'uppercase', letterSpacing:'0.07em', display:'block', marginBottom:5 }}>截止日期</label>
               <input type="date" value={jobForm.dueDate?.slice(0,10)||''} onChange={e=>setJobForm(f=>({...f,dueDate:e.target.value}))} style={{ width:'100%', background:'#fff', border:'2px solid #c7d2e0', borderRadius:8, padding:'8px 10px', fontSize:13, color:'#111827', outline:'none', boxSizing:'border-box' }} />
             </div>
-            <div>
-              <label style={{ fontSize:11, fontWeight:700, color:'#374151', textTransform:'uppercase', letterSpacing:'0.07em', display:'block', marginBottom:5 }}>负责人</label>
+            <div><label style={{ fontSize:11, fontWeight:700, color:'#374151', textTransform:'uppercase', letterSpacing:'0.07em', display:'block', marginBottom:5 }}>负责人</label>
               <select value={jobForm.assignedTo||''} onChange={e=>setJobForm(f=>({...f,assignedTo:e.target.value}))} style={{ width:'100%', background:'#fff', border:'2px solid #c7d2e0', borderRadius:8, padding:'8px 10px', fontSize:13, color:'#111827', outline:'none' }}>
                 <option value="">— 未分配 —</option>
                 {team.map(m=><option key={m.id} value={m.id}>{m.name}</option>)}
@@ -1666,8 +1695,7 @@ ${rawText.slice(0,5000)}` }]
             <button onClick={async()=>{
               const updated = {...editingJob, ...jobForm};
               setJobs(prev=>prev.map(j=>j.id===updated.id?updated:j));
-              setViewJob(updated);
-              setEditingJob(null);
+              setViewJob(updated); setEditingJob(null);
               try { await sbUpdate('jobs', updated.id, {data:updated}); } catch(er){ console.warn(er); }
             }} style={{ padding:'9px 22px', background:'linear-gradient(135deg,#4f46e5,#7c3aed)', border:'none', borderRadius:8, color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer' }}>💾 保存</button>
           </div>
@@ -2027,7 +2055,7 @@ function Clients({ clients, jobs, setClients, setJobs, team }) {
         <table style={{ width:'100%', borderCollapse:'collapse' }}>
           <thead>
             <tr style={{ borderBottom:'2px solid #e2e8f0' }}>
-              {['Client','Type','Status','Jobs','Nationality','Notes','Created',''].map(h=>(
+              {['Client','Type','Status','Cases','Nationality','Notes','Created',''].map(h=>(
                 <th key={h} style={{ padding:'12px 16px', textAlign:'left', fontSize:11, fontWeight:600, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.06em', background:'#f9fafb' }}>{h}</th>
               ))}
             </tr>
@@ -2158,7 +2186,7 @@ function Jobs({ jobs, clients, team, setJobs }) {
   });
 
   const openAdd = () => { setForm({ title:'', type:'Subclass 500 – Student Visa', clientId: clients[0]?.id||'', assignedTo: team[0]?.id||'', status:'New', priority:'Medium', dueDate:'', notes:[], progress:0, createdAt:today() }); setModal('add'); };
-  const openEdit = (j) => { setClientSearch(clients.find(c=>c.id===j.clientId)?.name||''); setForm({ ...j, notes: normalizeNotes(j.notes) }); setClientSearch(sortedClients[0]?.name||''); setModal(j); };
+  const openEdit = (j) => { setClientSearch(clients.find(c=>c.id===j.clientId)?.name||''); setForm({ ...j, notes: normalizeNotes(j.notes) }); setModal(j); };
   const closeModal = () => setModal(null);
 
   const save = async () => {
@@ -2178,6 +2206,8 @@ function Jobs({ jobs, clients, team, setJobs }) {
   const del = async (id) => {
     if(window.confirm('Delete this case?')) {
       setJobs(prev=>prev.filter(j=>j.id!==id));
+      setModal(null);
+      setViewJob(null);
       try { await sbDelete('jobs', id); } catch(e) { console.warn('Delete error:', e); }
     }
   };
@@ -2192,12 +2222,12 @@ function Jobs({ jobs, clients, team, setJobs }) {
     return (
       <div className="animate-fade">
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
-          <div><h1 style={{ fontSize:24, fontWeight:700, color:'#111827' }}>Jobs</h1><p style={{ color:'#1f2937', fontSize:14, marginTop:2 }}>{jobs.length} total</p></div>
+          <div><h1 style={{ fontSize:24, fontWeight:700, color:'#111827' }}>Cases</h1><p style={{ color:'#1f2937', fontSize:14, marginTop:2 }}>{jobs.length} total cases</p></div>
           <div style={{ display:'flex', gap:10 }}>
             <div style={{ display:'flex', background:'#ffffff', borderRadius:8, border:'1.5px solid #cbd5e1', overflow:'hidden' }}>
               {['list','board'].map(v=><button key={v} onClick={()=>setView(v)} style={{ padding:'7px 14px', background: view===v?'#e5e7eb':'transparent', border:'none', color: view===v?'#e2e8f0':'#475569', fontSize:13, fontWeight:500, textTransform:'capitalize' }}>{v}</button>)}
             </div>
-            <button onClick={openAdd} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:10, padding:'9px 16px', color:'#fff', fontWeight:700, fontSize:13 }}>+ New Job</button>
+            <button onClick={openAdd} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:10, padding:'9px 16px', color:'#fff', fontWeight:700, fontSize:13 }}>+ New Case</button>
           </div>
         </div>
         <div style={{ display:'flex', gap:14, overflowX:'auto', paddingBottom:12 }}>
@@ -2240,13 +2270,13 @@ function Jobs({ jobs, clients, team, setJobs }) {
           })}
         </div>
         {modal && (
-          <Modal title={modal==='add'?'New Job':'Edit Job'} onClose={closeModal} wide>
+          <Modal title={modal==='add'?'New Case':'Edit Case'} onClose={closeModal} wide>
                 <>
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
-        <FormField label="Job Title" required>
+        <FormField label="Case Title" required>
           <input style={inputStyle} value={form.title||''} onChange={e=>setForm(f=>({...f,title:e.target.value}))} placeholder="e.g. Visa Application" />
         </FormField>
-        <FormField label="Job Type">
+        <FormField label="Case Type">
           <select style={selectStyle} value={form.type} onChange={e=>setForm(f=>({...f,type:e.target.value}))}>
             {JOB_TYPES.map(t=><option key={t}>{t}</option>)}
           </select>
@@ -2332,7 +2362,7 @@ function Jobs({ jobs, clients, team, setJobs }) {
   
             <div style={{display:'flex',justifyContent:'flex-end',gap:10,marginTop:18}}>
               <button onClick={closeModal} style={{background:'#e5e7eb',border:'none',borderRadius:8,padding:'9px 18px',color:'#1f2937',fontWeight:500}}>Cancel</button>
-              <button onClick={save} style={{background:'linear-gradient(135deg,#6366f1,#8b5cf6)',border:'none',borderRadius:8,padding:'9px 20px',color:'#ffffff',fontWeight:700}}>Save Job</button>
+              <button onClick={save} style={{background:'linear-gradient(135deg,#6366f1,#8b5cf6)',border:'none',borderRadius:8,padding:'9px 20px',color:'#ffffff',fontWeight:700}}>Save Case</button>
             </div>
           </Modal>
         )}
@@ -2529,12 +2559,12 @@ ${rawText.slice(0,5000)}` }]
   return (
     <div className="animate-fade">
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:24 }}>
-        <div><h1 style={{ fontSize:24, fontWeight:700, color:'#111827' }}>Jobs</h1><p style={{ color:'#1f2937', fontSize:14, marginTop:2 }}>{jobs.length} total jobs</p></div>
+        <div><h1 style={{ fontSize:24, fontWeight:700, color:'#111827' }}>Cases</h1><p style={{ color:'#1f2937', fontSize:14, marginTop:2 }}>{jobs.length} total cases</p></div>
         <div style={{ display:'flex', gap:10 }}>
           <div style={{ display:'flex', background:'#ffffff', borderRadius:8, border:'1.5px solid #cbd5e1', overflow:'hidden' }}>
             {['list','board'].map(v=><button key={v} onClick={()=>setView(v)} style={{ padding:'7px 14px', background: view===v?'#e5e7eb':'transparent', border:'none', color: view===v?'#e2e8f0':'#475569', fontSize:13, fontWeight:500, textTransform:'capitalize' }}>{v}</button>)}
           </div>
-          <button onClick={openAdd} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:10, padding:'9px 16px', color:'#fff', fontWeight:700, fontSize:13 }}>+ New Job</button>
+          <button onClick={openAdd} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:10, padding:'9px 16px', color:'#fff', fontWeight:700, fontSize:13 }}>+ New Case</button>
         </div>
       </div>
       <div style={{ display:'flex', gap:10, marginBottom:18, flexWrap:'wrap' }}>
@@ -2595,13 +2625,13 @@ ${rawText.slice(0,5000)}` }]
         })}
       </div>
       {modal && (
-        <Modal title={modal==='add'?'New Job':'Edit Job'} onClose={closeModal} wide>
+        <Modal title={modal==='add'?'New Case':'Edit Case'} onClose={closeModal} wide>
               <>
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
-        <FormField label="Job Title" required>
+        <FormField label="Case Title" required>
           <input style={inputStyle} value={form.title||''} onChange={e=>setForm(f=>({...f,title:e.target.value}))} placeholder="e.g. Visa Application" />
         </FormField>
-        <FormField label="Job Type">
+        <FormField label="Case Type">
           <select style={selectStyle} value={form.type} onChange={e=>setForm(f=>({...f,type:e.target.value}))}>
             {JOB_TYPES.map(t=><option key={t}>{t}</option>)}
           </select>
@@ -2687,7 +2717,7 @@ ${rawText.slice(0,5000)}` }]
   
           <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:18 }}>
             <button onClick={closeModal} style={{ background:'#e5e7eb', border:'none', borderRadius:8, padding:'9px 18px', color:'#1f2937', fontWeight:500 }}>Cancel</button>
-            <button onClick={save} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, padding:'9px 20px', color:'#fff', fontWeight:700 }}>Save Job</button>
+            <button onClick={save} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, padding:'9px 20px', color:'#fff', fontWeight:700 }}>Save Case</button>
           </div>
         </Modal>
       )}
@@ -2734,7 +2764,7 @@ ${rawText.slice(0,5000)}` }]
                 })
               });
               const d = await res.json();
-              const txt = (d.content?.[0]?.text||'').replace(/```json|```/g,'').trim();
+              const txt = (d.content?.[0]?.text||'').replace(/\`\`\`json|\`\`\`/g,'').trim();
               const parsed = JSON.parse(txt);
               const updated = { ...viewJob, ...(parsed.snapshot?{snapshot:parsed.snapshot}:{}), ...(parsed.caseTimeline?.length?{caseTimeline:parsed.caseTimeline}:{}) };
               setViewJob(updated); setJobs(prev=>prev.map(j=>j.id===viewJob.id?updated:j));
@@ -2911,7 +2941,7 @@ function Team({ team, jobs, clients, setTeam, setJobs: setJobsOuter }) {
   };
 
   /* Shared job-row renderer used both in cards and drill-down modal */
-  const JobRow = ({ j, idx, compact }) => {
+  const CaseRow = ({ j, idx, compact }) => {
     const client = getClient(j.clientId);
     const overdue = isOverdue(j.dueDate);
     const pStyle = PRIORITY_STYLES[j.priority] || {};
@@ -3012,7 +3042,7 @@ function Team({ team, jobs, clients, setTeam, setJobs: setJobsOuter }) {
                     Top Cases — ranked by urgency
                   </div>
                   <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
-                    {preview.map((j, idx) => <JobRow key={j.id} j={j} idx={idx} compact />)}
+                    {preview.map((j, idx) => <CaseRow key={j.id} j={j} idx={idx} compact />)}
                   </div>
 
                   {/* View All button */}
@@ -3074,7 +3104,7 @@ function Team({ team, jobs, clients, setTeam, setJobs: setJobsOuter }) {
                   Active Cases ({allJobs.length}) — click to open
                 </div>
                 <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
-                  {allJobs.map((j, idx) => <JobRow key={j.id} j={j} idx={idx} />)}
+                  {allJobs.map((j, idx) => <CaseRow key={j.id} j={j} idx={idx} />)}
                 </div>
               </div>
             )}
@@ -3559,7 +3589,7 @@ function CalendarPage({ appointments, setAppointments, jobs, clients, team }) {
     if (parseInt(y)===curMonth.y && parseInt(mo)-1===curMonth.m && dd) {
       const key = parseInt(dd);
       if (!apptsByDay[key]) apptsByDay[key] = [];
-      apptsByDay[key].push({ id:'jd_'+j.id, title:`📋 ${j.type||'Job'} Deadline`, type:'Deadline', isDeadline:true });
+      apptsByDay[key].push({ id:'jd_'+j.id, title:`📋 ${j.type||'Case'} Deadline`, type:'Deadline', isDeadline:true });
     }
   });
 
@@ -3775,7 +3805,7 @@ function Invoices({ invoices, setInvoices, clients, jobs }) {
         <table style={{ width:'100%', borderCollapse:'collapse' }}>
           <thead>
             <tr style={{ background:'#e9eaf3' }}>
-              {['Invoice #','Client','Job','Amount','Status','Due Date',''].map(h=>(
+              {['Invoice #','Client','Case','Amount','Status','Due Date',''].map(h=>(
                 <th key={h} style={{ padding:'10px 14px', textAlign:'left', fontSize:11, color:'#1f2937', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.06em' }}>{h}</th>
               ))}
             </tr>
@@ -3822,7 +3852,7 @@ function Invoices({ invoices, setInvoices, clients, jobs }) {
                 {clients.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </FormField>
-            <FormField label="Related Job">
+            <FormField label="Related Case">
               <select value={form.jobId||''} onChange={e=>setForm(f=>({...f,jobId:e.target.value}))} style={{ ...inputStyle }}>
                 <option value="">— None —</option>
                 {jobs.filter(j=>!form.clientId||j.clientId===form.clientId).map(j=><option key={j.id} value={j.id}>{j.type?.slice(0,40)}</option>)}
