@@ -585,8 +585,8 @@ function Avatar({ name, color, size=32 }) {
 }
 
 const STATUS_PROGRESS = {
-  'New': 10, 'In Progress': 30, 'Awaiting Docs': 55,
-  'Under Review': 75, 'Awaiting Decision': 100, 'Completed': 100, 'On Hold': 15,
+  'New': 5, 'In Progress': 40, 'Awaiting Docs': 25,
+  'Under Review': 70, 'Awaiting Decision': 100, 'Completed': 100, 'On Hold': 15,
 };
 
 function ProgressBar({ value, status }) {
@@ -847,13 +847,9 @@ function Dashboard({ clients, jobs, team, onGoTo }) {
       </div>
 
       {overdue > 0 && (
-        <div style={{ background:'linear-gradient(135deg,#ef444415,#f97316 10)', border:'2px solid #ef4444', borderRadius:12, padding:'14px 20px', marginBottom:24, display:'flex', alignItems:'center', gap:14, boxShadow:'0 2px 12px #ef444425' }}>
-          <div style={{ background:'#ef4444', borderRadius:10, width:40, height:40, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, fontSize:20 }}>🚨</div>
-          <div style={{ flex:1 }}>
-            <div style={{ color:'#ffffff', fontSize:15, fontWeight:700 }}>{overdue} Overdue Job{overdue>1?'s':''}</div>
-            <div style={{ color:'#fca5a5', fontSize:13, marginTop:2 }}>These cases require immediate attention</div>
-          </div>
-          <button onClick={()=>onGoTo('jobs')} style={{ background:'#ef4444', border:'none', color:'#ffffff', borderRadius:8, padding:'8px 16px', fontWeight:700, fontSize:13, cursor:'pointer' }}>View Now →</button>
+        <div style={{ background:'#7f1d1d30', border:'1px solid #ef444440', borderRadius:10, padding:'12px 16px', marginBottom:24, display:'flex', alignItems:'center', gap:10 }}>
+          <span style={{ fontSize:18 }}>⚠️</span>
+          <span style={{ color:'#fca5a5', fontSize:14 }}><strong>{overdue} job{overdue>1?'s':''}</strong> {overdue>1?'are':'is'} overdue. <button onClick={()=>onGoTo('jobs')} style={{ background:'none', border:'none', color:'#f87171', textDecoration:'underline', fontSize:14, cursor:'pointer' }}>View jobs →</button></span>
         </div>
       )}
 
@@ -2664,7 +2660,7 @@ ${rawText.slice(0,5000)}` }]
                 </div>
                 <div style={{ display:'flex', alignItems:'center', gap:10, flexShrink:0 }}>
                   <div style={{ width:120 }}>
-                    <div style={{ fontSize:11, color:'#1f2937', marginBottom:4, textAlign:'right' }}>{j.progress}%</div>
+                    <div style={{ fontSize:11, color:'#1f2937', marginBottom:4, textAlign:'right' }}>{STATUS_PROGRESS[j.status] ?? j.progress ?? 0}%</div>
                     <ProgressBar value={j.progress} status={j.status} />
                   </div>
                   <StatusBadge status={j.status} small />
@@ -3430,7 +3426,7 @@ function DeadlineAlerts({ jobs, appointments }) {
     if (j.status === 'Completed') return;
     if (j.dueDate && j.dueDate <= sevenDays) {
       const d = daysUntil(j.dueDate);
-      soon.push({ type:'job', label: j.type || 'Case', ref: j.ref || j.id, days: d, overdue: d < 0, urgent: d <= 2 });
+      soon.push({ type:'job', label: j.type, ref: j.ref || j.id, days: d, overdue: d < 0, urgent: d <= 2 });
     }
   });
   appointments.forEach(a => {
@@ -3442,34 +3438,17 @@ function DeadlineAlerts({ jobs, appointments }) {
   if (!soon.length) return null;
   soon.sort((a,b) => a.days - b.days);
 
-  const getChip = (s) => {
-    if (s.overdue) return { bg:'#ef4444', text:'#ffffff', icon:'🔴', label:`${Math.abs(s.days)}d overdue` };
-    if (s.urgent)  return { bg:'#f97316', text:'#ffffff', icon:'⚠️', label: s.days===0?'Today':`${s.days}d left` };
-    return { bg:'#6366f115', text:'#a5b4fc', icon:'📅', label:`${s.days}d` };
-  };
-
   return (
-    <div style={{ background:'linear-gradient(135deg,#1e1b4b,#312e81)', border:'1.5px solid #6366f140', borderRadius:14, padding:'16px 20px', marginBottom:20, boxShadow:'0 4px 20px #6366f120' }}>
-      <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:12 }}>
-        <div style={{ background:'#f59e0b', borderRadius:8, padding:'5px 10px', fontSize:12, fontWeight:800, color:'#1c1917', letterSpacing:'0.05em' }}>
-          ⏰ {soon.length} UPCOMING
-        </div>
-        <span style={{ fontSize:13, color:'#c7d2fe', fontWeight:500 }}>deadline{soon.length>1?'s':''} in the next 7 days</span>
-      </div>
-      <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-        {soon.slice(0,6).map((s,i) => {
-          const chip = getChip(s);
-          return (
-            <div key={i} style={{ display:'flex', alignItems:'center', gap:6, background: s.overdue?'#ef444420':s.urgent?'#f9731620':'#ffffff10', border:`1px solid ${s.overdue?'#ef4444':s.urgent?'#f97316':'#6366f140'}`, borderRadius:8, padding:'6px 12px' }}>
-              <span style={{ fontSize:11 }}>{chip.icon}</span>
-              <div>
-                <div style={{ fontSize:12, fontWeight:700, color: s.overdue?'#fca5a5':s.urgent?'#fdba74':'#e0e7ff', maxWidth:160, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{s.label}</div>
-                <div style={{ fontSize:10, color: s.overdue?'#f87171':s.urgent?'#fb923c':'#a5b4fc', marginTop:1 }}>{chip.label}</div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+    <div style={{ background:'#7f1d1d20', border:'1px solid #ef444430', borderRadius:10, padding:'12px 16px', marginBottom:20, display:'flex', gap:12, flexWrap:'wrap', alignItems:'center' }}>
+      <span style={{ fontSize:16 }}>⚠️</span>
+      <span style={{ fontSize:12, fontWeight:600, color:'#fca5a5', textTransform:'uppercase', letterSpacing:'0.06em' }}>
+        {soon.length} Upcoming Deadline{soon.length>1?'s':''}
+      </span>
+      {soon.slice(0,5).map((s,i) => (
+        <span key={i} style={{ fontSize:12, background: s.overdue?'#ef444430': s.urgent?'#f97316 20':'#e5e7eb', color: s.overdue?'#f87171': s.urgent?'#fdba74':'#94a3b8', borderRadius:6, padding:'3px 9px' }}>
+          {s.label} · {s.overdue ? `${Math.abs(s.days)}d overdue` : s.days === 0 ? 'Today' : `${s.days}d`}
+        </span>
+      ))}
     </div>
   );
 }
@@ -3619,7 +3598,7 @@ function Leads({ leads, setLeads, clients, setClients, jobs, setJobs, team, agen
 }
 
 /* ─── CALENDAR PAGE ──────────────────────────────────────────────────────────── */
-function CalendarPage({ appointments, setAppointments, jobs, clients, team }) {
+function CalendarPage({ appointments, setAppointments, jobs, clients, team, onGoTo }) {
   const [showForm, setShowForm] = useState(false);
   const [editAppt, setEditAppt] = useState(null);
   const [curMonth, setCurMonth] = useState(() => { const d=new Date(); return {y:d.getFullYear(),m:d.getMonth()}; });
@@ -3661,20 +3640,20 @@ function CalendarPage({ appointments, setAppointments, jobs, clients, team }) {
     if (!apptsByDay[key]) apptsByDay[key] = [];
     apptsByDay[key].push(a);
   });
-  // Also add job deadlines with client name + priority colour
+  // Also add job deadlines as events with client name + priority colour
   jobs.forEach(j => {
     if (!j.dueDate || j.status==='Completed') return;
     const [y,mo,dd] = j.dueDate.split('-');
     if (parseInt(y)===curMonth.y && parseInt(mo)-1===curMonth.m && dd) {
       const key = parseInt(dd);
       if (!apptsByDay[key]) apptsByDay[key] = [];
-      const cl = clients.find(c=>c.id===j.clientId);
-      const shortName = cl ? (cl.name||'').split(',')[0].trim() : '';
-      const visaShort = (j.type||'').replace('Subclass ','').split('–')[0].trim().split(' ').slice(0,2).join(' ') || 'Case';
-      const PCOLORS = { 'Urgent':'#ef4444','High':'#f97316','Medium':'#f59e0b','Low':'#6366f1' };
+      const cl = clients.find(c => c.id === j.clientId);
+      const lastName = cl ? (cl.name||'').split(',')[0].trim() : '';
+      const visaCode = (j.type||'').replace('Subclass ','').split('–')[0].trim().split(' ')[0];
+      const PCOLORS = { Urgent:'#ef4444', High:'#f97316', Medium:'#f59e0b', Low:'#6366f1' };
       const pColor = PCOLORS[j.priority] || '#f59e0b';
-      const label = shortName ? `${shortName} · ${visaShort}` : visaShort;
-      apptsByDay[key].push({ id:'jd_'+j.id, title:label, type:'Deadline', isDeadline:true, priorityColor:pColor });
+      const label = lastName ? `${lastName} · ${visaCode}` : (visaCode || 'Case');
+      apptsByDay[key].push({ id:'jd_'+j.id, jobId:j.id, title:label, type:'Deadline', isDeadline:true, priorityColor:pColor });
     }
   });
 
@@ -3718,12 +3697,22 @@ function CalendarPage({ appointments, setAppointments, jobs, clients, team }) {
                     <>
                       <div style={{ fontSize:13, fontWeight: isToday?700:400, color: isToday?'#6366f1':'#94a3b8', marginBottom:4 }}>{d}</div>
                       {events.slice(0,3).map((ev,ei) => (
-                        <div key={ei} onClick={()=>{ if(!ev.isDeadline){setForm({...ev});setEditAppt(ev.id);setShowForm(true);}}}
-                          style={{ fontSize:10, background: ev.isDeadline ? (ev.priorityColor||'#f59e0b')+'22' : '#38bdf815',
+                        <div key={ei}
+                          onClick={()=>{
+                            if (ev.isDeadline) { if(onGoTo) onGoTo('jobs'); }
+                            else { setForm({...ev}); setEditAppt(ev.id); setShowForm(true); }
+                          }}
+                          title={ev.isDeadline ? 'Click to view case' : ev.title}
+                          style={{
+                            fontSize:10,
+                            background: ev.isDeadline ? (ev.priorityColor||'#f97316')+'22' : '#38bdf815',
                             color: ev.isDeadline ? (ev.priorityColor||'#f97316') : '#6366f1',
                             borderLeft: ev.isDeadline ? `3px solid ${ev.priorityColor||'#f97316'}` : 'none',
-                            borderRadius:4, padding:'2px 5px', marginBottom:2, cursor: ev.isDeadline?'default':'pointer',
-                            overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', fontWeight: ev.isDeadline?600:400 }}>
+                            borderRadius:4, padding:'2px 5px', marginBottom:2,
+                            cursor:'pointer',
+                            overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
+                            fontWeight: ev.isDeadline ? 600 : 400,
+                          }}>
                           {ev.time && !ev.isDeadline ? ev.time.slice(0,5)+' ' : ''}{ev.title}
                         </div>
                       ))}
@@ -4457,26 +4446,6 @@ function App() {
     })();
   }, []);
 
-  // ── Auto-refresh every 30s so multiple staff see each other's changes ──
-  useEffect(() => {
-    if (!authed) return;
-    const poll = setInterval(async () => {
-      try {
-        const [cr, jr, lr, ar] = await Promise.all([
-          sbSelect('clients'),
-          sbSelect('jobs'),
-          sbSelect('leads').catch(()=>null),
-          sbSelect('appointments').catch(()=>null),
-        ]);
-        if (cr?.length) setClients(cr.map(r => ({ ...r.data, notes: r.data.notes||[] })));
-        if (jr?.length) setJobs(jr.map(r => ({ ...r.data, notes: r.data.notes||[] })));
-        if (lr?.length) setLeads(lr.map(r => r.data));
-        if (ar?.length) setAppointments(ar.map(r => r.data));
-      } catch {}
-    }, 30000);
-    return () => clearInterval(poll);
-  }, [authed]); // eslint-disable-line react-hooks/exhaustive-deps
-
   // Auth gate — uses both `authed` (read) and `LoginScreen` (rendered)
   if (!authed) {
     return <LoginScreen onLogin={(role) => {
@@ -4601,7 +4570,7 @@ function App() {
             {view === 'jobs'      && <Jobs       jobs={jobs} clients={clients} team={team} setJobs={setJobs} />}
             {view === 'team'      && isManager && <Team       team={team} jobs={jobs} clients={clients} setTeam={setTeam} setJobs={setJobs} />}
             {view === 'leads'     && <Leads      leads={leads} setLeads={setLeads} clients={clients} setClients={setClients} jobs={jobs} setJobs={setJobs} team={team} agents={agents} />}
-            {view === 'calendar'  && <CalendarPage appointments={appointments} setAppointments={setAppointments} jobs={jobs} clients={clients} team={team} />}
+            {view === 'calendar'  && <CalendarPage appointments={appointments} setAppointments={setAppointments} jobs={jobs} clients={clients} team={team} onGoTo={setView} />}
             {view === 'invoices'  && <Invoices   invoices={invoices} setInvoices={setInvoices} clients={clients} jobs={jobs} />}
             {view === 'agents'    && <AgentsPage agents={agents} setAgents={setAgents} leads={leads} jobs={jobs} invoices={invoices} />}
             {view === 'reports'   && isManager && <Reports clients={clients} jobs={jobs} leads={leads} invoices={invoices} team={team} />}
