@@ -1077,9 +1077,10 @@ const extractAndParseJson = (raw) => {
     .replace(/[‘’]/g, "'")
     .replace(/，/g, ',')
     .replace(/：/g, ':')
-    .replace(/^\uFEFF/, '')
-    .replace(/[\u0000-\u001F]+/g, ' ')
-    .replace(/,(\s*[}\]])/g, '$1');
+    .replace(/^\uFEFF/, '');
+
+  text = Array.from(text, ch => (ch.charCodeAt(0) < 32 ? ' ' : ch)).join('');
+  text = text.replace(/,(\s*[}\]])/g, '$1');
 
   try {
     return JSON.parse(text);
