@@ -1057,6 +1057,50 @@ function ClientDetailModal({ client, jobs, setJobs, team, onClose, onEdit, onSav
   const [wchatSaved, setWchatSaved]     = useState(false);
   const clientJobs                  = jobs.filter(j => j.clientId === client.id);
 
+
+  const extractAndParseJson = (raw) => {
+    if (!raw || typeof raw !== 'string') {
+      throw new Error('Empty AI response');
+    }
+
+    let text = raw
+      .replace(/```json/gi, '')
+      .replace(/```/g, '')
+      .trim();
+
+    const start = text.indexOf('{');
+    const end = text.lastIndexOf('}');
+    if (start === -1 || end === -1 || end <= start) {
+      throw new Error('No JSON object found in AI response');
+    }
+
+    text = text.slice(start, end + 1)
+      .replace(/[“”]/g, '"')
+      .replace(/[‘’]/g, "'")
+      .replace(/，/g, ',')
+      .replace(/：/g, ':')
+      .replace(/^﻿/, '');
+
+    text = Array.from(text, ch => {
+      const code = ch.charCodeAt(0);
+      return code < 32 ? ' ' : ch;
+    }).join('');
+
+    text = text.replace(/,(\s*[}\]])/g, '$1');
+
+    try {
+      return JSON.parse(text);
+    } catch (err) {
+      const match = /position\s+(\d+)/i.exec(err?.message || '');
+      if (match) {
+        const pos = Number(match[1]);
+        const snippet = text.slice(Math.max(0, pos - 80), Math.min(text.length, pos + 80));
+        throw new Error(`JSON parse failed near: ${snippet}`);
+      }
+      throw err;
+    }
+  };
+
   /* ── WeChat chat import ─────────────────────────────── */
   const parseWeChat = async () => {
     if (!wchat.trim()) return;
@@ -1089,9 +1133,8 @@ Return ONLY valid JSON (no markdown, no explanation):
         })
       });
       const data = await res.json();
-      const txt = (data.content||[]).map(c=>c.text||'').join('');
-      const clean = txt.replace(/```json|```/g,'').trim();
-      setWchatResult(JSON.parse(clean));
+      const raw = (data.content || []).map(c => c?.text || '').join('');
+      setWchatResult(extractAndParseJson(raw));
     } catch(e) {
       setWchatResult({ summary:'Parse error: '+e.message, keyTopics:[], clientRequests:[], actionItems:[], importantDates:[], sentiment:'neutral', language:'Unknown', messageCount:0, dateRange:null, tags:[] });
     }
@@ -1165,8 +1208,8 @@ IMPORTANT EXTRACTION RULES:
 - Return [] for arrays with no data, not null` }] })
       });
       const d = await res.json();
-      const txt = (d.content?.[0]?.text || '').replace(/```json|```/g,'').trim();
-      setImportPreview(JSON.parse(txt));
+      const raw = (d.content || []).map(c => c?.text || '').join('');
+      setImportPreview(extractAndParseJson(raw));
     } catch(err) {
       window.alert('Import failed: ' + err.message);
     } finally {
