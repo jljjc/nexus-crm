@@ -1059,53 +1059,59 @@ function ClientDetailModal({ client, jobs, setJobs, team, onClose, onEdit, onSav
 
 
   const extractAndParseJson = (raw) => {
-    if (!raw || typeof raw !== 'string') {
-      throw new Error('Empty AI response');
-    }
+    if (!raw || typeof raw !== 'string') throw new Error('Empty AI response');
 
-    let text = raw
-      .replace(/```json/gi, '')
-      .replace(/```/g, '')
-      .trim();
+    let text = raw.replace(/```json/gi, '').replace(/```/g, '').trim();
 
     const start = text.indexOf('{');
-    const end = text.lastIndexOf('}');
-    if (start === -1 || end === -1 || end <= start) {
+    const end   = text.lastIndexOf('}');
+    if (start === -1 || end === -1 || end <= start)
       throw new Error('No JSON object found in AI response');
-    }
 
     text = text.slice(start, end + 1)
-      .replace(/[“”]/g, '"')
-      .replace(/[‘’]/g, "'")
-      .replace(/，/g, ',')
-      .replace(/：/g, ':')
-      .replace(/^﻿/, '');
+      .replace(/[\u201c\u201d]/g, '"')
+      .replace(/[\u2018\u2019]/g, "'")
+      .replace(/^\uFEFF/, '');
 
+    // Strip control chars but KEEP newlines — they are value delimiters
     text = Array.from(text, ch => {
-      const code = ch.charCodeAt(0);
-      return code < 32 ? ' ' : ch;
+      const c = ch.charCodeAt(0);
+      return (c < 32 && c !== 10 && c !== 13) ? ' ' : ch;
     }).join('');
 
-    text = text.replace(/,(\s*[}\]])/g, '$1');
+    // Fix unquoted values LINE BY LINE (before normalising ，→, so Chinese commas
+    // inside a value don't get mistaken for JSON delimiters)
+    text = text.split('\n').map(line => {
+      const m = line.match(/^(\s*"(?:[^"\\]|\\.)*"\s*:\s*)(.*)/);
+      if (!m) return line;
+      const [, key, rest] = m;
+      const val = rest.trim();
 
-    // Fix unquoted string values anchored to a quoted JSON key
-    // e.g. "visaTarget": 签证目标  →  "visaTarget": "签证目标"
-    text = text.replace(
-      /("(?:[^"\\]|\\.)*"\s*:\s*)([^"\d[{\s-][^,}\]\n"]*)/g,
-      (match, keyPart, val) => {
-        const v = val.trim();
-        if (['null', 'true', 'false'].includes(v)) return match;
-        if (/^-?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/.test(v)) return match;
-        return `${keyPart}"${v.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
-      }
-    );
+      // Already a valid JSON value — leave alone
+      if (val === '' || val.startsWith('"') || val.startsWith('{') || val.startsWith('[')) return line;
+      const bare = val.replace(/,\s*$/, '').trim();
+      if (bare === 'null' || bare === 'true' || bare === 'false') return line;
+      if (/^-?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/.test(bare)) return line;
+
+      // Unquoted string — wrap in quotes
+      const trailingComma = val.trimEnd().endsWith(',') ? ',' : '';
+      const escaped = bare.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+      const indent = line.match(/^(\s*)/)[1];
+      return `${indent}${key.trimStart()}"${escaped}"${trailingComma}`;
+    }).join('\n');
+
+    // NOW normalise Chinese punctuation (values are safely quoted by this point)
+    text = text.replace(/，/g, ',').replace(/：/g, ':');
+
+    // Remove trailing commas before } or ]
+    text = text.replace(/,(\s*[}\]])/g, '$1');
 
     try {
       return JSON.parse(text);
     } catch (err) {
-      const match = /position\s+(\d+)/i.exec(err?.message || '');
-      if (match) {
-        const pos = Number(match[1]);
+      const posMatch = /position\s+(\d+)/i.exec(err?.message || '');
+      if (posMatch) {
+        const pos = Number(posMatch[1]);
         const snippet = text.slice(Math.max(0, pos - 80), Math.min(text.length, pos + 80));
         throw new Error(`JSON parse failed near: ${snippet}`);
       }
