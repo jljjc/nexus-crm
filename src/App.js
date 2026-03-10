@@ -2,68 +2,6 @@ import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import * as mammoth from 'mammoth';
 
-
-
-function extractAndParseJson(raw) {
-  if (!raw || typeof raw !== 'string') {
-    throw new Error('Empty AI response');
-  }
-
-  let text = raw
-    .replace(/```json/gi, '')
-    .replace(/```/g, '')
-    .trim();
-
-  const firstBrace = text.indexOf('{');
-  const firstBracket = text.indexOf('[');
-  let start = -1;
-
-  if (firstBrace === -1) start = firstBracket;
-  else if (firstBracket === -1) start = firstBrace;
-  else start = Math.min(firstBrace, firstBracket);
-
-  if (start === -1) {
-    throw new Error('No JSON block found in AI response');
-  }
-
-  text = text.slice(start);
-
-  const lastBrace = text.lastIndexOf('}');
-  const lastBracket = text.lastIndexOf(']');
-  if (lastBrace !== -1 && lastBrace >= lastBracket) {
-    text = text.slice(0, lastBrace + 1);
-  } else if (lastBracket !== -1) {
-    text = text.slice(0, lastBracket + 1);
-  }
-
-  text = text
-    .replace(/[“”]/g, '"')
-    .replace(/[‘’]/g, "'")
-    .replace(/，/g, ',')
-    .replace(/：/g, ':')
-    .replace(/^\uFEFF/, '');
-
-  text = Array.from(text, (ch) => {
-    const code = ch.charCodeAt(0);
-    return code < 32 ? ' ' : ch;
-  }).join('');
-
-  text = text.replace(/,(\s*[}\]])/g, '$1');
-
-  try {
-    return JSON.parse(text);
-  } catch (err) {
-    const msg = err && err.message ? err.message : String(err);
-    const m = /position\s+(\d+)/i.exec(msg);
-    if (m) {
-      const pos = Number(m[1]);
-      const snippet = text.slice(Math.max(0, pos - 80), Math.min(text.length, pos + 80));
-      throw new Error('JSON parse failed near: ' + snippet);
-    }
-    throw err;
-  }
-}
-
 /* ─── i18n LANGUAGE SYSTEM ──────────────────────────────────────────────────── */
 const LANG_ZH = {
   // Nav
@@ -1118,6 +1056,59 @@ function ClientDetailModal({ client, jobs, setJobs, team, onClose, onEdit, onSav
   const [wchatResult, setWchatResult]   = useState(null);
   const [wchatSaved, setWchatSaved]     = useState(false);
   const clientJobs                  = jobs.filter(j => j.clientId === client.id);
+
+
+  const extractAndParseJson = (raw) => {
+    if (!raw || typeof raw !== 'string') {
+      throw new Error('Empty AI response');
+    }
+
+    let text = raw
+      .replace(/```json/gi, '')
+      .replace(/```/g, '')
+      .trim();
+
+    const start = text.indexOf('{');
+    const end = text.lastIndexOf('}');
+    if (start === -1 || end === -1 || end <= start) {
+      throw new Error('No JSON object found in AI response');
+    }
+
+    text = text.slice(start, end + 1)
+      .replace(/[“”]/g, '"')
+      .replace(/[‘’]/g, "'")
+      .replace(/，/g, ',')
+      .replace(/：/g, ':')
+      .replace(/^﻿/, '');
+
+    text = Array.from(text, ch => {
+      const code = ch.charCodeAt(0);
+      return code < 32 ? ' ' : ch;
+    }).join('');
+
+    text = text.replace(/,(\s*[}\]])/g, '$1');
+
+    // Fix unquoted string values — e.g. "visaTarget": 签证目标 or bare English words
+    // Matches values after ":" that don't start with ", {, [, digit, -, or a JSON keyword
+    text = text.replace(/:\s*([^"\s{[\d\-][^,}\]\n"]{0,300}?)(\s*[,}\]])/g, (match, val, end) => {
+      const trimmed = val.trim();
+      if (['null', 'true', 'false'].includes(trimmed)) return match;
+      if (/^-?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/.test(trimmed)) return match;
+      return `: "${trimmed.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"${end}`;
+    });
+
+    try {
+      return JSON.parse(text);
+    } catch (err) {
+      const match = /position\s+(\d+)/i.exec(err?.message || '');
+      if (match) {
+        const pos = Number(match[1]);
+        const snippet = text.slice(Math.max(0, pos - 80), Math.min(text.length, pos + 80));
+        throw new Error(`JSON parse failed near: ${snippet}`);
+      }
+      throw err;
+    }
+  };
 
   /* ── WeChat chat import ─────────────────────────────── */
   const parseWeChat = async () => {
@@ -2274,7 +2265,7 @@ function Clients({ clients, jobs, setClients, setJobs, team }) {
 }
 
 /* ─── JOBS ────────────────────────────────────────────────────────────────────── */
-function Jobs({ jobs, clients, team, setJobs }) {
+function Jobs({ jobs, clients, team, setJobs, openJobId, setOpenJobId }) {
   const { t } = useLang(); // eslint-disable-line no-unused-vars
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('All');
@@ -2285,6 +2276,15 @@ function Jobs({ jobs, clients, team, setJobs }) {
   const [form, setForm] = useState({});
   const [viewJob, setViewJob] = useState(null);
   const [clientSearch, setClientSearch] = useState('');
+
+  // Open specific job from calendar or other navigation
+  useEffect(() => {
+    if (openJobId) {
+      const j = jobs.find(x => x.id === openJobId);
+      if (j) setViewJob(j);
+      if (setOpenJobId) setOpenJobId(null);
+    }
+  }, [openJobId]); // eslint-disable-line react-hooks/exhaustive-deps
   const [clientDropOpen, setClientDropOpen] = useState(false);
   const sortedClients = [...clients].sort((a,b) => a.name.localeCompare(b.name));
 
@@ -2532,8 +2532,8 @@ ${rawText.slice(0,5000)}` }]
                   })
                 });
                 const d = await res.json();
-                const raw = (d.content || []).map(c => c?.text || '').join('');
-                const parsed = extractAndParseJson(raw);
+                const txt = (d.content?.[0]?.text||'').replace(/```json|```/g,'').trim();
+                const parsed = JSON.parse(txt);
                 const updated = { ...viewJob, ...(parsed.snapshot?{snapshot:parsed.snapshot}:{}), ...(parsed.caseTimeline?.length?{caseTimeline:parsed.caseTimeline}:{}) };
                 setViewJob(updated); setJobs(prev=>prev.map(j=>j.id===viewJob.id?updated:j));
                 try { await sbUpdate('jobs', updated.id, {data:updated}); } catch(er){ console.warn(er); }
@@ -2721,7 +2721,7 @@ ${rawText.slice(0,5000)}` }]
                 </div>
                 <div style={{ display:'flex', alignItems:'center', gap:10, flexShrink:0 }}>
                   <div style={{ width:120 }}>
-                    <div style={{ fontSize:11, color:'#1f2937', marginBottom:4, textAlign:'right' }}>{j.progress}%</div>
+                    <div style={{ fontSize:11, color:'#1f2937', marginBottom:4, textAlign:'right' }}>{STATUS_PROGRESS[j.status] ?? j.progress ?? 0}%</div>
                     <ProgressBar value={j.progress} status={j.status} />
                   </div>
                   <StatusBadge status={j.status} small />
@@ -2883,8 +2883,8 @@ ${rawText.slice(0,5000)}` }]
                 })
               });
               const d = await res.json();
-              const raw = (d.content || []).map(c => c?.text || '').join('');
-              const parsed = extractAndParseJson(raw);
+              const txt = (d.content?.[0]?.text||'').replace(/```json|```/g,'').trim();
+              const parsed = JSON.parse(txt);
               const updated = { ...viewJob, ...(parsed.snapshot?{snapshot:parsed.snapshot}:{}), ...(parsed.caseTimeline?.length?{caseTimeline:parsed.caseTimeline}:{}) };
               setViewJob(updated); setJobs(prev=>prev.map(j=>j.id===viewJob.id?updated:j));
               try { await sbUpdate('jobs', updated.id, {data:updated}); } catch(er){ console.warn(er); }
@@ -3487,7 +3487,7 @@ function DeadlineAlerts({ jobs, appointments }) {
     if (j.status === 'Completed') return;
     if (j.dueDate && j.dueDate <= sevenDays) {
       const d = daysUntil(j.dueDate);
-      soon.push({ type:'job', label: j.type, ref: j.ref || j.id, days: d, overdue: d < 0, urgent: d <= 2 });
+      soon.push({ type:'job', label: j.type || 'Case', ref: j.ref || j.id, days: d, overdue: d < 0, urgent: d <= 2 });
     }
   });
   appointments.forEach(a => {
@@ -3500,16 +3500,26 @@ function DeadlineAlerts({ jobs, appointments }) {
   soon.sort((a,b) => a.days - b.days);
 
   return (
-    <div style={{ background:'#7f1d1d20', border:'1px solid #ef444430', borderRadius:10, padding:'12px 16px', marginBottom:20, display:'flex', gap:12, flexWrap:'wrap', alignItems:'center' }}>
-      <span style={{ fontSize:16 }}>⚠️</span>
-      <span style={{ fontSize:12, fontWeight:600, color:'#fca5a5', textTransform:'uppercase', letterSpacing:'0.06em' }}>
-        {soon.length} Upcoming Deadline{soon.length>1?'s':''}
-      </span>
-      {soon.slice(0,5).map((s,i) => (
-        <span key={i} style={{ fontSize:12, background: s.overdue?'#ef444430': s.urgent?'#f97316 20':'#e5e7eb', color: s.overdue?'#f87171': s.urgent?'#fdba74':'#94a3b8', borderRadius:6, padding:'3px 9px' }}>
-          {s.label} · {s.overdue ? `${Math.abs(s.days)}d overdue` : s.days === 0 ? 'Today' : `${s.days}d`}
-        </span>
-      ))}
+    <div style={{ background:'linear-gradient(135deg,#1e1b4b,#312e81)', border:'1.5px solid #6366f140', borderRadius:14, padding:'16px 20px', marginBottom:20, boxShadow:'0 4px 20px #6366f120' }}>
+      <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:12 }}>
+        <div style={{ background:'#f59e0b', borderRadius:8, padding:'5px 12px', fontSize:12, fontWeight:800, color:'#1c1917', letterSpacing:'0.05em', flexShrink:0 }}>
+          ⏰ {soon.length} UPCOMING
+        </div>
+        <span style={{ fontSize:13, color:'#c7d2fe', fontWeight:500 }}>deadline{soon.length>1?'s':''} in the next 7 days</span>
+      </div>
+      <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+        {soon.slice(0,6).map((s,i) => (
+          <div key={i} style={{ display:'flex', alignItems:'center', gap:6, background: s.overdue?'#ef444425':s.urgent?'#f9731625':'#ffffff12', border:`1px solid ${s.overdue?'#ef4444':s.urgent?'#f97316':'#6366f145'}`, borderRadius:8, padding:'6px 12px' }}>
+            <span style={{ fontSize:11 }}>{s.overdue?'🔴':s.urgent?'⚠️':'📅'}</span>
+            <div>
+              <div style={{ fontSize:12, fontWeight:700, color: s.overdue?'#fca5a5':s.urgent?'#fdba74':'#e0e7ff', maxWidth:180, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{s.label}</div>
+              <div style={{ fontSize:10, color: s.overdue?'#f87171':s.urgent?'#fb923c':'#a5b4fc', marginTop:1 }}>
+                {s.overdue ? `${Math.abs(s.days)}d overdue` : s.days===0 ? 'Today' : `${s.days}d left`}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -3659,7 +3669,7 @@ function Leads({ leads, setLeads, clients, setClients, jobs, setJobs, team, agen
 }
 
 /* ─── CALENDAR PAGE ──────────────────────────────────────────────────────────── */
-function CalendarPage({ appointments, setAppointments, jobs, clients, team }) {
+function CalendarPage({ appointments, setAppointments, jobs, clients, team, onGoTo, onViewJob }) {
   const [showForm, setShowForm] = useState(false);
   const [editAppt, setEditAppt] = useState(null);
   const [curMonth, setCurMonth] = useState(() => { const d=new Date(); return {y:d.getFullYear(),m:d.getMonth()}; });
@@ -3701,14 +3711,20 @@ function CalendarPage({ appointments, setAppointments, jobs, clients, team }) {
     if (!apptsByDay[key]) apptsByDay[key] = [];
     apptsByDay[key].push(a);
   });
-  // Also add job deadlines as events
+  // Also add job deadlines as events with client name + priority colour
   jobs.forEach(j => {
     if (!j.dueDate || j.status==='Completed') return;
     const [y,mo,dd] = j.dueDate.split('-');
     if (parseInt(y)===curMonth.y && parseInt(mo)-1===curMonth.m && dd) {
       const key = parseInt(dd);
       if (!apptsByDay[key]) apptsByDay[key] = [];
-      apptsByDay[key].push({ id:'jd_'+j.id, title:`📋 ${j.type||'Case'} Deadline`, type:'Deadline', isDeadline:true });
+      const cl = clients.find(c => c.id === j.clientId);
+      const lastName = cl ? (cl.name||'').split(',')[0].trim() : '';
+      const visaCode = (j.type||'').replace('Subclass ','').split('–')[0].trim().split(' ')[0];
+      const PCOLORS = { Urgent:'#ef4444', High:'#f97316', Medium:'#f59e0b', Low:'#6366f1' };
+      const pColor = PCOLORS[j.priority] || '#f59e0b';
+      const label = lastName ? `${lastName} · ${visaCode}` : (visaCode || 'Case');
+      apptsByDay[key].push({ id:'jd_'+j.id, jobId:j.id, title:label, type:'Deadline', isDeadline:true, priorityColor:pColor });
     }
   });
 
@@ -3752,7 +3768,22 @@ function CalendarPage({ appointments, setAppointments, jobs, clients, team }) {
                     <>
                       <div style={{ fontSize:13, fontWeight: isToday?700:400, color: isToday?'#6366f1':'#94a3b8', marginBottom:4 }}>{d}</div>
                       {events.slice(0,3).map((ev,ei) => (
-                        <div key={ei} onClick={()=>{ if(!ev.isDeadline){setForm({...ev});setEditAppt(ev.id);setShowForm(true);}}} style={{ fontSize:10, background: ev.isDeadline?'#f59e0b20':'#38bdf815', color: ev.isDeadline?'#fbbf24':'#6366f1', borderRadius:4, padding:'2px 5px', marginBottom:2, cursor: ev.isDeadline?'default':'pointer', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                        <div key={ei}
+                          onClick={()=>{
+                            if (ev.isDeadline) { if(onViewJob) onViewJob(ev.jobId); }
+                            else { setForm({...ev}); setEditAppt(ev.id); setShowForm(true); }
+                          }}
+                          title={ev.isDeadline ? 'Click to view case' : ev.title}
+                          style={{
+                            fontSize:10,
+                            background: ev.isDeadline ? (ev.priorityColor||'#f97316')+'22' : '#38bdf815',
+                            color: ev.isDeadline ? (ev.priorityColor||'#f97316') : '#6366f1',
+                            borderLeft: ev.isDeadline ? `3px solid ${ev.priorityColor||'#f97316'}` : 'none',
+                            borderRadius:4, padding:'2px 5px', marginBottom:2,
+                            cursor:'pointer',
+                            overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
+                            fontWeight: ev.isDeadline ? 600 : 400,
+                          }}>
                           {ev.time && !ev.isDeadline ? ev.time.slice(0,5)+' ' : ''}{ev.title}
                         </div>
                       ))}
@@ -4427,6 +4458,7 @@ function App() {
   const [appointments, setAppointments] = useState(INIT_APPOINTMENTS);
   const [agents, setAgents]             = useState(INIT_AGENTS);
   const [view, setView]                 = useState('dashboard');
+  const [openJobId, setOpenJobId]       = useState(null);
   const [, setLoaded]               = useState(false);
   const [authed, setAuthed]             = useState(() => sessionStorage.getItem('ozsky_auth') === '1');
   const [isManager, setIsManager]       = useState(() => sessionStorage.getItem('ozsky_role') === 'manager');
@@ -4607,10 +4639,10 @@ function App() {
               </>
             )}
             {view === 'clients'   && <Clients   clients={clients} jobs={jobs} setClients={setClients} setJobs={setJobs} team={team} />}
-            {view === 'jobs'      && <Jobs       jobs={jobs} clients={clients} team={team} setJobs={setJobs} />}
+            {view === 'jobs'      && <Jobs       jobs={jobs} clients={clients} team={team} setJobs={setJobs} openJobId={openJobId} setOpenJobId={setOpenJobId} />}
             {view === 'team'      && isManager && <Team       team={team} jobs={jobs} clients={clients} setTeam={setTeam} setJobs={setJobs} />}
             {view === 'leads'     && <Leads      leads={leads} setLeads={setLeads} clients={clients} setClients={setClients} jobs={jobs} setJobs={setJobs} team={team} agents={agents} />}
-            {view === 'calendar'  && <CalendarPage appointments={appointments} setAppointments={setAppointments} jobs={jobs} clients={clients} team={team} />}
+            {view === 'calendar'  && <CalendarPage appointments={appointments} setAppointments={setAppointments} jobs={jobs} clients={clients} team={team} onGoTo={setView} onViewJob={(jid)=>{setOpenJobId(jid);setView('jobs');}} />}
             {view === 'invoices'  && <Invoices   invoices={invoices} setInvoices={setInvoices} clients={clients} jobs={jobs} />}
             {view === 'agents'    && <AgentsPage agents={agents} setAgents={setAgents} leads={leads} jobs={jobs} invoices={invoices} />}
             {view === 'reports'   && isManager && <Reports clients={clients} jobs={jobs} leads={leads} invoices={invoices} team={team} />}
