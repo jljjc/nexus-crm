@@ -802,7 +802,7 @@ function Dashboard({ clients, jobs, team, onGoTo }) {
   const now = new Date();
   const in14 = new Date(now); in14.setDate(now.getDate()+14);
   const upcoming = jobs
-    .filter(j => j.status!=='Completed' && j.status!=='Awaiting Decision' && j.dueDate)
+    .filter(j => j.status!=='Completed' && j.dueDate)
     .filter(j => { const d = new Date(j.dueDate); return d >= now && d <= in14; })
     .sort((a,b) => a.dueDate.localeCompare(b.dueDate))
     .slice(0,5);
@@ -3744,7 +3744,7 @@ function CalendarPage({ appointments, setAppointments, jobs, clients, team, onGo
   });
   // Also add job deadlines as events with client name + priority colour
   jobs.forEach(j => {
-    if (!j.dueDate || j.status==='Completed' || j.status==='On Hold') return;
+    if (!j.dueDate || j.status==='Completed') return;
     const [y,mo,dd] = j.dueDate.split('-');
     if (parseInt(y)===curMonth.y && parseInt(mo)-1===curMonth.m && dd) {
       const key = parseInt(dd);
@@ -3753,8 +3753,9 @@ function CalendarPage({ appointments, setAppointments, jobs, clients, team, onGo
       const lastName = cl ? (cl.name||'').split(',')[0].trim() : '';
       const visaCode = (j.type||'').replace('Subclass ','').split('–')[0].trim().split(' ')[0];
       const PCOLORS = { Urgent:'#ef4444', High:'#f97316', Medium:'#f59e0b', Low:'#6366f1' };
-      const pColor = PCOLORS[j.priority] || '#f59e0b';
-      const label = lastName ? `${lastName} · ${visaCode}` : (visaCode || 'Case');
+      const isAwaiting = j.status === 'Awaiting Decision';
+      const pColor = isAwaiting ? '#64748b' : (PCOLORS[j.priority] || '#f59e0b');
+      const label = (isAwaiting ? '⏳ ' : '') + (lastName ? `${lastName} · ${visaCode}` : (visaCode || 'Case'));
       apptsByDay[key].push({ id:'jd_'+j.id, jobId:j.id, title:label, type:'Deadline', isDeadline:true, priorityColor:pColor });
     }
   });
