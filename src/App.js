@@ -1088,14 +1088,17 @@ function ClientDetailModal({ client, jobs, setJobs, team, onClose, onEdit, onSav
 
     text = text.replace(/,(\s*[}\]])/g, '$1');
 
-    // Fix unquoted string values — e.g. "visaTarget": 签证目标 or bare English words
-    // Matches values after ":" that don't start with ", {, [, digit, -, or a JSON keyword
-    text = text.replace(/:\s*([^"\s{[\d-][^,}\]\n"]{0,300}?)(\s*[,}\]])/g, (match, val, end) => {
-      const trimmed = val.trim();
-      if (['null', 'true', 'false'].includes(trimmed)) return match;
-      if (/^-?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/.test(trimmed)) return match;
-      return `: "${trimmed.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"${end}`;
-    });
+    // Fix unquoted string values anchored to a quoted JSON key
+    // e.g. "visaTarget": 签证目标  →  "visaTarget": "签证目标"
+    text = text.replace(
+      /("(?:[^"\\]|\\.)*"\s*:\s*)([^"\d\-\[{\s][^,}\]\n"]*)/g,
+      (match, keyPart, val) => {
+        const v = val.trim();
+        if (['null', 'true', 'false'].includes(v)) return match;
+        if (/^-?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/.test(v)) return match;
+        return `${keyPart}"${v.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+      }
+    );
 
     try {
       return JSON.parse(text);
@@ -1214,7 +1217,8 @@ IMPORTANT EXTRACTION RULES:
 - 六、当前状态 / CURRENT STATUS → extract summary text into currentStatus, bullet points into nextSteps array
 - For visaHistory: extract ALL visa rows including TRA PSA entries
 - Skip rows with only dashes/empty data
-- Return [] for arrays with no data, not null` }] })
+- Return [] for arrays with no data, not null
+- CRITICAL: ALL string values MUST be wrapped in double quotes, including Chinese text. NEVER output bare/unquoted text as a value. Example: "visaTarget": "签证目标" ✓  NOT "visaTarget": 签证目标 ✗` }] })
       });
       const d = await res.json();
       const raw = (d.content || []).map(c => c?.text || '').join('');
