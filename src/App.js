@@ -2281,6 +2281,7 @@ function Jobs({ jobs, clients, team, setJobs, openJobId, setOpenJobId }) {
   const [filterStatus, setFilterStatus] = useState('All');
   const [filterAssigned, setFilterAssigned] = useState('All');
   const [filterPriority, setFilterPriority] = useState('All');
+  const [sortBy, setSortBy] = useState('default');
   const [view, setView] = useState('list');
   const [modal, setModal] = useState(null);
   const [form, setForm] = useState({});
@@ -2312,6 +2313,21 @@ function Jobs({ jobs, clients, team, setJobs, openJobId, setOpenJobId }) {
       (filterAssigned === 'All' || j.assignedTo === filterAssigned) &&
       (filterPriority === 'All' || j.priority === filterPriority)
     );
+  }).sort((a, b) => {
+    if (sortBy === 'urgency') {
+      const PORDER = { Urgent:0, High:1, Medium:2, Low:3 };
+      const pa = PORDER[a.priority] ?? 99, pb = PORDER[b.priority] ?? 99;
+      if (pa !== pb) return pa - pb;
+      // Secondary: soonest deadline first
+      if (a.dueDate && b.dueDate) return a.dueDate.localeCompare(b.dueDate);
+      if (a.dueDate) return -1; if (b.dueDate) return 1;
+      return 0;
+    }
+    if (sortBy === 'progress') {
+      return (b.progress || 0) - (a.progress || 0);
+    }
+    // default: newest first
+    return (b.createdAt||'').localeCompare(a.createdAt||'');
   });
 
   const openAdd = () => { setForm({ title:'', type:'Subclass 500 – Student Visa', clientId: clients[0]?.id||'', assignedTo: team[0]?.id||'', status:'New', priority:'Medium', dueDate:'', notes:[], progress:0, createdAt:today() }); setModal('add'); };
@@ -2709,6 +2725,11 @@ ${rawText.slice(0,5000)}` }]
         <select value={filterPriority} onChange={e=>setFilterPriority(e.target.value)} style={{ ...selectStyle, width:140 }}>
           <option value="All">All Priority</option>
           {PRIORITIES.map(p=><option key={p}>{p}</option>)}
+        </select>
+        <select value={sortBy} onChange={e=>setSortBy(e.target.value)} style={{ ...selectStyle, width:180 }}>
+          <option value="default">↕ Default (Newest)</option>
+          <option value="urgency">🔥 By Urgency</option>
+          <option value="progress">📊 By Progress ↓</option>
         </select>
       </div>
       <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
@@ -3723,7 +3744,7 @@ function CalendarPage({ appointments, setAppointments, jobs, clients, team, onGo
   });
   // Also add job deadlines as events with client name + priority colour
   jobs.forEach(j => {
-    if (!j.dueDate || j.status==='Completed') return;
+    if (!j.dueDate || j.status==='Completed' || j.status==='On Hold') return;
     const [y,mo,dd] = j.dueDate.split('-');
     if (parseInt(y)===curMonth.y && parseInt(mo)-1===curMonth.m && dd) {
       const key = parseInt(dd);
