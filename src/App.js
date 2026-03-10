@@ -1091,7 +1091,7 @@ function ClientDetailModal({ client, jobs, setJobs, team, onClose, onEdit, onSav
     // Fix unquoted string values anchored to a quoted JSON key
     // e.g. "visaTarget": 签证目标  →  "visaTarget": "签证目标"
     text = text.replace(
-      /("(?:[^"\\]|\\.)*"\s*:\s*)([^"\d\-\[{\s][^,}\]\n"]*)/g,
+      /("(?:[^"\\]|\\.)*"\s*:\s*)([^"\d[{\s-][^,}\]\n"]*)/g,
       (match, keyPart, val) => {
         const v = val.trim();
         if (['null', 'true', 'false'].includes(v)) return match;
