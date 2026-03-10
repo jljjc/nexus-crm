@@ -1090,7 +1090,7 @@ function ClientDetailModal({ client, jobs, setJobs, team, onClose, onEdit, onSav
 
     // Fix unquoted string values — e.g. "visaTarget": 签证目标 or bare English words
     // Matches values after ":" that don't start with ", {, [, digit, -, or a JSON keyword
-    text = text.replace(/:\s*([^"\s{[\d\-][^,}\]\n"]{0,300}?)(\s*[,}\]])/g, (match, val, end) => {
+    text = text.replace(/:\s*([^"\s{[\d-][^,}\]\n"]{0,300}?)(\s*[,}\]])/g, (match, val, end) => {
       const trimmed = val.trim();
       if (['null', 'true', 'false'].includes(trimmed)) return match;
       if (/^-?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/.test(trimmed)) return match;
