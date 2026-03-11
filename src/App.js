@@ -777,7 +777,7 @@ function ClientSnapshot({ client, jobs, visible, anchorRef }) {
 ═══════════════════════════════════════════════════════════════════════════════ */
 
 /* ─── DASHBOARD ─────────────────────────────────────────────────────────────── */
-function Dashboard({ clients, jobs, team, onGoTo }) {
+function Dashboard({ clients, jobs, team, onGoTo, setJobsMemberFilter }) {
   const { t } = useLang(); // eslint-disable-line no-unused-vars
   const [selectedJob, setSelectedJob] = useState(null);
 
@@ -794,7 +794,7 @@ function Dashboard({ clients, jobs, team, onGoTo }) {
   // Exclude owners Liang (t1) and Mansi (t2) from workload display
   const memberLoad = team
     .filter(m => m.id !== 't1' && m.id !== 't2')
-    .map(m => ({ ...m, count: jobs.filter(j=>j.assignedTo===m.id && j.status!=='Completed').length }))
+    .map(m => ({ ...m, count: jobs.filter(j=>j.assignedTo===m.id && j.status!=='Completed' && j.status!=='Awaiting Decision').length }))
     .sort((a,b) => b.count - a.count)
     .slice(0, 6);
 
@@ -918,7 +918,7 @@ function Dashboard({ clients, jobs, team, onGoTo }) {
             {memberLoad.map(m => {
               const pct = Math.min((m.count / 5) * 100, 100);
               return (
-                <div key={m.id} onClick={()=>onGoTo('jobs')} style={{ display:'flex', alignItems:'center', gap:12, padding:'6px 8px', borderRadius:8, cursor:'pointer', transition:'background 0.15s' }}
+                <div key={m.id} onClick={()=>{ setJobsMemberFilter(m.id); onGoTo('jobs'); }} style={{ display:'flex', alignItems:'center', gap:12, padding:'6px 8px', borderRadius:8, cursor:'pointer', transition:'background 0.15s' }}
                   onMouseEnter={e=>e.currentTarget.style.background='#38bdf810'}
                   onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
                   <Avatar name={m.name} color={m.color} size={30} />
@@ -2275,7 +2275,7 @@ function Clients({ clients, jobs, setClients, setJobs, team }) {
 }
 
 /* ─── JOBS ────────────────────────────────────────────────────────────────────── */
-function Jobs({ jobs, clients, team, setJobs, openJobId, setOpenJobId }) {
+function Jobs({ jobs, clients, team, setJobs, openJobId, setOpenJobId, jobsMemberFilter, setJobsMemberFilter }) {
   const { t } = useLang(); // eslint-disable-line no-unused-vars
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('All');
@@ -2296,6 +2296,15 @@ function Jobs({ jobs, clients, team, setJobs, openJobId, setOpenJobId }) {
       if (setOpenJobId) setOpenJobId(null);
     }
   }, [openJobId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Apply member filter from Dashboard Team Workload click
+  useEffect(() => {
+    if (jobsMemberFilter) {
+      setFilterAssigned(jobsMemberFilter);
+      setFilterStatus('active_not_awaiting');
+      if (setJobsMemberFilter) setJobsMemberFilter(null);
+    }
+  }, [jobsMemberFilter]); // eslint-disable-line react-hooks/exhaustive-deps
   const [clientDropOpen, setClientDropOpen] = useState(false);
   const sortedClients = [...clients].sort((a,b) => a.name.localeCompare(b.name));
 
@@ -2307,9 +2316,14 @@ function Jobs({ jobs, clients, team, setJobs, openJobId, setOpenJobId }) {
   const filtered = jobs.filter(j => {
     const q = search.toLowerCase();
     const client = getClient(j.clientId);
+    const statusMatch = filterStatus === 'All'
+      ? true
+      : filterStatus === 'active_not_awaiting'
+        ? j.status !== 'Completed' && j.status !== 'Awaiting Decision'
+        : j.status === filterStatus;
     return (
       (!q || j.title.toLowerCase().includes(q) || client?.name.toLowerCase().includes(q) || j.type.toLowerCase().includes(q)) &&
-      (filterStatus === 'All' || j.status === filterStatus) &&
+      statusMatch &&
       (filterAssigned === 'All' || j.assignedTo === filterAssigned) &&
       (filterPriority === 'All' || j.priority === filterPriority)
     );
@@ -2716,6 +2730,7 @@ ${rawText.slice(0,5000)}` }]
         <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍  Search jobs..." style={{ ...inputStyle, width:240 }} />
         <select value={filterStatus} onChange={e=>setFilterStatus(e.target.value)} style={{ ...selectStyle, width:160 }}>
           <option value="All">All Status</option>
+          <option value="active_not_awaiting">Active (excl. Awaiting)</option>
           {JOB_STATUSES.map(s=><option key={s}>{s}</option>)}
         </select>
         <select value={filterAssigned} onChange={e=>setFilterAssigned(e.target.value)} style={{ ...selectStyle, width:160 }}>
@@ -4491,6 +4506,7 @@ function App() {
   const [agents, setAgents]             = useState(INIT_AGENTS);
   const [view, setView]                 = useState('dashboard');
   const [openJobId, setOpenJobId]       = useState(null);
+  const [jobsMemberFilter, setJobsMemberFilter] = useState(null);
   const [, setLoaded]               = useState(false);
   const [authed, setAuthed]             = useState(() => sessionStorage.getItem('ozsky_auth') === '1');
   const [isManager, setIsManager]       = useState(() => sessionStorage.getItem('ozsky_role') === 'manager');
@@ -4667,11 +4683,11 @@ function App() {
             {view === 'dashboard' && (
               <>
                 <DeadlineAlerts jobs={jobs} appointments={appointments} />
-                <Dashboard clients={clients} jobs={jobs} team={team} onGoTo={setView} />
+                <Dashboard clients={clients} jobs={jobs} team={team} onGoTo={setView} setJobsMemberFilter={setJobsMemberFilter} />
               </>
             )}
             {view === 'clients'   && <Clients   clients={clients} jobs={jobs} setClients={setClients} setJobs={setJobs} team={team} />}
-            {view === 'jobs'      && <Jobs       jobs={jobs} clients={clients} team={team} setJobs={setJobs} openJobId={openJobId} setOpenJobId={setOpenJobId} />}
+            {view === 'jobs'      && <Jobs       jobs={jobs} clients={clients} team={team} setJobs={setJobs} openJobId={openJobId} setOpenJobId={setOpenJobId} jobsMemberFilter={jobsMemberFilter} setJobsMemberFilter={setJobsMemberFilter} />}
             {view === 'team'      && isManager && <Team       team={team} jobs={jobs} clients={clients} setTeam={setTeam} setJobs={setJobs} />}
             {view === 'leads'     && <Leads      leads={leads} setLeads={setLeads} clients={clients} setClients={setClients} jobs={jobs} setJobs={setJobs} team={team} agents={agents} />}
             {view === 'calendar'  && <CalendarPage appointments={appointments} setAppointments={setAppointments} jobs={jobs} clients={clients} team={team} onGoTo={setView} onViewJob={(jid)=>{setOpenJobId(jid);setView('jobs');}} />}
