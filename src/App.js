@@ -407,7 +407,7 @@ const JOB_TYPES = [
 'Other',
 ];
 const PRIORITIES = ['Low', 'Medium', 'High', 'Urgent'];
-const CLIENT_TYPES = ['Student', 'Migration', 'Both'];
+const CLIENT_TYPES = ['Student', 'Migration', 'Both', 'Visa'];
 const CLIENT_STATUSES = ['Active', 'Pending', 'Completed', 'Inactive'];
 
 const STATUS_STYLES = {
@@ -534,6 +534,9 @@ const generateClientContractFile = async (client, jobs = []) => {
       consultant:    'Liang Jiang',
       marn:          '1800784',
       disbursements: [],
+      bankAccountName: 'Ozsky Perth Pty Ltd',
+      bankBSB:         '066166',
+      bankAccountNumber: '10895257',
     }),
   });
 
@@ -2064,6 +2067,7 @@ function Clients({ clients, jobs, setClients, setJobs, team }) {
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState('All');
   const [filterStatus, setFilterStatus] = useState('All');
+  const [sortBy, setSortBy] = useState('newest');
   const [modal, setModal] = useState(null);
   const [form, setForm] = useState({});
   const [hoverId, setHoverId] = useState(null);
@@ -2078,6 +2082,12 @@ function Clients({ clients, jobs, setClients, setJobs, team }) {
       (filterType === 'All' || c.type === filterType) &&
       (filterStatus === 'All' || c.status === filterStatus)
     );
+  }).sort((a, b) => {
+    if (sortBy === 'newest') return (b.createdAt||'').localeCompare(a.createdAt||'');
+    if (sortBy === 'oldest') return (a.createdAt||'').localeCompare(b.createdAt||'');
+    if (sortBy === 'name_az') return (a.name||'').localeCompare(b.name||'');
+    if (sortBy === 'name_za') return (b.name||'').localeCompare(a.name||'');
+    return (b.createdAt||'').localeCompare(a.createdAt||'');
   });
 
   const openAdd = () => {
@@ -2168,6 +2178,12 @@ function Clients({ clients, jobs, setClients, setJobs, team }) {
         <select value={filterStatus} onChange={e=>setFilterStatus(e.target.value)} style={{ ...selectStyle, width:140 }}>
           <option value="All">All Status</option>
           {CLIENT_STATUSES.map(s=><option key={s}>{s}</option>)}
+        </select>
+        <select value={sortBy} onChange={e=>setSortBy(e.target.value)} style={{ ...selectStyle, width:160 }}>
+          <option value="newest">Newest First</option>
+          <option value="oldest">Oldest First</option>
+          <option value="name_az">Name A→Z</option>
+          <option value="name_za">Name Z→A</option>
         </select>
       </div>
 
