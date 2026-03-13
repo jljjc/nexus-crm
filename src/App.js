@@ -407,7 +407,7 @@ const JOB_TYPES = [
 'Other',
 ];
 const PRIORITIES = ['Low', 'Medium', 'High', 'Urgent'];
-const CLIENT_TYPES = ['Student', 'Migration', 'Both', 'Visa'];
+const CLIENT_TYPES = ['Student', 'Visa', 'Migration', 'Multiple'];
 const CLIENT_STATUSES = ['Active', 'Pending', 'Completed', 'Inactive'];
 
 const STATUS_STYLES = {
@@ -548,7 +548,7 @@ const generateClientContractFile = async (client, jobs = []) => {
   const url  = window.URL.createObjectURL(blob);
   const a    = document.createElement('a');
   a.href     = url;
-  a.download = `${(client?.name||'client').replace(/[^a-z0-9]+/gi,'-').replace(/^-+|-+$/g,'')}-service-agreement.docx`;
+  a.download = `${(client?.name||'client').trim()} Service Contract.docx`;
   document.body.appendChild(a);
   a.click();
   a.remove();
@@ -1058,6 +1058,12 @@ function ClientDetailModal({ client, jobs, setJobs, team, onClose, onEdit, onSav
   const [wchatParsing, setWchatParsing] = useState(false);
   const [wchatResult, setWchatResult]   = useState(null);
   const [wchatSaved, setWchatSaved]     = useState(false);
+
+  // Email import state
+  const [email, setEmail]           = useState('');
+  const [emailParsing, setEmailParsing] = useState(false);
+  const [emailResult, setEmailResult]   = useState(null);
+  const [emailSaved, setEmailSaved]     = useState(false);
   const clientJobs                  = jobs.filter(j => j.clientId === client.id);
 
 
@@ -1174,6 +1180,62 @@ Return ONLY valid JSON (no markdown, no explanation):
     ].filter(Boolean).join('\n');
     onSaveProfile({ ...client, notes: [makeNote(noteText), ...normalizeNotes(client.notes)] });
     setWchatSaved(true);
+  };
+
+  /* ── Email import ─────────────────────────────── */
+  const parseEmail = async () => {
+    if (!email.trim()) return;
+    setEmailParsing(true); setEmailResult(null); setEmailSaved(false);
+    try {
+      const res = await fetch('/api/claude', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1500,
+          messages: [{ role:'user', content:
+`You are an immigration CRM assistant. Analyse this email conversation involving client "${client.name}" and extract a structured communication summary.
+
+Email Content:
+${email.slice(0,6000)}
+
+Return ONLY valid JSON (no markdown, no preamble):
+{
+  "summary": "2-3 sentence summary of the email thread",
+  "subject": "email subject or topic",
+  "dateRange": "date range of email e.g. 12 Mar 2026",
+  "actionItems": ["list of things agent needs to do"],
+  "clientRequests": ["what client is asking for"],
+  "importantDates": ["any deadlines or key dates mentioned"],
+  "sentiment": "positive|neutral|concerned|urgent",
+  "tags": ["topic tags e.g. visa-application, documents, fees"]
+}`
+          }]
+        })
+      });
+      const data = await res.json();
+      const raw = (data.content||[]).map(b=>b.text||'').join('');
+      const cleaned = raw.replace(/```json|```/g,'').trim();
+      setEmailResult(JSON.parse(cleaned));
+    } catch(e) {
+      setEmailResult({ summary:'Parse error — check API connection.', actionItems:[], clientRequests:[], importantDates:[], tags:[], sentiment:'neutral' });
+    } finally {
+      setEmailParsing(false);
+    }
+  };
+
+  const saveEmailNote = () => {
+    if (!emailResult) return;
+    const noteText = [
+      `📧 Email Import${emailResult.subject ? ` — ${emailResult.subject}` : ''}`,
+      `Summary: ${emailResult.summary}`,
+      emailResult.actionItems?.length ? `Action Items: ${emailResult.actionItems.join('; ')}` : '',
+      emailResult.clientRequests?.length ? `Client Requests: ${emailResult.clientRequests.join('; ')}` : '',
+      emailResult.importantDates?.length ? `Key Dates: ${emailResult.importantDates.join(', ')}` : '',
+      emailResult.dateRange ? `Email Date: ${emailResult.dateRange}` : '',
+    ].filter(Boolean).join('\n');
+    onSaveProfile({ ...client, notes: [makeNote(noteText), ...normalizeNotes(client.notes)] });
+    setEmailSaved(true);
   };
   const p                           = client.profile || {};
 
@@ -1340,6 +1402,7 @@ IMPORTANT EXTRACTION RULES:
     { id:'jobs',     label:`📋 Cases (${clientJobs.length})` },
     { id:'notes',    label:`📝 ${t('Notes')||'Notes'} (${normalizeNotes(client.notes).length})` },
     { id:'wechat',   label:`💬 ${t('WeChat')||'WeChat'}` },
+    { id:'email',    label:`📧 Email` },
     { id:'import',   label:`📥 ${t('Import Doc')||'Import Doc'}` },
   ];
 
@@ -1932,6 +1995,140 @@ ${rawText.slice(0,5000)}` }]
         </div>
       )}
 
+      {/* ── EMAIL TAB ───────────────────────────────────── */}
+      {tab === 'email' && (
+        <div style={{ maxHeight:'65vh', overflowY:'auto', paddingRight:4 }}>
+          {/* Header */}
+          <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:18, padding:'14px 16px', background:'linear-gradient(135deg,#eff6ff,#dbeafe)', borderRadius:12, border:'1px solid #93c5fd' }}>
+            <div style={{ fontSize:28 }}>📧</div>
+            <div>
+              <div style={{ fontSize:15, fontWeight:700, color:'#1d4ed8' }}>Email Communication Import</div>
+              <div style={{ fontSize:12, color:'#3b82f6', marginTop:2 }}>Paste email thread — AI will summarise key points &amp; action items into client notes</div>
+            </div>
+          </div>
+
+          {/* Tip */}
+          <div style={{ padding:'10px 14px', background:'#fefce8', border:'1px solid #fde68a', borderRadius:9, fontSize:12, color:'#92400e', marginBottom:14 }}>
+            💡 <strong>Tip:</strong> Forward or CC client emails to your inbox, then paste the thread here. The AI will extract key information and save it as a timestamped note.
+          </div>
+
+          {/* Paste area */}
+          <div style={{ marginBottom:16 }}>
+            <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:7 }}>
+              Paste Email Thread
+              <span style={{ marginLeft:8, fontSize:10, fontWeight:500, color:'#6b7280', textTransform:'none', letterSpacing:0 }}>
+                (粘贴邮件内容 — 支持中英文)
+              </span>
+            </label>
+            <textarea
+              value={email}
+              onChange={e => { setEmail(e.target.value); setEmailResult(null); setEmailSaved(false); }}
+              placeholder="Paste email content here. Include subject, date, and body. e.g.&#10;From: client@email.com&#10;Subject: Re: Student Visa Application&#10;Date: 12 Mar 2026&#10;&#10;Hi, I have a question about my visa..."
+              style={{ width:'100%', padding:'12px 14px', border:'1.5px solid #cbd5e1', borderRadius:10, fontSize:12.5, fontFamily:"'JetBrains Mono',monospace", minHeight:180, resize:'vertical', background:'#f9fafb', lineHeight:1.6, boxSizing:'border-box' }}
+            />
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:10 }}>
+              <span style={{ fontSize:12, color:'#6b7280' }}>{email.length > 0 ? `${email.length.toLocaleString()} chars` : 'Max 6000 chars will be analysed'}</span>
+              <div style={{ display:'flex', gap:10 }}>
+                {email && <button onClick={()=>{setEmail('');setEmailResult(null);setEmailSaved(false);}} style={{ padding:'8px 14px', background:'#f3f4f6', border:'1.5px solid #cbd5e1', borderRadius:8, fontSize:12, color:'#374151', fontWeight:600, cursor:'pointer' }}>Clear</button>}
+                <button
+                  onClick={parseEmail}
+                  disabled={emailParsing || !email.trim()}
+                  style={{ padding:'9px 20px', background: emailParsing||!email.trim() ? '#e5e7eb' : 'linear-gradient(135deg,#3b82f6,#1d4ed8)', border:'none', borderRadius:9, color: emailParsing||!email.trim() ? '#9ca3af' : '#fff', fontWeight:700, fontSize:13, cursor: emailParsing||!email.trim() ? 'default':'pointer', display:'flex', alignItems:'center', gap:7, transition:'all 0.15s' }}
+                >
+                  {emailParsing ? <><span style={{ animation:'spin 1s linear infinite', display:'inline-block' }}>⏳</span> Analysing...</> : '🤖 Analyse with AI'}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* AI result */}
+          {emailResult && (
+            <div style={{ background:'#fff', border:'1.5px solid #cbd5e1', borderRadius:14, overflow:'hidden', marginTop:4 }}>
+              {/* Result header */}
+              <div style={{ padding:'14px 18px', background:'linear-gradient(135deg,#eff6ff,#dbeafe)', borderBottom:'1px solid #bfdbfe', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                <div>
+                  <div style={{ fontSize:14, fontWeight:700, color:'#1d4ed8' }}>✅ Email Analysed</div>
+                  {emailResult.dateRange && <div style={{ fontSize:12, color:'#3b82f6', marginTop:2 }}>📅 {emailResult.dateRange}{emailResult.subject ? ` · ${emailResult.subject}` : ''}</div>}
+                </div>
+                <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+                  {emailResult.sentiment && (
+                    <span style={{ padding:'3px 10px', borderRadius:99, fontSize:11, fontWeight:700,
+                      background: emailResult.sentiment==='urgent' ? '#fef2f2' : emailResult.sentiment==='positive' ? '#f0fdf4' : emailResult.sentiment==='concerned' ? '#fffbeb' : '#eff6ff',
+                      color: emailResult.sentiment==='urgent' ? '#dc2626' : emailResult.sentiment==='positive' ? '#16a34a' : emailResult.sentiment==='concerned' ? '#d97706' : '#1d4ed8'
+                    }}>
+                      {emailResult.sentiment==='urgent'?'🚨':emailResult.sentiment==='positive'?'😊':emailResult.sentiment==='concerned'?'⚠️':'📧'} {emailResult.sentiment}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div style={{ padding:'16px 18px' }}>
+                {/* Summary */}
+                <div style={{ marginBottom:14 }}>
+                  <div style={{ fontSize:11, fontWeight:700, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:6 }}>Summary</div>
+                  <div style={{ fontSize:13.5, color:'#1f2937', lineHeight:1.6, background:'#f9fafb', padding:'10px 14px', borderRadius:9, border:'1px solid #e5e7eb' }}>{emailResult.summary}</div>
+                </div>
+
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:14 }}>
+                  {emailResult.actionItems?.length > 0 && (
+                    <div>
+                      <div style={{ fontSize:11, fontWeight:700, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:6 }}>🎯 Action Items</div>
+                      {emailResult.actionItems.map((item,i) => (
+                        <div key={i} style={{ display:'flex', alignItems:'flex-start', gap:6, marginBottom:5 }}>
+                          <span style={{ width:18, height:18, borderRadius:99, background:'#fef2f2', border:'1px solid #fecaca', display:'flex', alignItems:'center', justifyContent:'center', fontSize:9, fontWeight:700, color:'#dc2626', flexShrink:0, marginTop:1 }}>{i+1}</span>
+                          <span style={{ fontSize:12.5, color:'#1f2937', lineHeight:1.5 }}>{item}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {emailResult.clientRequests?.length > 0 && (
+                    <div>
+                      <div style={{ fontSize:11, fontWeight:700, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:6 }}>💬 Client Requests</div>
+                      {emailResult.clientRequests.map((req,i) => (
+                        <div key={i} style={{ display:'flex', alignItems:'flex-start', gap:6, marginBottom:5 }}>
+                          <span style={{ fontSize:13, flexShrink:0 }}>•</span>
+                          <span style={{ fontSize:12.5, color:'#1f2937', lineHeight:1.5 }}>{req}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {emailResult.importantDates?.length > 0 && (
+                  <div style={{ marginBottom:14 }}>
+                    <div style={{ fontSize:11, fontWeight:700, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:6 }}>📅 Important Dates</div>
+                    <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+                      {emailResult.importantDates.map((d,i) => (
+                        <span key={i} style={{ padding:'4px 10px', background:'#eff6ff', border:'1px solid #bfdbfe', borderRadius:8, fontSize:12, color:'#2563eb', fontWeight:500 }}>{d}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {emailResult.tags?.length > 0 && (
+                  <div style={{ marginBottom:16 }}>
+                    <div style={{ fontSize:11, fontWeight:700, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:6 }}>🏷 Topics</div>
+                    <div style={{ display:'flex', flexWrap:'wrap', gap:5 }}>
+                      {emailResult.tags.map((tag,i) => (
+                        <span key={i} style={{ padding:'3px 9px', background:'#eff6ff', border:'1px solid #bfdbfe', borderRadius:7, fontSize:11.5, color:'#1d4ed8', fontWeight:500 }}>{tag}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Save to notes */}
+                <div style={{ borderTop:'1.5px solid #e2e8f0', paddingTop:14, display:'flex', justifyContent:'flex-end', gap:10 }}>
+                  {emailSaved && <span style={{ fontSize:13, color:'#16a34a', fontWeight:600, alignSelf:'center' }}>✅ Saved to client notes!</span>}
+                  <button onClick={saveEmailNote} disabled={emailSaved} style={{ padding:'9px 20px', background: emailSaved ? '#f3f4f6' : 'linear-gradient(135deg,#3b82f6,#1d4ed8)', border:'none', borderRadius:9, color: emailSaved ? '#9ca3af':'#fff', fontWeight:700, fontSize:13, cursor: emailSaved ? 'default':'pointer' }}>
+                    {emailSaved ? '✅ Saved' : '💾 Save Summary to Client Notes'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ── IMPORT TAB ───────────────────────────────────── */}
       {tab === 'import' && (
         <div style={{ maxHeight:'65vh', overflowY:'auto' }}>
@@ -2100,7 +2297,7 @@ function Clients({ clients, jobs, setClients, setJobs, team }) {
   const save = async () => {
     if (!form.name.trim()) return;
     if (modal === 'add') {
-      const newClient = { ...form, id: 'c'+uid() };
+      const newClient = { ...form, id: 'c'+uid(), createdAt: new Date().toISOString() };
       setClients(prev => [...prev, newClient]);
       try { await sbInsert('clients', { id: newClient.id, data: newClient }); } catch(e) { console.warn('Save error:', e); }
     } else {
