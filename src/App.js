@@ -18,7 +18,7 @@ const LANG_ZH = {
   'total clients':'位客户',
   // Client modal tabs
   '👤 Profile':'👤 档案','📋 Cases':'📋 案件','📝 Notes':'📝 备注',
-  '💬 WeChat':'💬 微信','📥 Import Doc':'📥 导入文档',
+  '💬 WeChat':'💬 聊天导入','📥 Import Doc':'📥 导入文档',
   // Profile sections
   'Client —':'客户 —',
   'PERSONAL INFORMATION':'一、基本信息',
@@ -95,7 +95,7 @@ const LANG_ZH = {
   'Recent Activity':'近期动态','Upcoming Deadlines':'即将到期',
   'View all →':'查看全部 →','View team →':'查看团队 →',
   // WeChat
-  'Paste WeChat Chat Export':'粘贴微信聊天记录',
+  'Paste WeChat Chat Export':'粘贴聊天记录',
   'Analyse with AI':'AI 智能分析',
   'Analysing...':'分析中...',
   'Analysis Complete':'分析完成',
@@ -525,10 +525,10 @@ const generateClientContractFile = async (client, jobs = []) => {
       clientPhone:   client?.phone || '',
       visaTypes:     visaTypes.length ? visaTypes : [client?.type || 'Migration Service'],
       serviceDescription,
-      totalFee:      client?.profile?.serviceAgreement?.totalFee || '',
+      totalFee:      parseFloat(client?.profile?.serviceAgreement?.totalFee) || 0,
       gstIncluded:   true,
       paymentMode:   'single',
-      payment1Amount: client?.profile?.serviceAgreement?.totalFee || '',
+      payment1Amount: parseFloat(client?.profile?.serviceAgreement?.totalFee) || 0,
       payment1Desc:  'Professional migration service fee',
       contractDate:  new Date().toLocaleDateString('en-AU'),
       consultant:    'Liang Jiang',
@@ -1064,6 +1064,12 @@ function ClientDetailModal({ client, jobs, setJobs, team, onClose, onEdit, onSav
   const [emailParsing, setEmailParsing] = useState(false);
   const [emailResult, setEmailResult]   = useState(null);
   const [emailSaved, setEmailSaved]     = useState(false);
+
+  // Note quick-add state
+  const [noteImportText, setNoteImportText] = useState('');
+  const [noteImportParsing, setNoteImportParsing] = useState(false);
+  const [noteImportResult, setNoteImportResult] = useState(null);
+  const [noteImportSaved, setNoteImportSaved] = useState(false);
   const clientJobs                  = jobs.filter(j => j.clientId === client.id);
 
 
@@ -1138,9 +1144,11 @@ function ClientDetailModal({ client, jobs, setJobs, team, onClose, onEdit, onSav
         body: JSON.stringify({
           model:'claude-sonnet-4-20250514', max_tokens:3000,
           messages:[{ role:'user', content:
-`You are an immigration CRM assistant. Analyse this WeChat conversation involving client "${client.name}" and extract a structured communication summary.
+`You are an immigration CRM assistant. Analyse this client communication for "${client.name}".
 
-WeChat Chat:
+LANGUAGE RULE: Detect the primary language of the chat content. If primarily Chinese → write all JSON string values in Chinese. If primarily English → write in English. Mixed → use dominant language.
+
+Chat Content:
 ${wchat.slice(0,6000)}
 
 Return ONLY valid JSON (no markdown, no explanation):
@@ -1236,6 +1244,40 @@ Return ONLY valid JSON (no markdown, no preamble):
     ].filter(Boolean).join('\n');
     onSaveProfile({ ...client, notes: [makeNote(noteText), ...normalizeNotes(client.notes)] });
     setEmailSaved(true);
+  };
+
+  /* ── Quick Note paste + AI summarize ─────────────────── */
+  const parseNoteImport = async () => {
+    if (!noteImportText.trim()) return;
+    setNoteImportParsing(true); setNoteImportResult(null); setNoteImportSaved(false);
+    try {
+      const res = await fetch('/api/claude', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          model:'claude-sonnet-4-20250514', max_tokens:1000,
+          messages:[{ role:'user', content:
+`Summarise this note for an immigration CRM client record. Write the summary in the SAME LANGUAGE as the input (Chinese input → Chinese output, English input → English output).
+Return ONLY a plain text summary (no JSON, no markdown, no preamble), 2-4 sentences, capturing key points, dates, and any action items.
+
+Note content:
+${noteImportText.slice(0,4000)}`
+          }]
+        })
+      });
+      const data = await res.json();
+      const summary = (data.content||[]).map(b=>b.text||'').join('').trim();
+      setNoteImportResult(summary);
+    } catch(e) {
+      setNoteImportResult('AI error: ' + e.message);
+    }
+    setNoteImportParsing(false);
+  };
+
+  const saveNoteImport = (useAI) => {
+    const text = useAI ? `📝 AI摘要\n${noteImportResult}` : `📝 备注\n${noteImportText}`;
+    onSaveProfile({ ...client, notes: [makeNote(text), ...normalizeNotes(client.notes)] });
+    setNoteImportSaved(true);
+    setNoteImportText(''); setNoteImportResult(null);
   };
   const p                           = client.profile || {};
 
@@ -1401,7 +1443,7 @@ IMPORTANT EXTRACTION RULES:
     { id:'profile',  label:'👤 Profile' },
     { id:'jobs',     label:`📋 Cases (${clientJobs.length})` },
     { id:'notes',    label:`📝 ${t('Notes')||'Notes'} (${normalizeNotes(client.notes).length})` },
-    { id:'wechat',   label:`💬 ${t('WeChat')||'WeChat'}` },
+    { id:'wechat',   label:`💬 ${t('WeChat')||'聊天导入'}` },
     { id:'email',    label:`📧 Email` },
     { id:'import',   label:`📥 ${t('Import Doc')||'Import Doc'}` },
   ];
@@ -1847,6 +1889,43 @@ ${rawText.slice(0,5000)}` }]
       {/* ── NOTES TAB ────────────────────────────────────── */}
       {tab === 'notes' && (
         <div style={{ maxHeight:'65vh', overflowY:'auto' }}>
+
+          {/* Quick paste + AI note panel */}
+          <div style={{ background:'linear-gradient(135deg,#f8fafc,#f1f5f9)', border:'1.5px solid #cbd5e1', borderRadius:12, padding:'14px 16px', marginBottom:16 }}>
+            <div style={{ fontSize:13, fontWeight:700, color:'#1e293b', marginBottom:8 }}>📋 粘贴/添加备注 Add Note</div>
+            <textarea
+              value={noteImportText}
+              onChange={e=>{ setNoteImportText(e.target.value); setNoteImportResult(null); setNoteImportSaved(false); }}
+              placeholder="粘贴备注内容或直接输入… Paste or type note here (Chinese/English)…"
+              style={{ ...inputStyle, minHeight:90, fontSize:13, resize:'vertical', background:'#fff' }}
+            />
+            {noteImportResult && (
+              <div style={{ background:'#f0f9ff', border:'1px solid #bae6fd', borderRadius:8, padding:'10px 12px', marginTop:8, fontSize:13, color:'#0c4a6e', lineHeight:1.6 }}>
+                <div style={{ fontSize:11, fontWeight:700, color:'#0369a1', marginBottom:4 }}>🤖 AI摘要 Summary</div>
+                {noteImportResult}
+              </div>
+            )}
+            <div style={{ display:'flex', gap:8, marginTop:10, flexWrap:'wrap' }}>
+              {noteImportText.trim() && !noteImportResult && (
+                <button onClick={parseNoteImport} disabled={noteImportParsing} style={{ padding:'7px 16px', background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, color:'#fff', fontWeight:700, fontSize:12, cursor:'pointer' }}>
+                  {noteImportParsing ? '⏳ AI处理中…' : '🤖 AI摘要 Summarise'}
+                </button>
+              )}
+              {noteImportText.trim() && (
+                <button onClick={()=>saveNoteImport(false)} style={{ padding:'7px 16px', background:'#f3f4f6', border:'1.5px solid #cbd5e1', borderRadius:8, color:'#374151', fontWeight:600, fontSize:12, cursor:'pointer' }}>
+                  📝 直接保存 Save as-is
+                </button>
+              )}
+              {noteImportResult && (
+                <button onClick={()=>saveNoteImport(true)} style={{ padding:'7px 16px', background:'linear-gradient(135deg,#10b981,#059669)', border:'none', borderRadius:8, color:'#fff', fontWeight:700, fontSize:12, cursor:'pointer' }}>
+                  ✅ 保存AI摘要 Save Summary
+                </button>
+              )}
+              {noteImportSaved && <span style={{ fontSize:12, color:'#10b981', fontWeight:600, alignSelf:'center' }}>✅ 已保存！</span>}
+            </div>
+          </div>
+
+          {/* Existing notes list */}
           {normalizeNotes(client.notes).length === 0
             ? <div style={{ color:'#1f2937', fontSize:14, padding:20, textAlign:'center' }}>No notes yet.</div>
             : [...normalizeNotes(client.notes)].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)).map(n => (
@@ -1867,27 +1946,27 @@ ${rawText.slice(0,5000)}` }]
           <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:18, padding:'14px 16px', background:'linear-gradient(135deg,#f0fdf4,#dcfce7)', borderRadius:12, border:'1px solid #86efac' }}>
             <div style={{ fontSize:28 }}>💬</div>
             <div>
-              <div style={{ fontSize:15, fontWeight:700, color:'#15803d' }}>WeChat Communication Import</div>
-              <div style={{ fontSize:12, color:'#4ade80', marginTop:2 }}>Paste WeChat chat history — AI will extract key info, action items & summaries</div>
+              <div style={{ fontSize:15, fontWeight:700, color:'#15803d' }}>Communication Import 沟通记录导入</div>
+              <div style={{ fontSize:12, color:'#4ade80', marginTop:2 }}>Paste any chat history (WeChat/SMS/etc) — AI extracts key info &amp; summaries 粘贴任意聊天记录</div>
             </div>
           </div>
 
           {/* Paste area */}
           <div style={{ marginBottom:16 }}>
             <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:7 }}>
-              Paste WeChat Chat Export
+              粘贴聊天记录 / Paste Chat Export
               <span style={{ marginLeft:8, fontSize:10, fontWeight:500, color:'#1f2937', textTransform:'none', letterSpacing:0 }}>
-                (微信聊天记录 — 直接粘贴即可)
+                (微信 · SMS · 任意聊天记录 — 直接粘贴即可)
               </span>
             </label>
             <textarea
               value={wchat}
               onChange={e => { setWchat(e.target.value); setWchatResult(null); setWchatSaved(false); }}
-              placeholder="Paste WeChat chat history here (Chinese/English supported). e.g. 2024-01-15 10:23 Client: Hi I need help with my student visa..."
+              placeholder="粘贴聊天记录（支持中文/英文）e.g. 2024-01-15 10:23 客户: 您好，我想咨询签证问题... / e.g. Client: Hi I need help with my student visa..."
               style={{ ...inputStyle, minHeight:180, fontFamily:"'JetBrains Mono',monospace", fontSize:12.5, resize:'vertical', background:'#f9fafb', lineHeight:1.6 }}
             />
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:10 }}>
-              <span style={{ fontSize:12, color:'#1f2937' }}>{wchat.length > 0 ? `${wchat.length.toLocaleString()} chars · ${Math.ceil(wchat.length/4)} tokens` : 'Max 6000 chars will be analysed'}</span>
+              <span style={{ fontSize:12, color:'#1f2937' }}>{wchat.length > 0 ? `${wchat.length.toLocaleString()} chars · ${Math.ceil(wchat.length/4)} tokens` : '最多分析6000字符'}</span>
               <div style={{ display:'flex', gap:10 }}>
                 {wchat && <button onClick={()=>{setWchat('');setWchatResult(null);}} style={{ padding:'8px 14px', background:'#f3f4f6', border:'1.5px solid #cbd5e1', borderRadius:8, fontSize:12, color:'#1f2937', fontWeight:600 }}>Clear</button>}
                 <button
