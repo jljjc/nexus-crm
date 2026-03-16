@@ -780,7 +780,7 @@ function ClientSnapshot({ client, jobs, visible, anchorRef }) {
 ═══════════════════════════════════════════════════════════════════════════════ */
 
 /* ─── DASHBOARD ─────────────────────────────────────────────────────────────── */
-function Dashboard({ clients, jobs, team, onGoTo, setJobsMemberFilter }) {
+function Dashboard({ clients, jobs, team, onGoTo, setJobsMemberFilter, setJobsStatusFilter }) {
   const { t } = useLang(); // eslint-disable-line no-unused-vars
   const [selectedJob, setSelectedJob] = useState(null);
 
@@ -821,9 +821,9 @@ function Dashboard({ clients, jobs, team, onGoTo, setJobsMemberFilter }) {
 
   const statCards = [
     { label:'Active Clients',   value:active,     icon:'👥', color:'#6366f1', sub:`of ${clients.length} total`,   onClick:()=>onGoTo('clients') },
-    { label:'Jobs In Progress', value:inProgress, icon:'⚡', color:'#f59e0b', sub:`${jobs.length} total cases`,     onClick:()=>onGoTo('jobs') },
-    { label:'Urgent Cases',      value:urgent,     icon:'🔴', color:'#f87171', sub:'need immediate attention',       onClick:()=>onGoTo('jobs') },
-    { label:'Awaiting Decision', value:awaitingDecision, icon:'⏳', color:'#94a3b8', sub:'lodged · pending outcome', onClick:()=>onGoTo('jobs') },
+    { label:'Jobs In Progress', value:inProgress, icon:'⚡', color:'#f59e0b', sub:`${jobs.length} total cases`,     onClick:()=>{ setJobsStatusFilter('In Progress'); onGoTo('jobs'); } },
+    { label:'Urgent Cases',      value:urgent,     icon:'🔴', color:'#f87171', sub:'need immediate attention',       onClick:()=>{ setJobsStatusFilter('Urgent'); onGoTo('jobs'); } },
+    { label:'Awaiting Decision', value:awaitingDecision, icon:'⏳', color:'#94a3b8', sub:'lodged · pending outcome', onClick:()=>{ setJobsStatusFilter('Awaiting Decision'); onGoTo('jobs'); } },
   ];
 
   const selectedClient = selectedJob ? getClient(selectedJob.clientId) : null;
@@ -866,7 +866,7 @@ function Dashboard({ clients, jobs, team, onGoTo, setJobsMemberFilter }) {
           {pipeline.map(p => {
             const s = STATUS_STYLES[p.status];
             return (
-              <div key={p.status} onClick={()=>onGoTo('jobs')} style={{ flex:1, minWidth:90, background:s.bg, borderRadius:10, padding:'10px 12px', cursor:'pointer', transition:'filter 0.15s' }}
+              <div key={p.status} onClick={()=>{ setJobsStatusFilter(p.status); onGoTo('jobs'); }} style={{ flex:1, minWidth:90, background:s.bg, borderRadius:10, padding:'10px 12px', cursor:'pointer', transition:'filter 0.15s' }}
                 onMouseEnter={e=>e.currentTarget.style.filter='brightness(1.2)'}
                 onMouseLeave={e=>e.currentTarget.style.filter='none'}>
                 <div style={{ fontSize:20, fontWeight:700, color:s.text, fontFamily:"'JetBrains Mono',monospace" }}>{p.count}</div>
@@ -900,9 +900,7 @@ function Dashboard({ clients, jobs, team, onGoTo, setJobsMemberFilter }) {
                     <StatusBadge status={j.status} small />
                   </div>
                   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-<div style={{ flex: 1 }}>
-  <ProgressBar value={j.progress} status={j.status} />
-</div>                    <div style={{ flex:1 }}><ProgressBar value={j.progress} status={j.status}/></div>
+                    <div style={{ flex:1 }}><ProgressBar value={j.progress} status={j.status}/></div>
                     {member && <div style={{ display:'flex', alignItems:'center', gap:5, marginLeft:10, flexShrink:0 }}><Avatar name={member.name} color={member.color} size={20} /><span style={{ fontSize:11, color:'#1f2937' }}>{member.name.split(' ')[0]}</span></div>}
                   </div>
                 </div>
@@ -2567,7 +2565,7 @@ function Clients({ clients, jobs, setClients, setJobs, team }) {
 }
 
 /* ─── JOBS ────────────────────────────────────────────────────────────────────── */
-function Jobs({ jobs, clients, team, setJobs, openJobId, setOpenJobId, jobsMemberFilter, setJobsMemberFilter }) {
+function Jobs({ jobs, clients, team, setJobs, openJobId, setOpenJobId, jobsMemberFilter, setJobsMemberFilter, jobsStatusFilter, setJobsStatusFilter }) {
   const { t } = useLang(); // eslint-disable-line no-unused-vars
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('All');
@@ -2597,6 +2595,20 @@ function Jobs({ jobs, clients, team, setJobs, openJobId, setOpenJobId, jobsMembe
       if (setJobsMemberFilter) setJobsMemberFilter(null);
     }
   }, [jobsMemberFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Apply status filter from Dashboard card clicks
+  useEffect(() => {
+    if (jobsStatusFilter) {
+      if (jobsStatusFilter === 'Urgent') {
+        setFilterStatus('active_not_awaiting');
+        setFilterPriority('Urgent');
+      } else {
+        setFilterStatus(jobsStatusFilter);
+        setFilterPriority('All');
+      }
+      if (setJobsStatusFilter) setJobsStatusFilter(null);
+    }
+  }, [jobsStatusFilter]); // eslint-disable-line react-hooks/exhaustive-deps
   const [clientDropOpen, setClientDropOpen] = useState(false);
   const sortedClients = [...clients].sort((a,b) => a.name.localeCompare(b.name));
 
@@ -2637,7 +2649,12 @@ function Jobs({ jobs, clients, team, setJobs, openJobId, setOpenJobId, jobsMembe
   });
 
   const openAdd = () => { setForm({ title:'', type:'Subclass 500 – Student Visa', clientId: clients[0]?.id||'', assignedTo: team[0]?.id||'', status:'New', priority:'Medium', dueDate:'', notes:[], progress:0, createdAt:today() }); setModal('add'); };
-  const openEdit = (j) => { setClientSearch(clients.find(c=>c.id===j.clientId)?.name||''); setForm({ ...j, notes: normalizeNotes(j.notes) }); setModal(j); };
+  const openEdit = (j) => {
+    setClientSearch(clients.find(c=>c.id===j.clientId)?.name||'');
+    const effectiveProgress = j.progress ?? STATUS_PROGRESS[j.status] ?? 0;
+    setForm({ ...j, notes: normalizeNotes(j.notes), progress: effectiveProgress });
+    setModal(j);
+  };
   const closeModal = () => setModal(null);
 
   const save = async () => {
@@ -2771,7 +2788,7 @@ function Jobs({ jobs, clients, team, setJobs, openJobId, setOpenJobId, jobsMembe
           </select>
         </FormField>
         <FormField label="Status">
-          <select style={selectStyle} value={form.status} onChange={e=>setForm(f=>({...f,status:e.target.value}))}>
+          <select style={selectStyle} value={form.status} onChange={e=>setForm(f=>({...f, status:e.target.value, progress: STATUS_PROGRESS[e.target.value] ?? f.progress ?? 0}))}>
             {JOB_STATUSES.map(s=><option key={s}>{s}</option>)}
           </select>
         </FormField>
@@ -2783,8 +2800,8 @@ function Jobs({ jobs, clients, team, setJobs, openJobId, setOpenJobId, jobsMembe
         <FormField label="Due Date">
           <input type="date" style={inputStyle} value={form.dueDate||''} onChange={e=>setForm(f=>({...f,dueDate:e.target.value}))} />
         </FormField>
-        <FormField label={`Progress: ${form.progress||0}%`}>
-          <input type="range" min={0} max={100} step={5} value={form.progress||0} onChange={e=>setForm(f=>({...f,progress:e.target.value}))} style={{ width:'100%', accentColor:'#6366f1', marginTop:8 }} />
+        <FormField label={`Progress: ${form.progress ?? 0}%`}>
+          <input type="range" min={0} max={100} step={5} value={form.progress ?? 0} onChange={e=>setForm(f=>({...f,progress:parseInt(e.target.value)}))} style={{ width:'100%', accentColor:'#6366f1', marginTop:8 }} />
         </FormField>
       </div>
       <div style={{ borderTop:'1.5px solid #e2e8f0', marginTop:8, paddingTop:16 }}>
@@ -2840,6 +2857,33 @@ function Jobs({ jobs, clients, team, setJobs, openJobId, setOpenJobId, jobsMembe
         </div>
         <div style={{ height:5, borderRadius:5, background:'rgba(255,255,255,0.15)', overflow:'hidden' }}>
         <div style={{ height:'100%', width:`${pct2}%`, background: pct2>=100?'#34d399':pct2>=70?'#818cf8':'#fbbf24', borderRadius:5, transition:'width 0.4s' }} />
+        </div>
+        </div>
+
+        {/* ── QUICK UPDATE PANEL ──────────────────── */}
+        <div style={{ background:'#f8fafc', border:'1.5px solid #e2e8f0', borderRadius:10, padding:'12px 16px', marginBottom:16 }}>
+        <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:10 }}>快速更新 <span style={{ color:'#9ca3af', fontWeight:400, textTransform:'none', letterSpacing:0, fontSize:11 }}>Quick Update</span></div>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:10 }}>
+          <div>
+            <div style={{ fontSize:11, color:'#374151', fontWeight:600, marginBottom:5 }}>状态 Status</div>
+            <select value={viewJob.status} onChange={async e => {
+              const updated = { ...viewJob, status: e.target.value };
+              setViewJob(updated);
+              setJobs(prev => prev.map(j => j.id===viewJob.id ? updated : j));
+              try { await sbUpdate('jobs', updated.id, { data: updated }); } catch(er){ console.warn(er); }
+            }} style={{ width:'100%', background:'#fff', border:'1.5px solid #d1d5db', borderRadius:7, padding:'7px 10px', fontSize:13, color:'#111827', outline:'none', cursor:'pointer' }}>
+              {JOB_STATUSES.map(s=><option key={s}>{s}</option>)}
+            </select>
+          </div>
+          <div>
+            <div style={{ fontSize:11, color:'#374151', fontWeight:600, marginBottom:5 }}>进度 Progress: <span style={{ color:'#6366f1', fontWeight:700 }}>{viewJob.progress ?? 0}%</span></div>
+            <input type="range" min={0} max={100} step={5} value={viewJob.progress ?? 0} onChange={async e => {
+              const updated = { ...viewJob, progress: parseInt(e.target.value) };
+              setViewJob(updated);
+              setJobs(prev => prev.map(j => j.id===viewJob.id ? updated : j));
+              try { await sbUpdate('jobs', updated.id, { data: updated }); } catch(er){ console.warn(er); }
+            }} style={{ width:'100%', accentColor:'#6366f1', marginTop:4 }} />
+          </div>
         </div>
         </div>
 
@@ -3132,7 +3176,7 @@ ${rawText.slice(0,5000)}` }]
           </select>
         </FormField>
         <FormField label="Status">
-          <select style={selectStyle} value={form.status} onChange={e=>setForm(f=>({...f,status:e.target.value}))}>
+          <select style={selectStyle} value={form.status} onChange={e=>setForm(f=>({...f, status:e.target.value, progress: STATUS_PROGRESS[e.target.value] ?? f.progress ?? 0}))}>
             {JOB_STATUSES.map(s=><option key={s}>{s}</option>)}
           </select>
         </FormField>
@@ -3144,8 +3188,8 @@ ${rawText.slice(0,5000)}` }]
         <FormField label="Due Date">
           <input type="date" style={inputStyle} value={form.dueDate||''} onChange={e=>setForm(f=>({...f,dueDate:e.target.value}))} />
         </FormField>
-        <FormField label={`Progress: ${form.progress||0}%`}>
-          <input type="range" min={0} max={100} step={5} value={form.progress||0} onChange={e=>setForm(f=>({...f,progress:e.target.value}))} style={{ width:'100%', accentColor:'#6366f1', marginTop:8 }} />
+        <FormField label={`Progress: ${form.progress ?? 0}%`}>
+          <input type="range" min={0} max={100} step={5} value={form.progress ?? 0} onChange={e=>setForm(f=>({...f,progress:parseInt(e.target.value)}))} style={{ width:'100%', accentColor:'#6366f1', marginTop:8 }} />
         </FormField>
       </div>
       <div style={{ borderTop:'1.5px solid #e2e8f0', marginTop:8, paddingTop:16 }}>
@@ -3201,6 +3245,33 @@ ${rawText.slice(0,5000)}` }]
       </div>
       <div style={{ height:5, borderRadius:5, background:'rgba(255,255,255,0.15)', overflow:'hidden' }}>
       <div style={{ height:'100%', width:`${pct2}%`, background: pct2>=100?'#34d399':pct2>=70?'#818cf8':'#fbbf24', borderRadius:5, transition:'width 0.4s' }} />
+      </div>
+      </div>
+
+      {/* ── QUICK UPDATE PANEL ──────────────────── */}
+      <div style={{ background:'#f8fafc', border:'1.5px solid #e2e8f0', borderRadius:10, padding:'12px 16px', marginBottom:16 }}>
+      <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:10 }}>快速更新 <span style={{ color:'#9ca3af', fontWeight:400, textTransform:'none', letterSpacing:0, fontSize:11 }}>Quick Update</span></div>
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+        <div>
+          <div style={{ fontSize:11, color:'#374151', fontWeight:600, marginBottom:5 }}>状态 Status</div>
+          <select value={viewJob.status} onChange={async e => {
+            const updated = { ...viewJob, status: e.target.value };
+            setViewJob(updated);
+            setJobs(prev => prev.map(j => j.id===viewJob.id ? updated : j));
+            try { await sbUpdate('jobs', updated.id, { data: updated }); } catch(er){ console.warn(er); }
+          }} style={{ width:'100%', background:'#fff', border:'1.5px solid #d1d5db', borderRadius:7, padding:'7px 10px', fontSize:13, color:'#111827', outline:'none', cursor:'pointer' }}>
+            {JOB_STATUSES.map(s=><option key={s}>{s}</option>)}
+          </select>
+        </div>
+        <div>
+          <div style={{ fontSize:11, color:'#374151', fontWeight:600, marginBottom:5 }}>进度 Progress: <span style={{ color:'#6366f1', fontWeight:700 }}>{viewJob.progress ?? 0}%</span></div>
+          <input type="range" min={0} max={100} step={5} value={viewJob.progress ?? 0} onChange={async e => {
+            const updated = { ...viewJob, progress: parseInt(e.target.value) };
+            setViewJob(updated);
+            setJobs(prev => prev.map(j => j.id===viewJob.id ? updated : j));
+            try { await sbUpdate('jobs', updated.id, { data: updated }); } catch(er){ console.warn(er); }
+          }} style={{ width:'100%', accentColor:'#6366f1', marginTop:4 }} />
+        </div>
       </div>
       </div>
 
@@ -3816,7 +3887,7 @@ const addDays = (d,n) => { const dt=new Date(d); dt.setDate(dt.getDate()+n); ret
 const daysUntil = d => Math.ceil((new Date(d) - new Date(today())) / 86400000);
 
 /* ─── DEADLINE ALERTS BANNER ──────────────────────────────────────────────────── */
-function DeadlineAlerts({ jobs, appointments }) {
+function DeadlineAlerts({ jobs, appointments, onGoTo, setOpenJobId }) {
   const soon = [];
   const todayStr = today();
   const sevenDays = addDays(todayStr, 7);
@@ -3825,17 +3896,24 @@ function DeadlineAlerts({ jobs, appointments }) {
     if (j.status === 'Completed') return;
     if (j.dueDate && j.dueDate <= sevenDays) {
       const d = daysUntil(j.dueDate);
-      soon.push({ type:'job', label: j.type || 'Case', ref: j.ref || j.id, days: d, overdue: d < 0, urgent: d <= 2 });
+      soon.push({ type:'job', label: j.type || 'Case', id: j.id, days: d, overdue: d < 0, urgent: d <= 2 });
     }
   });
   appointments.forEach(a => {
     if (a.date && a.date <= sevenDays && a.date >= todayStr) {
-      soon.push({ type:'appt', label: a.title, ref: a.id, days: daysUntil(a.date), overdue: false, urgent: daysUntil(a.date) <= 1 });
+      soon.push({ type:'appt', label: a.title, id: a.id, days: daysUntil(a.date), overdue: false, urgent: daysUntil(a.date) <= 1 });
     }
   });
 
   if (!soon.length) return null;
   soon.sort((a,b) => a.days - b.days);
+
+  const handleClick = (s) => {
+    if (s.type === 'job' && onGoTo && setOpenJobId) {
+      setOpenJobId(s.id);
+      onGoTo('jobs');
+    }
+  };
 
   return (
     <div style={{ background:'linear-gradient(135deg,#1e1b4b,#312e81)', border:'1.5px solid #6366f140', borderRadius:14, padding:'16px 20px', marginBottom:20, boxShadow:'0 4px 20px #6366f120' }}>
@@ -3847,7 +3925,9 @@ function DeadlineAlerts({ jobs, appointments }) {
       </div>
       <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
         {soon.slice(0,6).map((s,i) => (
-          <div key={i} style={{ display:'flex', alignItems:'center', gap:6, background: s.overdue?'#ef444425':s.urgent?'#f9731625':'#ffffff12', border:`1px solid ${s.overdue?'#ef4444':s.urgent?'#f97316':'#6366f145'}`, borderRadius:8, padding:'6px 12px' }}>
+          <div key={i} onClick={() => handleClick(s)} style={{ display:'flex', alignItems:'center', gap:6, background: s.overdue?'#ef444425':s.urgent?'#f9731625':'#ffffff12', border:`1px solid ${s.overdue?'#ef4444':s.urgent?'#f97316':'#6366f145'}`, borderRadius:8, padding:'6px 12px', cursor: s.type==='job' ? 'pointer' : 'default', transition:'filter 0.15s, transform 0.15s' }}
+            onMouseEnter={e => { if (s.type==='job') { e.currentTarget.style.filter='brightness(1.25)'; e.currentTarget.style.transform='translateY(-1px)'; }}}
+            onMouseLeave={e => { e.currentTarget.style.filter='none'; e.currentTarget.style.transform='translateY(0)'; }}>
             <span style={{ fontSize:11 }}>{s.overdue?'🔴':s.urgent?'⚠️':'📅'}</span>
             <div>
               <div style={{ fontSize:12, fontWeight:700, color: s.overdue?'#fca5a5':s.urgent?'#fdba74':'#e0e7ff', maxWidth:180, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{s.label}</div>
@@ -4799,6 +4879,7 @@ function App() {
   const [view, setView]                 = useState('dashboard');
   const [openJobId, setOpenJobId]       = useState(null);
   const [jobsMemberFilter, setJobsMemberFilter] = useState(null);
+  const [jobsStatusFilter, setJobsStatusFilter] = useState(null);
   const [, setLoaded]               = useState(false);
   const [authed, setAuthed]             = useState(() => sessionStorage.getItem('ozsky_auth') === '1');
   const [isManager, setIsManager]       = useState(() => sessionStorage.getItem('ozsky_role') === 'manager');
@@ -4974,12 +5055,12 @@ function App() {
           <main className="oz-main-content" style={{ flex:1, overflowY:'auto', padding:'28px 32px' }}>
             {view === 'dashboard' && (
               <>
-                <DeadlineAlerts jobs={jobs} appointments={appointments} />
-                <Dashboard clients={clients} jobs={jobs} team={team} onGoTo={setView} setJobsMemberFilter={setJobsMemberFilter} />
+                <DeadlineAlerts jobs={jobs} appointments={appointments} onGoTo={setView} setOpenJobId={setOpenJobId} />
+                <Dashboard clients={clients} jobs={jobs} team={team} onGoTo={setView} setJobsMemberFilter={setJobsMemberFilter} setJobsStatusFilter={setJobsStatusFilter} />
               </>
             )}
             {view === 'clients'   && <Clients   clients={clients} jobs={jobs} setClients={setClients} setJobs={setJobs} team={team} />}
-            {view === 'jobs'      && <Jobs       jobs={jobs} clients={clients} team={team} setJobs={setJobs} openJobId={openJobId} setOpenJobId={setOpenJobId} jobsMemberFilter={jobsMemberFilter} setJobsMemberFilter={setJobsMemberFilter} />}
+            {view === 'jobs'      && <Jobs       jobs={jobs} clients={clients} team={team} setJobs={setJobs} openJobId={openJobId} setOpenJobId={setOpenJobId} jobsMemberFilter={jobsMemberFilter} setJobsMemberFilter={setJobsMemberFilter} jobsStatusFilter={jobsStatusFilter} setJobsStatusFilter={setJobsStatusFilter} />}
             {view === 'team'      && isManager && <Team       team={team} jobs={jobs} clients={clients} setTeam={setTeam} setJobs={setJobs} />}
             {view === 'leads'     && <Leads      leads={leads} setLeads={setLeads} clients={clients} setClients={setClients} jobs={jobs} setJobs={setJobs} team={team} agents={agents} />}
             {view === 'calendar'  && <CalendarPage appointments={appointments} setAppointments={setAppointments} jobs={jobs} clients={clients} team={team} onGoTo={setView} onViewJob={(jid)=>{setOpenJobId(jid);setView('jobs');}} />}
