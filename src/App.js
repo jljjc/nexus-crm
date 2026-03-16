@@ -1063,6 +1063,10 @@ function ClientDetailModal({ client, jobs, setJobs, team, onClose, onEdit, onSav
   const [emailResult, setEmailResult]   = useState(null);
   const [emailSaved, setEmailSaved]     = useState(false);
 
+  // Openclaw snapshot state
+  const [ocName, setOcName]         = useState('');
+  const [ocFetching, setOcFetching] = useState(false);
+
   // Note quick-add state
   const [noteImportText, setNoteImportText] = useState('');
   const [noteImportParsing, setNoteImportParsing] = useState(false);
@@ -1278,6 +1282,59 @@ ${noteImportText.slice(0,4000)}`
     setNoteImportText(''); setNoteImportResult(null);
   };
   const p                           = client.profile || {};
+
+  /* ── Openclaw snapshot fetch ─────────────────────────── */
+  const handleOpenclawFetch = async () => {
+    const name = ocName.trim();
+    if (!name) return window.alert('请输入客户姓名');
+    setOcFetching(true); setImportPreview(null);
+    try {
+      const res = await fetch('http://127.0.0.1:18789/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer 315099a9ddf69fc50928803a3193f6dfa42d59bf236c887b',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'openai-codex/gpt-5.4',
+          messages: [{
+            role: 'user',
+            content: `快照 ${name}。请只返回JSON（不要markdown，不要多余文字），严格使用以下结构：
+{
+  "name":"","nameChinese":"","email":"","phone":"","nationality":"","type":"Migration",
+  "profile":{
+    "sex":null,"dob":null,"birthplace":null,"passportNo":null,"passportExpiry":null,
+    "auAddress":null,"maritalStatus":null,"chinaId":null,"qq":null,"eaFileNo":null,
+    "consultant":null,"visaTarget":null,
+    "visaHistory":[{"type":"","appNo":"","lodgeDate":"","grantDate":"","expiry":"","status":""}],
+    "addressHistory":[{"from":"","to":"","address":""}],
+    "employmentHistory":[{"from":"","to":"","company":"","role":"","country":""}],
+    "character":{"form80":null,"afpCheck":null,"pcc":null},
+    "sponsor":{"name":null,"sex":null,"dob":null,"nationality":null,"passportNo":null,"address":null,"occupation":null,"priorMaritalStatus":null},
+    "marriage":{"date":null,"location":null,"registrationNo":null},
+    "keyIssues":[{"priority":"High","item":"","detail":""}],
+    "documents":[{"name":"","mainApplicant":"","sponsor":"","secondary":""}],
+    "serviceAgreement":{"visaTarget":null,"contractDate":null,"totalFee":null,"payment1Amount":null,"payment1Detail":null,"payment2Amount":null,"payment2Detail":null},
+    "skillsAssessments":[{"appId":"","occupation":"","body":"","lodgeDate":"","outcome":"Pending","rejectReason":null,"reviewApp":null,"appealDeadline":null}],
+    "caseTimeline":[{"date":"","event":"","status":"Completed"}],
+    "currentStatus":null,
+    "nextSteps":[]
+  }
+}
+规则：缺失字段用null，数组无数据用[]，所有字符串值必须用双引号包裹。`
+          }]
+        })
+      });
+      const d = await res.json();
+      const raw = d?.choices?.[0]?.message?.content || '';
+      if (!raw) throw new Error('Openclaw返回内容为空');
+      setImportPreview(extractAndParseJson(raw));
+    } catch(err) {
+      window.alert('Openclaw快照获取失败: ' + err.message);
+    } finally {
+      setOcFetching(false);
+    }
+  };
 
   /* ── AI document import ─────────────────────────────── */
   const handleFile = async (e) => {
@@ -2212,7 +2269,44 @@ ${rawText.slice(0,5000)}` }]
           {applyMsg && <div style={{ padding:'10px 14px', background:'#f0fdf4', border:'1px solid #86efac', borderRadius:8, color:'#15803d', fontSize:13, marginBottom:14 }}>{applyMsg}</div>}
 
           {!importPreview && (
-            <div style={{ textAlign:'center', padding:'40px 24px', border:'2px dashed #dde1f0', borderRadius:12 }}>
+            <div>
+              {/* ── Openclaw 快照 ── */}
+              <div style={{ background:'linear-gradient(135deg,#f0f4ff,#e8f0fe)', border:'1px solid #c7d2fe', borderRadius:12, padding:'18px 20px', marginBottom:16 }}>
+                <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10 }}>
+                  <span style={{ fontSize:22 }}>🤖</span>
+                  <div>
+                    <div style={{ fontSize:14, fontWeight:700, color:'#1e1b4b' }}>Openclaw 快照导入</div>
+                    <div style={{ fontSize:11, color:'#4338ca' }}>按客户姓名直接从 Openclaw Bot 拉取档案</div>
+                  </div>
+                </div>
+                <div style={{ display:'flex', gap:8 }}>
+                  <input
+                    value={ocName}
+                    onChange={e => setOcName(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && !ocFetching && handleOpenclawFetch()}
+                    placeholder="输入客户姓名，如：孙丽芳 / Sun Lifang"
+                    disabled={ocFetching}
+                    style={{ flex:1, padding:'10px 13px', border:'1px solid #a5b4fc', borderRadius:8, fontSize:13, outline:'none', background: ocFetching ? '#f3f4f6' : '#fff', color:'#111827' }}
+                  />
+                  <button
+                    onClick={handleOpenclawFetch}
+                    disabled={ocFetching}
+                    style={{ padding:'10px 18px', background: ocFetching ? '#e5e7eb' : 'linear-gradient(135deg,#4f46e5,#7c3aed)', border:'none', borderRadius:8, color: ocFetching ? '#6b7280' : '#fff', fontWeight:700, fontSize:13, cursor: ocFetching ? 'default' : 'pointer', whiteSpace:'nowrap' }}
+                  >
+                    {ocFetching ? '⏳ 获取中...' : '🔍 获取快照'}
+                  </button>
+                </div>
+              </div>
+
+              {/* ── 分割线 ── */}
+              <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:16 }}>
+                <div style={{ flex:1, height:1, background:'#e5e7eb' }} />
+                <span style={{ fontSize:11, color:'#9ca3af', fontWeight:500 }}>或上传文件</span>
+                <div style={{ flex:1, height:1, background:'#e5e7eb' }} />
+              </div>
+
+              {/* ── 原有 docx 上传 ── */}
+              <div style={{ textAlign:'center', padding:'32px 24px', border:'2px dashed #dde1f0', borderRadius:12 }}>
               <div style={{ fontSize:40, marginBottom:12 }}>📄</div>
               <div style={{ fontSize:15, fontWeight:600, color:'#111827', marginBottom:6 }}>Upload Client Information Card</div>
               <div style={{ fontSize:13, color:'#1f2937', marginBottom:20 }}>Supports <strong style={{color:'#1f2937'}}>.docx</strong> files — AI will extract all fields automatically</div>
@@ -2225,6 +2319,7 @@ ${rawText.slice(0,5000)}` }]
                 {importing ? '⏳ Analysing document...' : '📥 Select .docx File'}
               </button>
               <div style={{ marginTop:16, fontSize:11, color:'#1f2937' }}>Powered by Claude AI · Your files are not stored</div>
+            </div>
             </div>
           )}
 
