@@ -2876,8 +2876,8 @@ function Jobs({ jobs, clients, team, setJobs, openJobId, setOpenJobId, jobsMembe
             </select>
           </div>
           <div>
-            <div style={{ fontSize:11, color:'#374151', fontWeight:600, marginBottom:5 }}>进度 Progress: <span style={{ color:'#6366f1', fontWeight:700 }}>{viewJob.progress ?? 0}%</span></div>
-            <input type="range" min={0} max={100} step={5} value={viewJob.progress ?? 0} onChange={async e => {
+            <div style={{ fontSize:11, color:'#374151', fontWeight:600, marginBottom:5 }}>进度 Progress: <span style={{ color:'#6366f1', fontWeight:700 }}>{STATUS_PROGRESS[viewJob.status] ?? viewJob.progress ?? 0}%</span></div>
+            <input type="range" min={0} max={100} step={5} value={STATUS_PROGRESS[viewJob.status] ?? viewJob.progress ?? 0} onChange={async e => {
               const updated = { ...viewJob, progress: parseInt(e.target.value) };
               setViewJob(updated);
               setJobs(prev => prev.map(j => j.id===viewJob.id ? updated : j));
@@ -3264,8 +3264,8 @@ ${rawText.slice(0,5000)}` }]
           </select>
         </div>
         <div>
-          <div style={{ fontSize:11, color:'#374151', fontWeight:600, marginBottom:5 }}>进度 Progress: <span style={{ color:'#6366f1', fontWeight:700 }}>{viewJob.progress ?? 0}%</span></div>
-          <input type="range" min={0} max={100} step={5} value={viewJob.progress ?? 0} onChange={async e => {
+          <div style={{ fontSize:11, color:'#374151', fontWeight:600, marginBottom:5 }}>进度 Progress: <span style={{ color:'#6366f1', fontWeight:700 }}>{STATUS_PROGRESS[viewJob.status] ?? viewJob.progress ?? 0}%</span></div>
+          <input type="range" min={0} max={100} step={5} value={STATUS_PROGRESS[viewJob.status] ?? viewJob.progress ?? 0} onChange={async e => {
             const updated = { ...viewJob, progress: parseInt(e.target.value) };
             setViewJob(updated);
             setJobs(prev => prev.map(j => j.id===viewJob.id ? updated : j));
