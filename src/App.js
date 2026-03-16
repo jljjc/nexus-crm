@@ -3893,7 +3893,7 @@ function DeadlineAlerts({ jobs, appointments, onGoTo, setOpenJobId }) {
   const sevenDays = addDays(todayStr, 7);
 
   jobs.forEach(j => {
-    if (j.status === 'Completed') return;
+    if (['Completed', 'Awaiting Decision', 'On Hold'].includes(j.status)) return;
     if (j.dueDate && j.dueDate <= sevenDays) {
       const d = daysUntil(j.dueDate);
       soon.push({ type:'job', label: j.type || 'Case', id: j.id, days: d, overdue: d < 0, urgent: d <= 2 });
