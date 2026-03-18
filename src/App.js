@@ -1104,14 +1104,35 @@ function ClientDetailModal({ client, jobs, setJobs, team, onClose, onEdit, onSav
     }).join('');
 
     // ── Phase 1: Fix unquoted scalar values (including Chinese text) ──────────
-    // Strategy: use a regex to find "key": UNQUOTED_VALUE and wrap the value.
-    // This handles both single-line and cases where AI forgot quotes on Chinese text.
-    //
-    // Step 1a: Expand any compact JSON onto multiple lines first so line-by-line
-    // processing can safely handle each key-value pair.
-    // We insert a newline before each top-level key that isn't already on its own line.
-    // Simple heuristic: insert \n before ,"key": patterns (not inside strings).
-    text = text.replace(/,(\s*"[^"]+"\s*:)/g, (m, p1) => `,\n${p1.trim()}`);
+    // Step 1a: Safely expand compact JSON so each key-value pair is on its own line.
+    // Uses a state machine to skip content inside strings (avoids corrupting string values).
+    {
+      let out = '';
+      let inString = false;
+      for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+        if (inString) {
+          out += ch;
+          if (ch === '\\') { out += text[++i] || ''; }
+          else if (ch === '"') { inString = false; }
+        } else {
+          if (ch === '"') { inString = true; out += ch; }
+          else if (ch === ',') {
+            // Look ahead: is the next non-space char a '"' (start of a key)?
+            let j = i + 1;
+            while (j < text.length && (text[j] === ' ' || text[j] === '\t')) j++;
+            if (text[j] === '"') {
+              out += ',\n';
+            } else {
+              out += ch;
+            }
+          } else {
+            out += ch;
+          }
+        }
+      }
+      text = out;
+    }
 
     // Step 1b: Process line by line
     text = text.split('\n').map(line => {
