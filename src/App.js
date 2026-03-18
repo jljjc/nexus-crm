@@ -1071,6 +1071,9 @@ function ClientDetailModal({ client, jobs, setJobs, team, onClose, onEdit, onSav
   const [pasteText, setPasteText]         = useState('');
   const [pasteImporting, setPasteImporting] = useState(false);
 
+  // Generate snapshot state (Profile Tab)
+  const [generatingSnapshot, setGeneratingSnapshot] = useState(false);
+
   // Note quick-add state
   const [noteImportText, setNoteImportText] = useState('');
   const [noteImportParsing, setNoteImportParsing] = useState(false);
@@ -1100,47 +1103,55 @@ function ClientDetailModal({ client, jobs, setJobs, team, onClose, onEdit, onSav
       return (c < 32 && c !== 10 && c !== 13) ? ' ' : ch;
     }).join('');
 
-    // Fix unquoted values LINE BY LINE (before normalising ，→, so Chinese commas
-    // inside a value don't get mistaken for JSON delimiters)
+    // ── Phase 1: Fix unquoted scalar values (including Chinese text) ──────────
+    // Strategy: use a regex to find "key": UNQUOTED_VALUE and wrap the value.
+    // This handles both single-line and cases where AI forgot quotes on Chinese text.
+    //
+    // Step 1a: Expand any compact JSON onto multiple lines first so line-by-line
+    // processing can safely handle each key-value pair.
+    // We insert a newline before each top-level key that isn't already on its own line.
+    // Simple heuristic: insert \n before ,"key": patterns (not inside strings).
+    text = text.replace(/,(\s*"[^"]+"\s*:)/g, (m, p1) => `,\n${p1.trim()}`);
+
+    // Step 1b: Process line by line
     text = text.split('\n').map(line => {
       const m = line.match(/^(\s*"(?:[^"\\]|\\.)*"\s*:\s*)(.*)/);
       if (!m) return line;
-      const [, key, rest] = m;
+      const [, keyPart, rest] = m;
       const val = rest.trim();
 
-      // Already a valid JSON value — leave alone
+      // Already a valid JSON value type — leave alone
       if (val === '' || val.startsWith('{') || val.startsWith('[')) return line;
+      const trailing = val.trimEnd().endsWith(',') ? ',' : '';
       const bare = val.replace(/,\s*$/, '').trim();
       if (bare === 'null' || bare === 'true' || bare === 'false') return line;
       if (/^-?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/.test(bare)) return line;
 
-      // If it's a quoted string, check for "JSON injection":
-      // AI sometimes puts multiple fields into one string value like:
-      // "sex": "null,\"dob\":\"24 Feb\",\"birthplace\":null"
-      // Detect this pattern and replace the whole value with null.
+      // Quoted string — check for "JSON injection" (AI stuffed multiple fields into one value)
+      // e.g. "sex": "null,\"dob\":\"24 Feb\",\"birthplace\":null"
       if (val.startsWith('"')) {
-        // Extract the string content (between the outer quotes)
         const strMatch = val.match(/^"((?:[^"\\]|\\.)*)"(,?)$/);
         if (strMatch) {
           const inner = strMatch[1];
-          // If inner content looks like JSON key-value pairs, the field was contaminated
+          const tc = strMatch[2] || '';
+          const indent = line.match(/^(\s*)/)[1];
+          // Contaminated: inner looks like JSON fragments
           if (/",\s*"[a-zA-Z]/.test(inner) || /[a-zA-Z]"\s*:\s*(null|true|false|\d|")/.test(inner)) {
-            const trailingComma = strMatch[2] || '';
-            const indent = line.match(/^(\s*)/)[1];
-            return `${indent}${key.trimStart()}null${trailingComma}`;
+            return `${indent}${keyPart.trimStart()}null${tc}`;
           }
         }
         return line;
       }
 
-      // Unquoted string — wrap in quotes
-      const trailingComma = val.trimEnd().endsWith(',') ? ',' : '';
-      const escaped = bare.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+      // Unquoted value (bare Chinese text, bare English word, etc.) — wrap in double quotes
       const indent = line.match(/^(\s*)/)[1];
-      return `${indent}${key.trimStart()}"${escaped}"${trailingComma}`;
+      const escaped = bare.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+      return `${indent}${keyPart.trimStart()}"${escaped}"${trailing}`;
     }).join('\n');
 
-    // NOW normalise Chinese punctuation (values are safely quoted by this point)
+    // ── Phase 2: Normalise Chinese punctuation AFTER values are safely quoted ─
+    // Replace Chinese commas/colons that are OUTSIDE quoted strings
+    // Simple approach: only replace at JSON structural positions (after } ] null true false or numbers)
     text = text.replace(/，/g, ',').replace(/：/g, ':');
 
     // Remove trailing commas before } or ]
@@ -1356,6 +1367,143 @@ ${noteImportText.slice(0,4000)}`
       window.alert('Openclaw快照获取失败: ' + err.message);
     } finally {
       setOcFetching(false);
+    }
+  };
+
+  /* ── Generate client snapshot (.txt) ────────────────── */
+  const generateSnapshot = async () => {
+    setGeneratingSnapshot(true);
+    try {
+      const today = new Date().toLocaleDateString('zh-CN', { year:'numeric', month:'long', day:'numeric' });
+      const p2 = client.profile || {};
+
+      // Build a structured data summary to feed Claude
+      const dataBlock = JSON.stringify({
+        name: client.name,
+        nameChinese: p2.nameChinese,
+        dob: p2.dob,
+        sex: p2.sex,
+        nationality: client.nationality,
+        passportNo: p2.passportNo,
+        passportExpiry: p2.passportExpiry,
+        chinaId: p2.chinaId,
+        auAddress: p2.auAddress,
+        maritalStatus: p2.maritalStatus,
+        email: client.email,
+        phone: client.phone,
+        consultant: p2.consultant,
+        visaTarget: p2.visaTarget,
+        serviceAgreement: p2.serviceAgreement,
+        visaHistory: p2.visaHistory,
+        skillsAssessments: p2.skillsAssessments,
+        caseTimeline: p2.caseTimeline,
+        currentStatus: p2.currentStatus,
+        nextSteps: p2.nextSteps,
+        sponsor: p2.sponsor,
+        marriage: p2.marriage,
+        keyIssues: p2.keyIssues,
+        notes: (client.notes || []).slice(0, 10).map(n => typeof n === 'string' ? n : n.text),
+      }, null, 2);
+
+      const res = await fetch('/api/claude', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 4000,
+          messages: [{ role: 'user', content:
+`You are an expert Australian immigration consultant assistant. Generate a professional bilingual (Chinese/English) client snapshot document based on the following client data.
+
+Client Data (JSON):
+${dataBlock}
+
+Generate date: ${today}
+Agent: ${p2.consultant || 'Ozsky Migration'}
+
+FORMAT REQUIREMENTS:
+- Use the exact same format as the example below (═══ borders, ━━━ section dividers, Chinese section numbers)
+- Bilingual headers: Chinese | ENGLISH
+- For any field with no data, write: —（未记录）
+- Include ALL sections even if empty
+- Dates: keep original format from data
+- Status icons: ✅ = approved/completed, 🔄 = in progress, ⏳ = pending, ❌ = refused
+
+OUTPUT FORMAT (follow this structure exactly):
+═══════════════════════════════════════════════════════════════
+             客户档案快照 | CLIENT SNAPSHOT
+             [Full Name]
+             生成日期：[today]
+             经办代理：[consultant]
+═══════════════════════════════════════════════════════════════
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+一、申请人基本信息 | APPLICANT DETAILS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[Fill in all personal info fields with label : value format]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+二、担保人信息 | SPONSOR DETAILS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[Sponsor details if available, otherwise note 无担保人信息]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+三、签证申请历史 | VISA APPLICATION HISTORY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[All visa history entries with dates and status]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+四、职业评估 | SKILLS ASSESSMENT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[Skills assessment entries or 暂无职业评估记录]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+五、当前签证状态摘要 | CURRENT VISA STATUS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[Current status summary table and next steps]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+六、时间线 | TIMELINE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[All case timeline events in chronological order]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+七、案件备注 | CASE NOTES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[Key issues and notes]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+经办代理：[consultant]
+邮箱：[email if known] | BP No: [if known]
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Output ONLY the document text, no preamble, no markdown fences.` }]
+        }),
+      });
+      const d = await res.json();
+      const snapshotText = (d.content || []).map(c => c?.text || '').join('').trim();
+      if (!snapshotText) throw new Error('AI 返回内容为空');
+
+      // Download as .txt
+      const safeName = (client.name || 'client').replace(/[^a-zA-Z0-9\u4e00-\u9fa5_\- ]/g, '').trim();
+      const dateStr  = new Date().toISOString().slice(0, 10);
+      const blob = new Blob([snapshotText], { type: 'text/plain;charset=utf-8' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = `${safeName}_Client_Snapshot_${dateStr}.txt`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch(err) {
+      window.alert('快照生成失败: ' + err.message);
+    } finally {
+      setGeneratingSnapshot(false);
     }
   };
 
@@ -1652,6 +1800,13 @@ CRITICAL RULES — YOU MUST FOLLOW THESE:
             <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:6 }}>
               <StatusBadge status={client.status} />
               <button onClick={onEdit} style={{ background:'rgba(255,255,255,0.15)', border:'1px solid rgba(255,255,255,0.3)', borderRadius:8, padding:'5px 12px', color:'#fff', fontSize:11, fontWeight:600, cursor:'pointer' }}>✏️ {t('Edit Profile')}</button>
+              <button
+                onClick={generateSnapshot}
+                disabled={generatingSnapshot}
+                style={{ background: generatingSnapshot ? 'rgba(255,255,255,0.08)' : 'rgba(99,102,241,0.85)', border:'1px solid rgba(255,255,255,0.3)', borderRadius:8, padding:'5px 12px', color:'#fff', fontSize:11, fontWeight:600, cursor: generatingSnapshot ? 'default' : 'pointer', whiteSpace:'nowrap' }}
+              >
+                {generatingSnapshot ? '⏳ 生成中...' : '📥 生成快照 .txt'}
+              </button>
             </div>
           </div>
 
