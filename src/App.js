@@ -1109,10 +1109,29 @@ function ClientDetailModal({ client, jobs, setJobs, team, onClose, onEdit, onSav
       const val = rest.trim();
 
       // Already a valid JSON value — leave alone
-      if (val === '' || val.startsWith('"') || val.startsWith('{') || val.startsWith('[')) return line;
+      if (val === '' || val.startsWith('{') || val.startsWith('[')) return line;
       const bare = val.replace(/,\s*$/, '').trim();
       if (bare === 'null' || bare === 'true' || bare === 'false') return line;
       if (/^-?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/.test(bare)) return line;
+
+      // If it's a quoted string, check for "JSON injection":
+      // AI sometimes puts multiple fields into one string value like:
+      // "sex": "null,\"dob\":\"24 Feb\",\"birthplace\":null"
+      // Detect this pattern and replace the whole value with null.
+      if (val.startsWith('"')) {
+        // Extract the string content (between the outer quotes)
+        const strMatch = val.match(/^"((?:[^"\\]|\\.)*)"(,?)$/);
+        if (strMatch) {
+          const inner = strMatch[1];
+          // If inner content looks like JSON key-value pairs, the field was contaminated
+          if (/",\s*"[a-zA-Z]/.test(inner) || /[a-zA-Z]"\s*:\s*(null|true|false|\d|")/.test(inner)) {
+            const trailingComma = strMatch[2] || '';
+            const indent = line.match(/^(\s*)/)[1];
+            return `${indent}${key.trimStart()}null${trailingComma}`;
+          }
+        }
+        return line;
+      }
 
       // Unquoted string — wrap in quotes
       const trailingComma = val.trimEnd().endsWith(',') ? ',' : '';
@@ -1352,42 +1371,59 @@ ${noteImportText.slice(0,4000)}`
           model: 'claude-sonnet-4-20250514',
           max_tokens: 4000,
           messages: [{ role:'user', content:
-`Extract client data from this Australian immigration document and return ONLY valid JSON, no markdown.
+`Extract client data from this Australian immigration document and return ONLY valid JSON, no markdown, no explanation.
 
 Document:
 ${pasteText.slice(0,10000)}
 
-Return this exact structure (use null for missing fields, keep English for field values unless the original is Chinese):
+Return EXACTLY this structure. Each field MUST be on its own line. Use null for missing/unknown fields:
 {
-  "name":"","nameChinese":"","email":"","phone":"","nationality":"","type":"Migration",
-  "profile":{
-    "sex":null,"dob":null,"birthplace":null,"passportNo":null,"passportExpiry":null,
-    "auAddress":null,"maritalStatus":null,"chinaId":null,"qq":null,"eaFileNo":null,
-    "consultant":null,"visaTarget":null,
-    "visaHistory":[{"type":"","appNo":"","lodgeDate":"","grantDate":"","expiry":"","status":""}],
-    "addressHistory":[{"from":"","to":"","address":""}],
-    "employmentHistory":[{"from":"","to":"","company":"","role":"","country":""}],
-    "character":{"form80":null,"afpCheck":null,"pcc":null},
-    "sponsor":{"name":null,"sex":null,"dob":null,"nationality":null,"passportNo":null,"address":null,"occupation":null,"priorMaritalStatus":null},
-    "marriage":{"date":null,"location":null,"registrationNo":null},
-    "keyIssues":[{"priority":"High","item":"","detail":""}],
-    "documents":[{"name":"","mainApplicant":"","sponsor":"","secondary":""}],
-    "serviceAgreement":{"visaTarget":null,"contractDate":null,"totalFee":null,"payment1Amount":null,"payment1Detail":null,"payment2Amount":null,"payment2Detail":null},
-    "skillsAssessments":[{"appId":"","occupation":"","body":"","lodgeDate":"","outcome":"Pending","rejectReason":null,"reviewApp":null,"appealDeadline":null}],
-    "caseTimeline":[{"date":"","event":"","status":"Completed"}],
-    "currentStatus":null,
-    "nextSteps":[]
+  "name": "",
+  "nameChinese": "",
+  "email": null,
+  "phone": null,
+  "nationality": null,
+  "type": "Migration",
+  "profile": {
+    "sex": null,
+    "dob": null,
+    "birthplace": null,
+    "passportNo": null,
+    "passportExpiry": null,
+    "auAddress": null,
+    "maritalStatus": null,
+    "chinaId": null,
+    "qq": null,
+    "eaFileNo": null,
+    "consultant": null,
+    "visaTarget": null,
+    "visaHistory": [{"type":"","appNo":"","lodgeDate":"","grantDate":"","expiry":"","status":""}],
+    "addressHistory": [{"from":"","to":"","address":""}],
+    "employmentHistory": [{"from":"","to":"","company":"","role":"","country":""}],
+    "character": {"form80": null, "afpCheck": null, "pcc": null},
+    "sponsor": {"name": null, "sex": null, "dob": null, "nationality": null, "passportNo": null, "address": null, "occupation": null, "priorMaritalStatus": null},
+    "marriage": {"date": null, "location": null, "registrationNo": null},
+    "keyIssues": [{"priority":"High","item":"","detail":""}],
+    "documents": [{"name":"","mainApplicant":"","sponsor":"","secondary":""}],
+    "serviceAgreement": {"visaTarget": null, "contractDate": null, "totalFee": null, "payment1Amount": null, "payment1Detail": null, "payment2Amount": null, "payment2Detail": null},
+    "skillsAssessments": [{"appId":"","occupation":"","body":"","lodgeDate":"","outcome":"Pending","rejectReason":null,"reviewApp":null,"appealDeadline":null}],
+    "caseTimeline": [{"date":"","event":"","status":"Completed"}],
+    "currentStatus": null,
+    "nextSteps": []
   }
 }
 
-IMPORTANT EXTRACTION RULES:
-- 四、职业评估 / SKILLS ASSESSMENT → extract into skillsAssessments array
-- 五、大事记 / CASE TIMELINE → extract ALL timeline rows into caseTimeline array; status values: "Completed"/"In Progress"/"Urgent"/"Pending"
-- 六、当前状态 / CURRENT STATUS → extract summary text into currentStatus, bullet points into nextSteps array
-- For visaHistory: extract ALL visa rows
-- Skip rows with only dashes/empty data
-- Return [] for arrays with no data, not null
-- CRITICAL: ALL string values MUST be wrapped in double quotes, including Chinese text.` }] }),
+CRITICAL RULES — YOU MUST FOLLOW THESE:
+1. EACH JSON field MUST contain ONLY its own value. NEVER put multiple fields in one string value.
+   WRONG: "sex": "null,\\"dob\\":\\"24 Feb\\",\\"birthplace\\":null"
+   RIGHT:  "sex": null,  (then "dob" on the next line as a separate field)
+2. If a field value is unknown/missing → use JSON null (no quotes), NOT the string "null".
+3. ALL string values MUST be in double quotes, including Chinese text.
+4. 四、职业评估 / SKILLS ASSESSMENT → skillsAssessments array (one entry per application)
+5. Timeline rows / 大事记 → caseTimeline array; status: "Completed"/"In Progress"/"Urgent"/"Pending"
+6. Current status summary → currentStatus string; bullet points → nextSteps array
+7. Extract ALL visa rows into visaHistory.
+8. Return [] for empty arrays, NOT null.` }] }),
       });
       const d = await res.json();
       const raw = (d.content || []).map(c => c?.text || '').join('');
@@ -1420,42 +1456,59 @@ IMPORTANT EXTRACTION RULES:
           model: 'claude-sonnet-4-20250514',
           max_tokens: 4000,
           messages: [{ role:'user', content:
-`Extract client data from this Australian immigration document and return ONLY valid JSON, no markdown.
+`Extract client data from this Australian immigration document and return ONLY valid JSON, no markdown, no explanation.
 
 Document:
 ${rawText.slice(0,10000)}
 
-Return this exact structure (use null for missing fields, keep English for field values unless the original is Chinese):
+Return EXACTLY this structure. Each field MUST be on its own line. Use null for missing/unknown fields:
 {
-  "name":"","nameChinese":"","email":"","phone":"","nationality":"","type":"Migration",
-  "profile":{
-    "sex":null,"dob":null,"birthplace":null,"passportNo":null,"passportExpiry":null,
-    "auAddress":null,"maritalStatus":null,"chinaId":null,"qq":null,"eaFileNo":null,
-    "consultant":null,"visaTarget":null,
-    "visaHistory":[{"type":"","appNo":"","lodgeDate":"","grantDate":"","expiry":"","status":""}],
-    "addressHistory":[{"from":"","to":"","address":""}],
-    "employmentHistory":[{"from":"","to":"","company":"","role":"","country":""}],
-    "character":{"form80":null,"afpCheck":null,"pcc":null},
-    "sponsor":{"name":null,"sex":null,"dob":null,"nationality":null,"passportNo":null,"address":null,"occupation":null,"priorMaritalStatus":null},
-    "marriage":{"date":null,"location":null,"registrationNo":null},
-    "keyIssues":[{"priority":"High","item":"","detail":""}],
-    "documents":[{"name":"","mainApplicant":"","sponsor":"","secondary":""}],
-    "serviceAgreement":{"visaTarget":null,"contractDate":null,"totalFee":null,"payment1Amount":null,"payment1Detail":null,"payment2Amount":null,"payment2Detail":null},
-    "skillsAssessments":[{"appId":"","occupation":"","body":"","lodgeDate":"","outcome":"Pending","rejectReason":null,"reviewApp":null,"appealDeadline":null}],
-    "caseTimeline":[{"date":"","event":"","status":"Completed"}],
-    "currentStatus":null,
-    "nextSteps":[]
+  "name": "",
+  "nameChinese": "",
+  "email": null,
+  "phone": null,
+  "nationality": null,
+  "type": "Migration",
+  "profile": {
+    "sex": null,
+    "dob": null,
+    "birthplace": null,
+    "passportNo": null,
+    "passportExpiry": null,
+    "auAddress": null,
+    "maritalStatus": null,
+    "chinaId": null,
+    "qq": null,
+    "eaFileNo": null,
+    "consultant": null,
+    "visaTarget": null,
+    "visaHistory": [{"type":"","appNo":"","lodgeDate":"","grantDate":"","expiry":"","status":""}],
+    "addressHistory": [{"from":"","to":"","address":""}],
+    "employmentHistory": [{"from":"","to":"","company":"","role":"","country":""}],
+    "character": {"form80": null, "afpCheck": null, "pcc": null},
+    "sponsor": {"name": null, "sex": null, "dob": null, "nationality": null, "passportNo": null, "address": null, "occupation": null, "priorMaritalStatus": null},
+    "marriage": {"date": null, "location": null, "registrationNo": null},
+    "keyIssues": [{"priority":"High","item":"","detail":""}],
+    "documents": [{"name":"","mainApplicant":"","sponsor":"","secondary":""}],
+    "serviceAgreement": {"visaTarget": null, "contractDate": null, "totalFee": null, "payment1Amount": null, "payment1Detail": null, "payment2Amount": null, "payment2Detail": null},
+    "skillsAssessments": [{"appId":"","occupation":"","body":"","lodgeDate":"","outcome":"Pending","rejectReason":null,"reviewApp":null,"appealDeadline":null}],
+    "caseTimeline": [{"date":"","event":"","status":"Completed"}],
+    "currentStatus": null,
+    "nextSteps": []
   }
 }
 
-IMPORTANT EXTRACTION RULES:
-- 四、职业评估 / SKILLS ASSESSMENT → extract into skillsAssessments array (one entry per application)
-- 五、大事记 / CASE TIMELINE → extract ALL timeline rows into caseTimeline array; status values: "Completed"/"In Progress"/"Urgent"/"Pending"
-- 六、当前状态 / CURRENT STATUS → extract summary text into currentStatus, bullet points into nextSteps array
-- For visaHistory: extract ALL visa rows including TRA PSA entries
-- Skip rows with only dashes/empty data
-- Return [] for arrays with no data, not null
-- CRITICAL: ALL string values MUST be wrapped in double quotes, including Chinese text. NEVER output bare/unquoted text as a value. Example: "visaTarget": "签证目标" ✓  NOT "visaTarget": 签证目标 ✗` }] })
+CRITICAL RULES — YOU MUST FOLLOW THESE:
+1. EACH JSON field MUST contain ONLY its own value. NEVER put multiple fields in one string value.
+   WRONG: "sex": "null,\\"dob\\":\\"24 Feb\\",\\"birthplace\\":null"
+   RIGHT:  "sex": null,  (then "dob" on the next line as a separate field)
+2. If a field value is unknown/missing → use JSON null (no quotes), NOT the string "null".
+3. ALL string values MUST be in double quotes, including Chinese text.
+4. 四、职业评估 / SKILLS ASSESSMENT → skillsAssessments array (one entry per application)
+5. Timeline rows / 大事记 → caseTimeline array; status: "Completed"/"In Progress"/"Urgent"/"Pending"
+6. Current status summary → currentStatus string; bullet points → nextSteps array
+7. Extract ALL visa rows into visaHistory.
+8. Return [] for empty arrays, NOT null.` }] })
       });
       const d = await res.json();
       const raw = (d.content || []).map(c => c?.text || '').join('');
