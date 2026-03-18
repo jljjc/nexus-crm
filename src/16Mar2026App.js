@@ -403,8 +403,8 @@ const JOB_TYPES = [
   // Support Services
   'Enrollment Support',
   'Scholarship Application',
-  'ART Appeal',
-  'Other',
+  'ART Appeal',  
+'Other',
 ];
 const PRIORITIES = ['Low', 'Medium', 'High', 'Urgent'];
 const CLIENT_TYPES = ['Student', 'Visa', 'Migration', 'Multiple'];
@@ -1063,14 +1063,6 @@ function ClientDetailModal({ client, jobs, setJobs, team, onClose, onEdit, onSav
   const [emailResult, setEmailResult]   = useState(null);
   const [emailSaved, setEmailSaved]     = useState(false);
 
-  // Openclaw snapshot state
-  const [ocName, setOcName]         = useState('');
-  const [ocFetching, setOcFetching] = useState(false);
-
-  // Paste-text import state (Import Tab)
-  const [pasteText, setPasteText]         = useState('');
-  const [pasteImporting, setPasteImporting] = useState(false);
-
   // Note quick-add state
   const [noteImportText, setNoteImportText] = useState('');
   const [noteImportParsing, setNoteImportParsing] = useState(false);
@@ -1287,131 +1279,13 @@ ${noteImportText.slice(0,4000)}`
   };
   const p                           = client.profile || {};
 
-  /* ── Openclaw snapshot fetch ─────────────────────────── */
-  const handleOpenclawFetch = async () => {
-    const name = ocName.trim();
-    if (!name) return window.alert('请输入客户姓名');
-    setOcFetching(true); setImportPreview(null);
-    try {
-      const res = await fetch('http://127.0.0.1:18789/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': 'Bearer 315099a9ddf69fc50928803a3193f6dfa42d59bf236c887b',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'openai-codex/gpt-5.4',
-          messages: [{
-            role: 'user',
-            content: `快照 ${name}。请只返回JSON（不要markdown，不要多余文字），严格使用以下结构：
-{
-  "name":"","nameChinese":"","email":"","phone":"","nationality":"","type":"Migration",
-  "profile":{
-    "sex":null,"dob":null,"birthplace":null,"passportNo":null,"passportExpiry":null,
-    "auAddress":null,"maritalStatus":null,"chinaId":null,"qq":null,"eaFileNo":null,
-    "consultant":null,"visaTarget":null,
-    "visaHistory":[{"type":"","appNo":"","lodgeDate":"","grantDate":"","expiry":"","status":""}],
-    "addressHistory":[{"from":"","to":"","address":""}],
-    "employmentHistory":[{"from":"","to":"","company":"","role":"","country":""}],
-    "character":{"form80":null,"afpCheck":null,"pcc":null},
-    "sponsor":{"name":null,"sex":null,"dob":null,"nationality":null,"passportNo":null,"address":null,"occupation":null,"priorMaritalStatus":null},
-    "marriage":{"date":null,"location":null,"registrationNo":null},
-    "keyIssues":[{"priority":"High","item":"","detail":""}],
-    "documents":[{"name":"","mainApplicant":"","sponsor":"","secondary":""}],
-    "serviceAgreement":{"visaTarget":null,"contractDate":null,"totalFee":null,"payment1Amount":null,"payment1Detail":null,"payment2Amount":null,"payment2Detail":null},
-    "skillsAssessments":[{"appId":"","occupation":"","body":"","lodgeDate":"","outcome":"Pending","rejectReason":null,"reviewApp":null,"appealDeadline":null}],
-    "caseTimeline":[{"date":"","event":"","status":"Completed"}],
-    "currentStatus":null,
-    "nextSteps":[]
-  }
-}
-规则：缺失字段用null，数组无数据用[]，所有字符串值必须用双引号包裹。`
-          }]
-        })
-      });
-      const d = await res.json();
-      const raw = d?.choices?.[0]?.message?.content || '';
-      if (!raw) throw new Error('Openclaw返回内容为空');
-      setImportPreview(extractAndParseJson(raw));
-    } catch(err) {
-      window.alert('Openclaw快照获取失败: ' + err.message);
-    } finally {
-      setOcFetching(false);
-    }
-  };
-
-  /* ── Paste-text direct import ───────────────────────── */
-  const handlePasteImport = async () => {
-    if (!pasteText.trim()) return;
-    setPasteImporting(true); setImportPreview(null);
-    try {
-      const res = await fetch('/api/claude', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 4000,
-          messages: [{ role:'user', content:
-`Extract client data from this Australian immigration document and return ONLY valid JSON, no markdown.
-
-Document:
-${pasteText.slice(0,10000)}
-
-Return this exact structure (use null for missing fields, keep English for field values unless the original is Chinese):
-{
-  "name":"","nameChinese":"","email":"","phone":"","nationality":"","type":"Migration",
-  "profile":{
-    "sex":null,"dob":null,"birthplace":null,"passportNo":null,"passportExpiry":null,
-    "auAddress":null,"maritalStatus":null,"chinaId":null,"qq":null,"eaFileNo":null,
-    "consultant":null,"visaTarget":null,
-    "visaHistory":[{"type":"","appNo":"","lodgeDate":"","grantDate":"","expiry":"","status":""}],
-    "addressHistory":[{"from":"","to":"","address":""}],
-    "employmentHistory":[{"from":"","to":"","company":"","role":"","country":""}],
-    "character":{"form80":null,"afpCheck":null,"pcc":null},
-    "sponsor":{"name":null,"sex":null,"dob":null,"nationality":null,"passportNo":null,"address":null,"occupation":null,"priorMaritalStatus":null},
-    "marriage":{"date":null,"location":null,"registrationNo":null},
-    "keyIssues":[{"priority":"High","item":"","detail":""}],
-    "documents":[{"name":"","mainApplicant":"","sponsor":"","secondary":""}],
-    "serviceAgreement":{"visaTarget":null,"contractDate":null,"totalFee":null,"payment1Amount":null,"payment1Detail":null,"payment2Amount":null,"payment2Detail":null},
-    "skillsAssessments":[{"appId":"","occupation":"","body":"","lodgeDate":"","outcome":"Pending","rejectReason":null,"reviewApp":null,"appealDeadline":null}],
-    "caseTimeline":[{"date":"","event":"","status":"Completed"}],
-    "currentStatus":null,
-    "nextSteps":[]
-  }
-}
-
-IMPORTANT EXTRACTION RULES:
-- 四、职业评估 / SKILLS ASSESSMENT → extract into skillsAssessments array
-- 五、大事记 / CASE TIMELINE → extract ALL timeline rows into caseTimeline array; status values: "Completed"/"In Progress"/"Urgent"/"Pending"
-- 六、当前状态 / CURRENT STATUS → extract summary text into currentStatus, bullet points into nextSteps array
-- For visaHistory: extract ALL visa rows
-- Skip rows with only dashes/empty data
-- Return [] for arrays with no data, not null
-- CRITICAL: ALL string values MUST be wrapped in double quotes, including Chinese text.` }] }),
-      });
-      const d = await res.json();
-      const raw = (d.content || []).map(c => c?.text || '').join('');
-      setImportPreview(extractAndParseJson(raw));
-    } catch(err) {
-      window.alert('Import failed: ' + err.message);
-    } finally {
-      setPasteImporting(false);
-    }
-  };
-
   /* ── AI document import ─────────────────────────────── */
   const handleFile = async (e) => {
     const file = e.target.files?.[0]; if (!file) return;
     setImporting(true); setImportPreview(null);
     try {
-      let rawText = '';
-      if (file.name.endsWith('.txt')) {
-        rawText = await file.text();
-      } else {
-        const buf = await file.arrayBuffer();
-        const { value } = await mammoth.extractRawText({ arrayBuffer: buf });
-        rawText = value;
-      }
+      const buf      = await file.arrayBuffer();
+      const { value: rawText } = await mammoth.extractRawText({ arrayBuffer: buf });
 
       const res = await fetch('/api/claude', {
         method: 'POST',
@@ -1861,12 +1735,11 @@ IMPORTANT EXTRACTION RULES:
                 <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em' }}>最新进展 <span style={{ color:'#9ca3af', fontWeight:400, textTransform:'none', letterSpacing:0, fontSize:11 }}>(失焦自动保存)</span></div>
                 <label style={{ display:'flex', alignItems:'center', gap:5, padding:'4px 10px', background:'#f1f5f9', border:'1.5px solid #cbd5e1', borderRadius:6, color:'#374151', fontSize:11, fontWeight:600, cursor:'pointer' }}>
                   📄 上传快照
-                  <input type="file" accept=".docx,.pdf,.txt" style={{display:'none'}} onChange={async e => {
+                  <input type="file" accept=".docx,.pdf" style={{display:'none'}} onChange={async e => {
                     const file = e.target.files?.[0]; if (!file) return;
                     try {
-                      let rawText = '';
-                      if (file.name.endsWith('.txt')) { rawText = await file.text(); }
-                      else { const buf = await file.arrayBuffer(); const { value } = await mammoth.extractRawText({ arrayBuffer: buf }); rawText = value; }
+                      const buf = await file.arrayBuffer();
+                      const { value: rawText } = await mammoth.extractRawText({ arrayBuffer: buf });
                       const res = await fetch('/api/claude', { method:'POST', headers:{'Content-Type':'application/json'},
                         body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:2000,
                           messages:[{ role:'user', content:`Extract case timeline and current status from this immigration snapshot. Return ONLY valid JSON:
@@ -2339,91 +2212,19 @@ ${rawText.slice(0,5000)}` }]
           {applyMsg && <div style={{ padding:'10px 14px', background:'#f0fdf4', border:'1px solid #86efac', borderRadius:8, color:'#15803d', fontSize:13, marginBottom:14 }}>{applyMsg}</div>}
 
           {!importPreview && (
-            <div>
-              {/* ── Openclaw 快照 ── */}
-              <div style={{ background:'linear-gradient(135deg,#f0f4ff,#e8f0fe)', border:'1px solid #c7d2fe', borderRadius:12, padding:'18px 20px', marginBottom:16 }}>
-                <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10 }}>
-                  <span style={{ fontSize:22 }}>🤖</span>
-                  <div>
-                    <div style={{ fontSize:14, fontWeight:700, color:'#1e1b4b' }}>Openclaw 快照导入</div>
-                    <div style={{ fontSize:11, color:'#4338ca' }}>按客户姓名直接从 Openclaw Bot 拉取档案</div>
-                  </div>
-                </div>
-                <div style={{ display:'flex', gap:8 }}>
-                  <input
-                    value={ocName}
-                    onChange={e => setOcName(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && !ocFetching && handleOpenclawFetch()}
-                    placeholder="输入客户姓名，如：孙丽芳 / Sun Lifang"
-                    disabled={ocFetching}
-                    style={{ flex:1, padding:'10px 13px', border:'1px solid #a5b4fc', borderRadius:8, fontSize:13, outline:'none', background: ocFetching ? '#f3f4f6' : '#fff', color:'#111827' }}
-                  />
-                  <button
-                    onClick={handleOpenclawFetch}
-                    disabled={ocFetching}
-                    style={{ padding:'10px 18px', background: ocFetching ? '#e5e7eb' : 'linear-gradient(135deg,#4f46e5,#7c3aed)', border:'none', borderRadius:8, color: ocFetching ? '#6b7280' : '#fff', fontWeight:700, fontSize:13, cursor: ocFetching ? 'default' : 'pointer', whiteSpace:'nowrap' }}
-                  >
-                    {ocFetching ? '⏳ 获取中...' : '🔍 获取快照'}
-                  </button>
-                </div>
-              </div>
-
-              {/* ── 分割线 ── */}
-              <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:16 }}>
-                <div style={{ flex:1, height:1, background:'#e5e7eb' }} />
-                <span style={{ fontSize:11, color:'#9ca3af', fontWeight:500 }}>或粘贴文本</span>
-                <div style={{ flex:1, height:1, background:'#e5e7eb' }} />
-              </div>
-
-              {/* ── 粘贴文本导入 ── */}
-              <div style={{ background:'linear-gradient(135deg,#f5f3ff,#ede9fe)', border:'1px solid #c4b5fd', borderRadius:12, padding:'16px 18px', marginBottom:16 }}>
-                <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10 }}>
-                  <span style={{ fontSize:20 }}>📋</span>
-                  <div>
-                    <div style={{ fontSize:13, fontWeight:700, color:'#4c1d95' }}>粘贴文本导入 Paste Text Import</div>
-                    <div style={{ fontSize:11, color:'#7c3aed' }}>直接粘贴客户快照文本（支持中英文）— 无需上传文件</div>
-                  </div>
-                </div>
-                <textarea
-                  value={pasteText}
-                  onChange={e => setPasteText(e.target.value)}
-                  placeholder="粘贴客户档案快照文本... Paste client snapshot text here..."
-                  style={{ width:'100%', padding:'10px 12px', border:'1.5px solid #c4b5fd', borderRadius:8, fontSize:12.5, minHeight:120, resize:'vertical', background:'#fff', fontFamily:'inherit', lineHeight:1.6, boxSizing:'border-box', outline:'none', color:'#111827' }}
-                />
-                <div style={{ display:'flex', justifyContent:'flex-end', marginTop:10, gap:8 }}>
-                  {pasteText && <button onClick={()=>setPasteText('')} style={{ padding:'7px 14px', background:'#f3f4f6', border:'1.5px solid #cbd5e1', borderRadius:7, fontSize:12, color:'#374151', fontWeight:600, cursor:'pointer' }}>清除</button>}
-                  <button
-                    onClick={handlePasteImport}
-                    disabled={pasteImporting || !pasteText.trim()}
-                    style={{ padding:'8px 18px', background: pasteImporting||!pasteText.trim() ? '#e5e7eb' : 'linear-gradient(135deg,#7c3aed,#6d28d9)', border:'none', borderRadius:8, color: pasteImporting||!pasteText.trim() ? '#9ca3af' : '#fff', fontWeight:700, fontSize:12, cursor: pasteImporting||!pasteText.trim() ? 'default':'pointer' }}
-                  >
-                    {pasteImporting ? '⏳ 分析中...' : '🤖 AI 提取信息'}
-                  </button>
-                </div>
-              </div>
-
-              {/* ── 分割线 ── */}
-              <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:16 }}>
-                <div style={{ flex:1, height:1, background:'#e5e7eb' }} />
-                <span style={{ fontSize:11, color:'#9ca3af', fontWeight:500 }}>或上传文件</span>
-                <div style={{ flex:1, height:1, background:'#e5e7eb' }} />
-              </div>
-
-              {/* ── 原有 docx 上传 ── */}
-              <div style={{ textAlign:'center', padding:'32px 24px', border:'2px dashed #dde1f0', borderRadius:12 }}>
+            <div style={{ textAlign:'center', padding:'40px 24px', border:'2px dashed #dde1f0', borderRadius:12 }}>
               <div style={{ fontSize:40, marginBottom:12 }}>📄</div>
               <div style={{ fontSize:15, fontWeight:600, color:'#111827', marginBottom:6 }}>Upload Client Information Card</div>
-              <div style={{ fontSize:13, color:'#1f2937', marginBottom:20 }}>Supports <strong style={{color:'#1f2937'}}>.docx / .txt</strong> files — AI will extract all fields automatically</div>
-              <input ref={fileRef} type="file" accept=".docx,.pdf,.txt" onChange={handleFile} style={{ display:'none' }} />
+              <div style={{ fontSize:13, color:'#1f2937', marginBottom:20 }}>Supports <strong style={{color:'#1f2937'}}>.docx</strong> files — AI will extract all fields automatically</div>
+              <input ref={fileRef} type="file" accept=".docx,.pdf" onChange={handleFile} style={{ display:'none' }} />
               <button
                 onClick={() => fileRef.current?.click()}
                 disabled={importing}
                 style={{ padding:'11px 24px', background: importing ? '#e5e7eb' : 'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:9, color: importing ? '#6b7280' : '#fff', fontWeight:700, fontSize:14, cursor: importing ? 'default' : 'pointer' }}
               >
-                {importing ? '⏳ Analysing document...' : '📥 Select File (.docx / .txt)'}
+                {importing ? '⏳ Analysing document...' : '📥 Select .docx File'}
               </button>
               <div style={{ marginTop:16, fontSize:11, color:'#1f2937' }}>Powered by Claude AI · Your files are not stored</div>
-            </div>
             </div>
           )}
 
@@ -3092,12 +2893,11 @@ function Jobs({ jobs, clients, team, setJobs, openJobId, setOpenJobId, jobsMembe
           <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em' }}>最新进展 <span style={{ color:'#9ca3af', fontWeight:400, textTransform:'none', letterSpacing:0, fontSize:11 }}>(失焦自动保存)</span></div>
           <label style={{ display:'flex', alignItems:'center', gap:5, padding:'4px 10px', background:'#f1f5f9', border:'1.5px solid #cbd5e1', borderRadius:6, color:'#374151', fontSize:11, fontWeight:600, cursor:'pointer' }}>
             📄 上传快照
-            <input type="file" accept=".docx,.pdf,.txt" style={{display:'none'}} onChange={async e => {
+            <input type="file" accept=".docx,.pdf" style={{display:'none'}} onChange={async e => {
               const file = e.target.files?.[0]; if (!file) return;
               try {
-                let rawText = '';
-                if (file.name.endsWith('.txt')) { rawText = await file.text(); }
-                else { const buf = await file.arrayBuffer(); const { value } = await mammoth.extractRawText({ arrayBuffer: buf }); rawText = value; }
+                const buf = await file.arrayBuffer();
+                const { value: rawText } = await mammoth.extractRawText({ arrayBuffer: buf });
                 const res = await fetch('/api/claude', { method:'POST', headers:{'Content-Type':'application/json'},
                   body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:2000,
                     messages:[{ role:'user', content:`Extract case timeline and current status from this immigration snapshot. Return ONLY valid JSON:
@@ -3481,12 +3281,11 @@ ${rawText.slice(0,5000)}` }]
         <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em' }}>最新进展 <span style={{ color:'#9ca3af', fontWeight:400, textTransform:'none', letterSpacing:0, fontSize:11 }}>(失焦自动保存)</span></div>
         <label style={{ display:'flex', alignItems:'center', gap:5, padding:'4px 10px', background:'#f1f5f9', border:'1.5px solid #cbd5e1', borderRadius:6, color:'#374151', fontSize:11, fontWeight:600, cursor:'pointer' }}>
           📄 上传快照
-          <input type="file" accept=".docx,.pdf,.txt" style={{display:'none'}} onChange={async e => {
+          <input type="file" accept=".docx,.pdf" style={{display:'none'}} onChange={async e => {
             const file = e.target.files?.[0]; if (!file) return;
             try {
-              let rawText = '';
-              if (file.name.endsWith('.txt')) { rawText = await file.text(); }
-              else { const buf = await file.arrayBuffer(); const { value } = await mammoth.extractRawText({ arrayBuffer: buf }); rawText = value; }
+              const buf = await file.arrayBuffer();
+              const { value: rawText } = await mammoth.extractRawText({ arrayBuffer: buf });
               const res = await fetch('/api/claude', { method:'POST', headers:{'Content-Type':'application/json'},
                 body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:2000,
                   messages:[{ role:'user', content:`Extract case timeline and current status from this immigration snapshot. Return ONLY valid JSON:\n{"snapshot":"brief 1-2 sentence current status","caseTimeline":[{"date":"","event":"","status":"Completed"}]}\nStatus values: Completed/In Progress/Urgent/Pending\nDocument:\n${rawText.slice(0,5000)}` }]

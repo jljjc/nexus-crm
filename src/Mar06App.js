@@ -5,20 +5,20 @@ import * as mammoth from 'mammoth';
 /* ─── i18n LANGUAGE SYSTEM ──────────────────────────────────────────────────── */
 const LANG_ZH = {
   // Nav
-  'Dashboard':'仪表板','Clients':'客户','Cases':'案件','Leads':'潜在客户',
+  'Dashboard':'仪表板','Clients':'客户','Jobs':'案件','Leads':'潜在客户',
   'Calendar':'日历','Invoices':'发票','Agents':'推荐代理','Team':'团队','Reports':'报告',
   // Top bar / auth
   'Sign out':'退出登录','Staff':'员工','Manager':'经理',
   // Clients page
   'Add Client':'+ 添加客户','Search clients...':'搜索客户...',
   'All Types':'所有类型','All Status':'所有状态',
-  'CLIENT':'客户','TYPE':'类型','STATUS':'状态','CASES':'案件',
+  'CLIENT':'客户','TYPE':'类型','STATUS':'状态','JOBS':'案件',
   'NATIONALITY':'国籍','NOTES':'备注','CREATED':'创建日期',
   'Edit':'编辑','Del':'删除',
   'total clients':'位客户',
   // Client modal tabs
-  '👤 Profile':'👤 档案','📋 Cases':'📋 案件','📝 Notes':'📝 备注',
-  '💬 WeChat':'💬 聊天导入','📥 Import Doc':'📥 导入文档',
+  '👤 Profile':'👤 档案','📋 Jobs':'📋 案件','📝 Notes':'📝 备注',
+  '💬 WeChat':'💬 微信','📥 Import Doc':'📥 导入文档',
   // Profile sections
   'Client —':'客户 —',
   'PERSONAL INFORMATION':'一、基本信息',
@@ -81,21 +81,21 @@ const LANG_ZH = {
   'Client Type':'客户类型','Phone':'电话',
   'Add New Client':'添加新客户','Edit Client':'编辑客户',
   // Jobs page
-  'New Case':'新案件','Save Case':'保存案件',
-  'Case Title':'案件标题','Case Type':'案件类型','Client':'客户',
+  'New Job':'新案件','Save Job':'保存案件',
+  'Job Title':'案件标题','Job Type':'案件类型','Client':'客户',
   'Assign To':'分配给','Priority':'优先级','Due Date':'截止日期',
   'Progress':'进度','CASE NOTES':'案件备注',
   'DOCUMENT CHECKLIST':'文件清单',
-  'Edit Case':'编辑案件','Open in Cases →':'在案件页打开 →',
+  'Edit Job':'编辑案件','Open in Jobs →':'在案件页打开 →',
   // Dashboard
   'Active Clients':'活跃客户','Jobs In Progress':'进行中案件',
   'Urgent Jobs':'紧急案件',
-  'of':'共','total cases':'个案件总计','jobs finished':'个案件已完成',
+  'of':'共','total jobs':'个案件总计','jobs finished':'个案件已完成',
   'need immediate attention':'需要立即处理',
   'Recent Activity':'近期动态','Upcoming Deadlines':'即将到期',
   'View all →':'查看全部 →','View team →':'查看团队 →',
   // WeChat
-  'Paste WeChat Chat Export':'粘贴聊天记录',
+  'Paste WeChat Chat Export':'粘贴微信聊天记录',
   'Analyse with AI':'AI 智能分析',
   'Analysing...':'分析中...',
   'Analysis Complete':'分析完成',
@@ -403,11 +403,10 @@ const JOB_TYPES = [
   // Support Services
   'Enrollment Support',
   'Scholarship Application',
-  'ART Appeal',
   'Other',
 ];
 const PRIORITIES = ['Low', 'Medium', 'High', 'Urgent'];
-const CLIENT_TYPES = ['Student', 'Visa', 'Migration', 'Multiple'];
+const CLIENT_TYPES = ['Student', 'Migration', 'Both'];
 const CLIENT_STATUSES = ['Active', 'Pending', 'Completed', 'Inactive'];
 
 const STATUS_STYLES = {
@@ -525,18 +524,15 @@ const generateClientContractFile = async (client, jobs = []) => {
       clientPhone:   client?.phone || '',
       visaTypes:     visaTypes.length ? visaTypes : [client?.type || 'Migration Service'],
       serviceDescription,
-      totalFee:      parseFloat(client?.profile?.serviceAgreement?.totalFee) || 0,
+      totalFee:      client?.profile?.serviceAgreement?.totalFee || '',
       gstIncluded:   true,
       paymentMode:   'single',
-      payment1Amount: parseFloat(client?.profile?.serviceAgreement?.totalFee) || 0,
+      payment1Amount: client?.profile?.serviceAgreement?.totalFee || '',
       payment1Desc:  'Professional migration service fee',
       contractDate:  new Date().toLocaleDateString('en-AU'),
       consultant:    'Liang Jiang',
       marn:          '1800784',
       disbursements: [],
-      bankAccountName: 'Ozsky Perth Pty Ltd',
-      bankBSB:         '066166',
-      bankAccountNumber: '10895257',
     }),
   });
 
@@ -548,7 +544,7 @@ const generateClientContractFile = async (client, jobs = []) => {
   const url  = window.URL.createObjectURL(blob);
   const a    = document.createElement('a');
   a.href     = url;
-  a.download = `${(client?.name||'client').trim()} Service Contract.docx`;
+  a.download = `${(client?.name||'client').replace(/[^a-z0-9]+/gi,'-').replace(/^-+|-+$/g,'')}-service-agreement.docx`;
   document.body.appendChild(a);
   a.click();
   a.remove();
@@ -770,7 +766,7 @@ function ClientSnapshot({ client, jobs, visible, anchorRef }) {
           <div style={{ fontSize:12, color:'#1f2937', lineHeight:1.4 }}>{latestNote.text.length > 90 ? latestNote.text.slice(0,90)+'…' : latestNote.text}</div>
         </div>
       )}
-      <div style={{ marginTop:10, fontSize:11, color:'#1f2937' }}>Client since {fmtDate(client.createdAt)} · {clientJobs.length} total cases</div>
+      <div style={{ marginTop:10, fontSize:11, color:'#1f2937' }}>Client since {fmtDate(client.createdAt)} · {clientJobs.length} total jobs</div>
     </div>
   );
 }
@@ -780,7 +776,7 @@ function ClientSnapshot({ client, jobs, visible, anchorRef }) {
 ═══════════════════════════════════════════════════════════════════════════════ */
 
 /* ─── DASHBOARD ─────────────────────────────────────────────────────────────── */
-function Dashboard({ clients, jobs, team, onGoTo, setJobsMemberFilter, setJobsStatusFilter }) {
+function Dashboard({ clients, jobs, team, onGoTo }) {
   const { t } = useLang(); // eslint-disable-line no-unused-vars
   const [selectedJob, setSelectedJob] = useState(null);
 
@@ -797,7 +793,7 @@ function Dashboard({ clients, jobs, team, onGoTo, setJobsMemberFilter, setJobsSt
   // Exclude owners Liang (t1) and Mansi (t2) from workload display
   const memberLoad = team
     .filter(m => m.id !== 't1' && m.id !== 't2')
-    .map(m => ({ ...m, count: jobs.filter(j=>j.assignedTo===m.id && j.status!=='Completed' && j.status!=='Awaiting Decision').length }))
+    .map(m => ({ ...m, count: jobs.filter(j=>j.assignedTo===m.id && j.status!=='Completed').length }))
     .sort((a,b) => b.count - a.count)
     .slice(0, 6);
 
@@ -805,7 +801,7 @@ function Dashboard({ clients, jobs, team, onGoTo, setJobsMemberFilter, setJobsSt
   const now = new Date();
   const in14 = new Date(now); in14.setDate(now.getDate()+14);
   const upcoming = jobs
-    .filter(j => j.status!=='Completed' && j.dueDate)
+    .filter(j => j.status!=='Completed' && j.status!=='Awaiting Decision' && j.dueDate)
     .filter(j => { const d = new Date(j.dueDate); return d >= now && d <= in14; })
     .sort((a,b) => a.dueDate.localeCompare(b.dueDate))
     .slice(0,5);
@@ -821,9 +817,9 @@ function Dashboard({ clients, jobs, team, onGoTo, setJobsMemberFilter, setJobsSt
 
   const statCards = [
     { label:'Active Clients',   value:active,     icon:'👥', color:'#6366f1', sub:`of ${clients.length} total`,   onClick:()=>onGoTo('clients') },
-    { label:'Jobs In Progress', value:inProgress, icon:'⚡', color:'#f59e0b', sub:`${jobs.length} total cases`,     onClick:()=>{ setJobsStatusFilter('In Progress'); onGoTo('jobs'); } },
-    { label:'Urgent Cases',      value:urgent,     icon:'🔴', color:'#f87171', sub:'need immediate attention',       onClick:()=>{ setJobsStatusFilter('Urgent'); onGoTo('jobs'); } },
-    { label:'Awaiting Decision', value:awaitingDecision, icon:'⏳', color:'#94a3b8', sub:'lodged · pending outcome', onClick:()=>{ setJobsStatusFilter('Awaiting Decision'); onGoTo('jobs'); } },
+    { label:'Jobs In Progress', value:inProgress, icon:'⚡', color:'#f59e0b', sub:`${jobs.length} total jobs`,     onClick:()=>onGoTo('jobs') },
+    { label:'Urgent Cases',      value:urgent,     icon:'🔴', color:'#f87171', sub:'need immediate attention',       onClick:()=>onGoTo('jobs') },
+    { label:'Awaiting Decision', value:awaitingDecision, icon:'⏳', color:'#94a3b8', sub:'lodged · pending outcome', onClick:()=>onGoTo('jobs') },
   ];
 
   const selectedClient = selectedJob ? getClient(selectedJob.clientId) : null;
@@ -866,7 +862,7 @@ function Dashboard({ clients, jobs, team, onGoTo, setJobsMemberFilter, setJobsSt
           {pipeline.map(p => {
             const s = STATUS_STYLES[p.status];
             return (
-              <div key={p.status} onClick={()=>{ setJobsStatusFilter(p.status); onGoTo('jobs'); }} style={{ flex:1, minWidth:90, background:s.bg, borderRadius:10, padding:'10px 12px', cursor:'pointer', transition:'filter 0.15s' }}
+              <div key={p.status} onClick={()=>onGoTo('jobs')} style={{ flex:1, minWidth:90, background:s.bg, borderRadius:10, padding:'10px 12px', cursor:'pointer', transition:'filter 0.15s' }}
                 onMouseEnter={e=>e.currentTarget.style.filter='brightness(1.2)'}
                 onMouseLeave={e=>e.currentTarget.style.filter='none'}>
                 <div style={{ fontSize:20, fontWeight:700, color:s.text, fontFamily:"'JetBrains Mono',monospace" }}>{p.count}</div>
@@ -881,7 +877,7 @@ function Dashboard({ clients, jobs, team, onGoTo, setJobsMemberFilter, setJobsSt
         {/* Recent Jobs – clickable rows */}
         <Card>
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
-            <h3 style={{ fontSize:15, fontWeight:600, color:'#0f172a' }}>Recent Cases</h3>
+            <h3 style={{ fontSize:15, fontWeight:600, color:'#0f172a' }}>Recent Jobs</h3>
             <button onClick={()=>onGoTo('jobs')} style={{ background:'none', border:'none', color:'#6366f1', fontSize:13, cursor:'pointer' }}>View all →</button>
           </div>
           <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
@@ -900,7 +896,9 @@ function Dashboard({ clients, jobs, team, onGoTo, setJobsMemberFilter, setJobsSt
                     <StatusBadge status={j.status} small />
                   </div>
                   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                    <div style={{ flex:1 }}><ProgressBar value={j.progress} status={j.status}/></div>
+<div style={{ flex: 1 }}>
+  <ProgressBar value={j.progress} status={j.status} />
+</div>                    <div style={{ flex:1 }}><ProgressBar value={j.progress} status={j.status}/></div>
                     {member && <div style={{ display:'flex', alignItems:'center', gap:5, marginLeft:10, flexShrink:0 }}><Avatar name={member.name} color={member.color} size={20} /><span style={{ fontSize:11, color:'#1f2937' }}>{member.name.split(' ')[0]}</span></div>}
                   </div>
                 </div>
@@ -919,7 +917,7 @@ function Dashboard({ clients, jobs, team, onGoTo, setJobsMemberFilter, setJobsSt
             {memberLoad.map(m => {
               const pct = Math.min((m.count / 5) * 100, 100);
               return (
-                <div key={m.id} onClick={()=>{ setJobsMemberFilter(m.id); onGoTo('jobs'); }} style={{ display:'flex', alignItems:'center', gap:12, padding:'6px 8px', borderRadius:8, cursor:'pointer', transition:'background 0.15s' }}
+                <div key={m.id} onClick={()=>onGoTo('jobs')} style={{ display:'flex', alignItems:'center', gap:12, padding:'6px 8px', borderRadius:8, cursor:'pointer', transition:'background 0.15s' }}
                   onMouseEnter={e=>e.currentTarget.style.background='#38bdf810'}
                   onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
                   <Avatar name={m.name} color={m.color} size={30} />
@@ -976,7 +974,7 @@ function Dashboard({ clients, jobs, team, onGoTo, setJobsMemberFilter, setJobsSt
 
       {/* Job Quick-View Modal (from dashboard) */}
       {selectedJob && (
-        <Modal title={`Case Details – ${selectedJob.title}`} onClose={()=>setSelectedJob(null)} wide>
+        <Modal title={`Job Details – ${selectedJob.title}`} onClose={()=>setSelectedJob(null)} wide>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20, marginBottom:20 }}>
             <div>
               <div style={{ fontSize:11, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:6 }}>Client</div>
@@ -1016,7 +1014,7 @@ function Dashboard({ clients, jobs, team, onGoTo, setJobsMemberFilter, setJobsSt
           )}
           <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:4, borderTop:'1.5px solid #e2e8f0', paddingTop:16 }}>
             <button onClick={()=>setSelectedJob(null)} style={{ background:'#e5e7eb', border:'none', borderRadius:8, padding:'9px 18px', color:'#1f2937', fontWeight:500 }}>Close</button>
-            <button onClick={()=>{ setSelectedJob(null); onGoTo('jobs'); }} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, padding:'9px 20px', color:'#fff', fontWeight:700 }}>Open in Cases →</button>
+            <button onClick={()=>{ setSelectedJob(null); onGoTo('jobs'); }} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, padding:'9px 20px', color:'#fff', fontWeight:700 }}>Open in Jobs →</button>
           </div>
         </Modal>
       )}
@@ -1035,8 +1033,6 @@ function ClientDetailModal({ client, jobs, setJobs, team, onClose, onEdit, onSav
   const fileRef                     = useRef(null);
   const [contractBusy, setContractBusy] = useState(false);
   const [quickJob, setQuickJob]         = useState(false);
-  const [editingJob, setEditingJob]     = useState(null);
-  const [jobForm, setJobForm]           = useState({});
   const [qform, setQform]               = useState({});
   const [viewJob, setViewJob]           = useState(null); // case detail from client tab
 
@@ -1056,89 +1052,7 @@ function ClientDetailModal({ client, jobs, setJobs, team, onClose, onEdit, onSav
   const [wchatParsing, setWchatParsing] = useState(false);
   const [wchatResult, setWchatResult]   = useState(null);
   const [wchatSaved, setWchatSaved]     = useState(false);
-
-  // Email import state
-  const [email, setEmail]           = useState('');
-  const [emailParsing, setEmailParsing] = useState(false);
-  const [emailResult, setEmailResult]   = useState(null);
-  const [emailSaved, setEmailSaved]     = useState(false);
-
-  // Openclaw snapshot state
-  const [ocName, setOcName]         = useState('');
-  const [ocFetching, setOcFetching] = useState(false);
-
-  // Paste-text import state (Import Tab)
-  const [pasteText, setPasteText]         = useState('');
-  const [pasteImporting, setPasteImporting] = useState(false);
-
-  // Note quick-add state
-  const [noteImportText, setNoteImportText] = useState('');
-  const [noteImportParsing, setNoteImportParsing] = useState(false);
-  const [noteImportResult, setNoteImportResult] = useState(null);
-  const [noteImportSaved, setNoteImportSaved] = useState(false);
   const clientJobs                  = jobs.filter(j => j.clientId === client.id);
-
-
-  const extractAndParseJson = (raw) => {
-    if (!raw || typeof raw !== 'string') throw new Error('Empty AI response');
-
-    let text = raw.replace(/```json/gi, '').replace(/```/g, '').trim();
-
-    const start = text.indexOf('{');
-    const end   = text.lastIndexOf('}');
-    if (start === -1 || end === -1 || end <= start)
-      throw new Error('No JSON object found in AI response');
-
-    text = text.slice(start, end + 1)
-      .replace(/[\u201c\u201d]/g, '"')
-      .replace(/[\u2018\u2019]/g, "'")
-      .replace(/^\uFEFF/, '');
-
-    // Strip control chars but KEEP newlines — they are value delimiters
-    text = Array.from(text, ch => {
-      const c = ch.charCodeAt(0);
-      return (c < 32 && c !== 10 && c !== 13) ? ' ' : ch;
-    }).join('');
-
-    // Fix unquoted values LINE BY LINE (before normalising ，→, so Chinese commas
-    // inside a value don't get mistaken for JSON delimiters)
-    text = text.split('\n').map(line => {
-      const m = line.match(/^(\s*"(?:[^"\\]|\\.)*"\s*:\s*)(.*)/);
-      if (!m) return line;
-      const [, key, rest] = m;
-      const val = rest.trim();
-
-      // Already a valid JSON value — leave alone
-      if (val === '' || val.startsWith('"') || val.startsWith('{') || val.startsWith('[')) return line;
-      const bare = val.replace(/,\s*$/, '').trim();
-      if (bare === 'null' || bare === 'true' || bare === 'false') return line;
-      if (/^-?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/.test(bare)) return line;
-
-      // Unquoted string — wrap in quotes
-      const trailingComma = val.trimEnd().endsWith(',') ? ',' : '';
-      const escaped = bare.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-      const indent = line.match(/^(\s*)/)[1];
-      return `${indent}${key.trimStart()}"${escaped}"${trailingComma}`;
-    }).join('\n');
-
-    // NOW normalise Chinese punctuation (values are safely quoted by this point)
-    text = text.replace(/，/g, ',').replace(/：/g, ':');
-
-    // Remove trailing commas before } or ]
-    text = text.replace(/,(\s*[}\]])/g, '$1');
-
-    try {
-      return JSON.parse(text);
-    } catch (err) {
-      const posMatch = /position\s+(\d+)/i.exec(err?.message || '');
-      if (posMatch) {
-        const pos = Number(posMatch[1]);
-        const snippet = text.slice(Math.max(0, pos - 80), Math.min(text.length, pos + 80));
-        throw new Error(`JSON parse failed near: ${snippet}`);
-      }
-      throw err;
-    }
-  };
 
   /* ── WeChat chat import ─────────────────────────────── */
   const parseWeChat = async () => {
@@ -1150,11 +1064,9 @@ function ClientDetailModal({ client, jobs, setJobs, team, onClose, onEdit, onSav
         body: JSON.stringify({
           model:'claude-sonnet-4-20250514', max_tokens:3000,
           messages:[{ role:'user', content:
-`You are an immigration CRM assistant. Analyse this client communication for "${client.name}".
+`You are an immigration CRM assistant. Analyse this WeChat conversation involving client "${client.name}" and extract a structured communication summary.
 
-LANGUAGE RULE: Detect the primary language of the chat content. If primarily Chinese → write all JSON string values in Chinese. If primarily English → write in English. Mixed → use dominant language.
-
-Chat Content:
+WeChat Chat:
 ${wchat.slice(0,6000)}
 
 Return ONLY valid JSON (no markdown, no explanation):
@@ -1174,8 +1086,9 @@ Return ONLY valid JSON (no markdown, no explanation):
         })
       });
       const data = await res.json();
-      const raw = (data.content || []).map(c => c?.text || '').join('');
-      setWchatResult(extractAndParseJson(raw));
+      const txt = (data.content||[]).map(c=>c.text||'').join('');
+      const clean = txt.replace(/```json|```/g,'').trim();
+      setWchatResult(JSON.parse(clean));
     } catch(e) {
       setWchatResult({ summary:'Parse error: '+e.message, keyTopics:[], clientRequests:[], actionItems:[], importantDates:[], sentiment:'neutral', language:'Unknown', messageCount:0, dateRange:null, tags:[] });
     }
@@ -1195,223 +1108,15 @@ Return ONLY valid JSON (no markdown, no explanation):
     onSaveProfile({ ...client, notes: [makeNote(noteText), ...normalizeNotes(client.notes)] });
     setWchatSaved(true);
   };
-
-  /* ── Email import ─────────────────────────────── */
-  const parseEmail = async () => {
-    if (!email.trim()) return;
-    setEmailParsing(true); setEmailResult(null); setEmailSaved(false);
-    try {
-      const res = await fetch('/api/claude', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 1500,
-          messages: [{ role:'user', content:
-`You are an immigration CRM assistant. Analyse this email conversation involving client "${client.name}" and extract a structured communication summary.
-
-Email Content:
-${email.slice(0,6000)}
-
-Return ONLY valid JSON (no markdown, no preamble):
-{
-  "summary": "2-3 sentence summary of the email thread",
-  "subject": "email subject or topic",
-  "dateRange": "date range of email e.g. 12 Mar 2026",
-  "actionItems": ["list of things agent needs to do"],
-  "clientRequests": ["what client is asking for"],
-  "importantDates": ["any deadlines or key dates mentioned"],
-  "sentiment": "positive|neutral|concerned|urgent",
-  "tags": ["topic tags e.g. visa-application, documents, fees"]
-}`
-          }]
-        })
-      });
-      const data = await res.json();
-      const raw = (data.content||[]).map(b=>b.text||'').join('');
-      const cleaned = raw.replace(/```json|```/g,'').trim();
-      setEmailResult(JSON.parse(cleaned));
-    } catch(e) {
-      setEmailResult({ summary:'Parse error — check API connection.', actionItems:[], clientRequests:[], importantDates:[], tags:[], sentiment:'neutral' });
-    } finally {
-      setEmailParsing(false);
-    }
-  };
-
-  const saveEmailNote = () => {
-    if (!emailResult) return;
-    const noteText = [
-      `📧 Email Import${emailResult.subject ? ` — ${emailResult.subject}` : ''}`,
-      `Summary: ${emailResult.summary}`,
-      emailResult.actionItems?.length ? `Action Items: ${emailResult.actionItems.join('; ')}` : '',
-      emailResult.clientRequests?.length ? `Client Requests: ${emailResult.clientRequests.join('; ')}` : '',
-      emailResult.importantDates?.length ? `Key Dates: ${emailResult.importantDates.join(', ')}` : '',
-      emailResult.dateRange ? `Email Date: ${emailResult.dateRange}` : '',
-    ].filter(Boolean).join('\n');
-    onSaveProfile({ ...client, notes: [makeNote(noteText), ...normalizeNotes(client.notes)] });
-    setEmailSaved(true);
-  };
-
-  /* ── Quick Note paste + AI summarize ─────────────────── */
-  const parseNoteImport = async () => {
-    if (!noteImportText.trim()) return;
-    setNoteImportParsing(true); setNoteImportResult(null); setNoteImportSaved(false);
-    try {
-      const res = await fetch('/api/claude', {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({
-          model:'claude-sonnet-4-20250514', max_tokens:1000,
-          messages:[{ role:'user', content:
-`Summarise this note for an immigration CRM client record. Write the summary in the SAME LANGUAGE as the input (Chinese input → Chinese output, English input → English output).
-Return ONLY a plain text summary (no JSON, no markdown, no preamble), 2-4 sentences, capturing key points, dates, and any action items.
-
-Note content:
-${noteImportText.slice(0,4000)}`
-          }]
-        })
-      });
-      const data = await res.json();
-      const summary = (data.content||[]).map(b=>b.text||'').join('').trim();
-      setNoteImportResult(summary);
-    } catch(e) {
-      setNoteImportResult('AI error: ' + e.message);
-    }
-    setNoteImportParsing(false);
-  };
-
-  const saveNoteImport = (useAI) => {
-    const text = useAI ? `📝 AI摘要\n${noteImportResult}` : `📝 备注\n${noteImportText}`;
-    onSaveProfile({ ...client, notes: [makeNote(text), ...normalizeNotes(client.notes)] });
-    setNoteImportSaved(true);
-    setNoteImportText(''); setNoteImportResult(null);
-  };
   const p                           = client.profile || {};
-
-  /* ── Openclaw snapshot fetch ─────────────────────────── */
-  const handleOpenclawFetch = async () => {
-    const name = ocName.trim();
-    if (!name) return window.alert('请输入客户姓名');
-    setOcFetching(true); setImportPreview(null);
-    try {
-      const res = await fetch('http://127.0.0.1:18789/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': 'Bearer 315099a9ddf69fc50928803a3193f6dfa42d59bf236c887b',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'openai-codex/gpt-5.4',
-          messages: [{
-            role: 'user',
-            content: `快照 ${name}。请只返回JSON（不要markdown，不要多余文字），严格使用以下结构：
-{
-  "name":"","nameChinese":"","email":"","phone":"","nationality":"","type":"Migration",
-  "profile":{
-    "sex":null,"dob":null,"birthplace":null,"passportNo":null,"passportExpiry":null,
-    "auAddress":null,"maritalStatus":null,"chinaId":null,"qq":null,"eaFileNo":null,
-    "consultant":null,"visaTarget":null,
-    "visaHistory":[{"type":"","appNo":"","lodgeDate":"","grantDate":"","expiry":"","status":""}],
-    "addressHistory":[{"from":"","to":"","address":""}],
-    "employmentHistory":[{"from":"","to":"","company":"","role":"","country":""}],
-    "character":{"form80":null,"afpCheck":null,"pcc":null},
-    "sponsor":{"name":null,"sex":null,"dob":null,"nationality":null,"passportNo":null,"address":null,"occupation":null,"priorMaritalStatus":null},
-    "marriage":{"date":null,"location":null,"registrationNo":null},
-    "keyIssues":[{"priority":"High","item":"","detail":""}],
-    "documents":[{"name":"","mainApplicant":"","sponsor":"","secondary":""}],
-    "serviceAgreement":{"visaTarget":null,"contractDate":null,"totalFee":null,"payment1Amount":null,"payment1Detail":null,"payment2Amount":null,"payment2Detail":null},
-    "skillsAssessments":[{"appId":"","occupation":"","body":"","lodgeDate":"","outcome":"Pending","rejectReason":null,"reviewApp":null,"appealDeadline":null}],
-    "caseTimeline":[{"date":"","event":"","status":"Completed"}],
-    "currentStatus":null,
-    "nextSteps":[]
-  }
-}
-规则：缺失字段用null，数组无数据用[]，所有字符串值必须用双引号包裹。`
-          }]
-        })
-      });
-      const d = await res.json();
-      const raw = d?.choices?.[0]?.message?.content || '';
-      if (!raw) throw new Error('Openclaw返回内容为空');
-      setImportPreview(extractAndParseJson(raw));
-    } catch(err) {
-      window.alert('Openclaw快照获取失败: ' + err.message);
-    } finally {
-      setOcFetching(false);
-    }
-  };
-
-  /* ── Paste-text direct import ───────────────────────── */
-  const handlePasteImport = async () => {
-    if (!pasteText.trim()) return;
-    setPasteImporting(true); setImportPreview(null);
-    try {
-      const res = await fetch('/api/claude', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 4000,
-          messages: [{ role:'user', content:
-`Extract client data from this Australian immigration document and return ONLY valid JSON, no markdown.
-
-Document:
-${pasteText.slice(0,10000)}
-
-Return this exact structure (use null for missing fields, keep English for field values unless the original is Chinese):
-{
-  "name":"","nameChinese":"","email":"","phone":"","nationality":"","type":"Migration",
-  "profile":{
-    "sex":null,"dob":null,"birthplace":null,"passportNo":null,"passportExpiry":null,
-    "auAddress":null,"maritalStatus":null,"chinaId":null,"qq":null,"eaFileNo":null,
-    "consultant":null,"visaTarget":null,
-    "visaHistory":[{"type":"","appNo":"","lodgeDate":"","grantDate":"","expiry":"","status":""}],
-    "addressHistory":[{"from":"","to":"","address":""}],
-    "employmentHistory":[{"from":"","to":"","company":"","role":"","country":""}],
-    "character":{"form80":null,"afpCheck":null,"pcc":null},
-    "sponsor":{"name":null,"sex":null,"dob":null,"nationality":null,"passportNo":null,"address":null,"occupation":null,"priorMaritalStatus":null},
-    "marriage":{"date":null,"location":null,"registrationNo":null},
-    "keyIssues":[{"priority":"High","item":"","detail":""}],
-    "documents":[{"name":"","mainApplicant":"","sponsor":"","secondary":""}],
-    "serviceAgreement":{"visaTarget":null,"contractDate":null,"totalFee":null,"payment1Amount":null,"payment1Detail":null,"payment2Amount":null,"payment2Detail":null},
-    "skillsAssessments":[{"appId":"","occupation":"","body":"","lodgeDate":"","outcome":"Pending","rejectReason":null,"reviewApp":null,"appealDeadline":null}],
-    "caseTimeline":[{"date":"","event":"","status":"Completed"}],
-    "currentStatus":null,
-    "nextSteps":[]
-  }
-}
-
-IMPORTANT EXTRACTION RULES:
-- 四、职业评估 / SKILLS ASSESSMENT → extract into skillsAssessments array
-- 五、大事记 / CASE TIMELINE → extract ALL timeline rows into caseTimeline array; status values: "Completed"/"In Progress"/"Urgent"/"Pending"
-- 六、当前状态 / CURRENT STATUS → extract summary text into currentStatus, bullet points into nextSteps array
-- For visaHistory: extract ALL visa rows
-- Skip rows with only dashes/empty data
-- Return [] for arrays with no data, not null
-- CRITICAL: ALL string values MUST be wrapped in double quotes, including Chinese text.` }] }),
-      });
-      const d = await res.json();
-      const raw = (d.content || []).map(c => c?.text || '').join('');
-      setImportPreview(extractAndParseJson(raw));
-    } catch(err) {
-      window.alert('Import failed: ' + err.message);
-    } finally {
-      setPasteImporting(false);
-    }
-  };
 
   /* ── AI document import ─────────────────────────────── */
   const handleFile = async (e) => {
     const file = e.target.files?.[0]; if (!file) return;
     setImporting(true); setImportPreview(null);
     try {
-      let rawText = '';
-      if (file.name.endsWith('.txt')) {
-        rawText = await file.text();
-      } else {
-        const buf = await file.arrayBuffer();
-        const { value } = await mammoth.extractRawText({ arrayBuffer: buf });
-        rawText = value;
-      }
+      const buf      = await file.arrayBuffer();
+      const { value: rawText } = await mammoth.extractRawText({ arrayBuffer: buf });
 
       const res = await fetch('/api/claude', {
         method: 'POST',
@@ -1423,9 +1128,9 @@ IMPORTANT EXTRACTION RULES:
 `Extract client data from this Australian immigration document and return ONLY valid JSON, no markdown.
 
 Document:
-${rawText.slice(0,10000)}
+${rawText.slice(0,8000)}
 
-Return this exact structure (use null for missing fields, keep English for field values unless the original is Chinese):
+Return this exact structure (use null for missing fields, keep English for values):
 {
   "name":"","nameChinese":"","email":"","phone":"","nationality":"","type":"Migration",
   "profile":{
@@ -1440,26 +1145,13 @@ Return this exact structure (use null for missing fields, keep English for field
     "marriage":{"date":null,"location":null,"registrationNo":null},
     "keyIssues":[{"priority":"High","item":"","detail":""}],
     "documents":[{"name":"","mainApplicant":"","sponsor":"","secondary":""}],
-    "serviceAgreement":{"visaTarget":null,"contractDate":null,"totalFee":null,"payment1Amount":null,"payment1Detail":null,"payment2Amount":null,"payment2Detail":null},
-    "skillsAssessments":[{"appId":"","occupation":"","body":"","lodgeDate":"","outcome":"Pending","rejectReason":null,"reviewApp":null,"appealDeadline":null}],
-    "caseTimeline":[{"date":"","event":"","status":"Completed"}],
-    "currentStatus":null,
-    "nextSteps":[]
+    "serviceAgreement":{"visaTarget":null,"contractDate":null,"totalFee":null}
   }
-}
-
-IMPORTANT EXTRACTION RULES:
-- 四、职业评估 / SKILLS ASSESSMENT → extract into skillsAssessments array (one entry per application)
-- 五、大事记 / CASE TIMELINE → extract ALL timeline rows into caseTimeline array; status values: "Completed"/"In Progress"/"Urgent"/"Pending"
-- 六、当前状态 / CURRENT STATUS → extract summary text into currentStatus, bullet points into nextSteps array
-- For visaHistory: extract ALL visa rows including TRA PSA entries
-- Skip rows with only dashes/empty data
-- Return [] for arrays with no data, not null
-- CRITICAL: ALL string values MUST be wrapped in double quotes, including Chinese text. NEVER output bare/unquoted text as a value. Example: "visaTarget": "签证目标" ✓  NOT "visaTarget": 签证目标 ✗` }] })
+}` }] })
       });
       const d = await res.json();
-      const raw = (d.content || []).map(c => c?.text || '').join('');
-      setImportPreview(extractAndParseJson(raw));
+      const txt = (d.content?.[0]?.text || '').replace(/```json|```/g,'').trim();
+      setImportPreview(JSON.parse(txt));
     } catch(err) {
       window.alert('Import failed: ' + err.message);
     } finally {
@@ -1470,13 +1162,6 @@ IMPORTANT EXTRACTION RULES:
 
   const applyImport = async () => {
     if (!importPreview) return;
-    const existingProfile = client.profile || {};
-    const newProfile = importPreview.profile || {};
-    // Helper: only use new value if it's non-null and (for arrays) non-empty
-    const keep = (newVal, oldVal) => {
-      if (Array.isArray(newVal)) return newVal.length > 0 ? newVal : oldVal;
-      return newVal != null && newVal !== '' ? newVal : oldVal;
-    };
     const merged = {
       ...client,
       ...(importPreview.name        ? { name: importPreview.name }               : {}),
@@ -1485,37 +1170,10 @@ IMPORTANT EXTRACTION RULES:
       ...(importPreview.nationality ? { nationality: importPreview.nationality } : {}),
       ...(importPreview.type        ? { type: importPreview.type }               : {}),
       profile: {
-        ...existingProfile,
-        // Import scalar fields – only overwrite if new value exists
-        ...(newProfile.sex            ? { sex: newProfile.sex }                         : {}),
-        ...(newProfile.dob            ? { dob: newProfile.dob }                         : {}),
-        ...(newProfile.birthplace     ? { birthplace: newProfile.birthplace }           : {}),
-        ...(newProfile.passportNo     ? { passportNo: newProfile.passportNo }           : {}),
-        ...(newProfile.passportExpiry ? { passportExpiry: newProfile.passportExpiry }   : {}),
-        ...(newProfile.auAddress      ? { auAddress: newProfile.auAddress }             : {}),
-        ...(newProfile.maritalStatus  ? { maritalStatus: newProfile.maritalStatus }     : {}),
-        ...(newProfile.chinaId        ? { chinaId: newProfile.chinaId }                 : {}),
-        ...(newProfile.qq             ? { qq: newProfile.qq }                           : {}),
-        ...(newProfile.eaFileNo       ? { eaFileNo: newProfile.eaFileNo }               : {}),
-        ...(newProfile.consultant     ? { consultant: newProfile.consultant }           : {}),
-        ...(newProfile.visaTarget     ? { visaTarget: newProfile.visaTarget }           : {}),
-        // Import array fields – only overwrite if import has actual entries
-        visaHistory:        keep(newProfile.visaHistory,        existingProfile.visaHistory),
-        addressHistory:     keep(newProfile.addressHistory,     existingProfile.addressHistory),
-        employmentHistory:  keep(newProfile.employmentHistory,  existingProfile.employmentHistory),
-        keyIssues:          keep(newProfile.keyIssues,          existingProfile.keyIssues),
-        documents:          keep(newProfile.documents,          existingProfile.documents),
-        // Sections 4,5,6: use new data if import has it, otherwise keep existing
-        // NOTE: must use keep() not ||, because [] is truthy so || skips non-empty new arrays
-        skillsAssessments:  keep(newProfile.skillsAssessments, existingProfile.skillsAssessments),
-        caseTimeline:       keep(newProfile.caseTimeline,       existingProfile.caseTimeline),
-        currentStatus:      newProfile.currentStatus      || existingProfile.currentStatus      || null,
-        nextSteps:          keep(newProfile.nextSteps,          existingProfile.nextSteps),
-        // nested objects – merge carefully
-        character:  { ...(existingProfile.character||{}),  ...(newProfile.character||{})  },
-        sponsor:    { ...(existingProfile.sponsor||{}),    ...(newProfile.sponsor||{})    },
-        marriage:   { ...(existingProfile.marriage||{}),   ...(newProfile.marriage||{})   },
-        serviceAgreement: { ...(existingProfile.serviceAgreement||{}), ...(newProfile.serviceAgreement||{}) },
+        ...(client.profile||{}),
+        ...(importPreview.profile||{}),
+        // also sync top-level fields back into profile for display consistency
+        ...(importPreview.profile?.auAddress ? {} : {}),
       }
     };
     await onSaveProfile(merged);
@@ -1565,10 +1223,9 @@ IMPORTANT EXTRACTION RULES:
 
   const tabs = [
     { id:'profile',  label:'👤 Profile' },
-    { id:'jobs',     label:`📋 Cases (${clientJobs.length})` },
+    { id:'jobs',     label:`📋 Jobs (${clientJobs.length})` },
     { id:'notes',    label:`📝 ${t('Notes')||'Notes'} (${normalizeNotes(client.notes).length})` },
-    { id:'wechat',   label:`💬 ${t('WeChat')||'聊天导入'}` },
-    { id:'email',    label:`📧 Email` },
+    { id:'wechat',   label:`💬 ${t('WeChat')||'WeChat'}` },
     { id:'import',   label:`📥 ${t('Import Doc')||'Import Doc'}` },
   ];
 
@@ -1861,12 +1518,11 @@ IMPORTANT EXTRACTION RULES:
                 <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em' }}>最新进展 <span style={{ color:'#9ca3af', fontWeight:400, textTransform:'none', letterSpacing:0, fontSize:11 }}>(失焦自动保存)</span></div>
                 <label style={{ display:'flex', alignItems:'center', gap:5, padding:'4px 10px', background:'#f1f5f9', border:'1.5px solid #cbd5e1', borderRadius:6, color:'#374151', fontSize:11, fontWeight:600, cursor:'pointer' }}>
                   📄 上传快照
-                  <input type="file" accept=".docx,.pdf,.txt" style={{display:'none'}} onChange={async e => {
+                  <input type="file" accept=".docx,.pdf" style={{display:'none'}} onChange={async e => {
                     const file = e.target.files?.[0]; if (!file) return;
                     try {
-                      let rawText = '';
-                      if (file.name.endsWith('.txt')) { rawText = await file.text(); }
-                      else { const buf = await file.arrayBuffer(); const { value } = await mammoth.extractRawText({ arrayBuffer: buf }); rawText = value; }
+                      const buf = await file.arrayBuffer();
+                      const { value: rawText } = await mammoth.extractRawText({ arrayBuffer: buf });
                       const res = await fetch('/api/claude', { method:'POST', headers:{'Content-Type':'application/json'},
                         body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:2000,
                           messages:[{ role:'user', content:`Extract case timeline and current status from this immigration snapshot. Return ONLY valid JSON:
@@ -1955,102 +1611,15 @@ ${rawText.slice(0,5000)}` }]
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
                 <div style={{ display:'flex', gap:8 }}><StatusBadge status={viewJob.status} /><PriorityBadge priority={viewJob.priority} /></div>
                 <button onClick={()=>setViewJob(null)} style={{ padding:'8px 16px', background:'#f1f5f9', border:'1.5px solid #cbd5e1', borderRadius:8, color:'#374151', fontSize:13 }}>关闭</button>
-                <button onClick={()=>{ setJobForm({...viewJob}); setEditingJob(viewJob); }} style={{ padding:'8px 18px', background:'linear-gradient(135deg,#4f46e5,#7c3aed)', border:'none', borderRadius:8, color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer' }}>✏️ 编辑案件</button>
               </div>
             </div>
           </Modal>
         );
       })()}
 
-      {/* ── INLINE CASE EDIT ── */}
-      {editingJob && (
-        <Modal title={`编辑案件: ${editingJob.title}`} onClose={()=>setEditingJob(null)} wide>
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:14 }}>
-            <div><label style={{ fontSize:11, fontWeight:700, color:'#374151', textTransform:'uppercase', letterSpacing:'0.07em', display:'block', marginBottom:5 }}>状态</label>
-              <select value={jobForm.status||''} onChange={e=>setJobForm(f=>({...f,status:e.target.value}))} style={{ width:'100%', background:'#fff', border:'2px solid #c7d2e0', borderRadius:8, padding:'8px 10px', fontSize:13, color:'#111827', outline:'none' }}>
-                {['Preparing','Submitted','In Review','Awaiting Decision','Approved','Refused','Withdrawn','Completed'].map(s=><option key={s}>{s}</option>)}
-              </select>
-            </div>
-            <div><label style={{ fontSize:11, fontWeight:700, color:'#374151', textTransform:'uppercase', letterSpacing:'0.07em', display:'block', marginBottom:5 }}>优先级</label>
-              <select value={jobForm.priority||''} onChange={e=>setJobForm(f=>({...f,priority:e.target.value}))} style={{ width:'100%', background:'#fff', border:'2px solid #c7d2e0', borderRadius:8, padding:'8px 10px', fontSize:13, color:'#111827', outline:'none' }}>
-                {['Low','Medium','High','Urgent'].map(p=><option key={p}>{p}</option>)}
-              </select>
-            </div>
-            <div><label style={{ fontSize:11, fontWeight:700, color:'#374151', textTransform:'uppercase', letterSpacing:'0.07em', display:'block', marginBottom:5 }}>截止日期</label>
-              <input type="date" value={jobForm.dueDate?.slice(0,10)||''} onChange={e=>setJobForm(f=>({...f,dueDate:e.target.value}))} style={{ width:'100%', background:'#fff', border:'2px solid #c7d2e0', borderRadius:8, padding:'8px 10px', fontSize:13, color:'#111827', outline:'none', boxSizing:'border-box' }} />
-            </div>
-            <div><label style={{ fontSize:11, fontWeight:700, color:'#374151', textTransform:'uppercase', letterSpacing:'0.07em', display:'block', marginBottom:5 }}>负责人</label>
-              <select value={jobForm.assignedTo||''} onChange={e=>setJobForm(f=>({...f,assignedTo:e.target.value}))} style={{ width:'100%', background:'#fff', border:'2px solid #c7d2e0', borderRadius:8, padding:'8px 10px', fontSize:13, color:'#111827', outline:'none' }}>
-                <option value="">— 未分配 —</option>
-                {team.map(m=><option key={m.id} value={m.id}>{m.name}</option>)}
-              </select>
-            </div>
-          </div>
-          {(DOC_CHECKLISTS[editingJob.type]||[]).length > 0 && (
-            <div style={{ marginBottom:14 }}>
-              <div style={{ fontSize:11, fontWeight:700, color:'#374151', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:6 }}>材料清单</div>
-              <div style={{ background:'#f9fafb', borderRadius:8, padding:'8px 10px', border:'1.5px solid #e2e8f0' }}>
-                {(DOC_CHECKLISTS[editingJob.type]||[]).map(doc=>(
-                  <label key={doc} style={{ display:'flex', alignItems:'center', gap:8, padding:'5px 4px', cursor:'pointer' }}>
-                    <input type="checkbox" checked={!!(jobForm.docs||{})[doc]} onChange={e=>setJobForm(f=>({...f,docs:{...(f.docs||{}),[doc]:e.target.checked}}))} />
-                    <span style={{ fontSize:12, color:'#374151' }}>{doc}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          )}
-          <div style={{ display:'flex', justifyContent:'flex-end', gap:10, paddingTop:14, borderTop:'1.5px solid #e2e8f0' }}>
-            <button onClick={()=>setEditingJob(null)} style={{ padding:'9px 18px', background:'#f1f5f9', border:'1.5px solid #cbd5e1', borderRadius:8, color:'#374151', fontSize:13 }}>取消</button>
-            <button onClick={async()=>{
-              const updated = {...editingJob, ...jobForm};
-              setJobs(prev=>prev.map(j=>j.id===updated.id?updated:j));
-              setViewJob(updated); setEditingJob(null);
-              try { await sbUpdate('jobs', updated.id, {data:updated}); } catch(er){ console.warn(er); }
-            }} style={{ padding:'9px 22px', background:'linear-gradient(135deg,#4f46e5,#7c3aed)', border:'none', borderRadius:8, color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer' }}>💾 保存</button>
-          </div>
-        </Modal>
-      )}
-
       {/* ── NOTES TAB ────────────────────────────────────── */}
       {tab === 'notes' && (
         <div style={{ maxHeight:'65vh', overflowY:'auto' }}>
-
-          {/* Quick paste + AI note panel */}
-          <div style={{ background:'linear-gradient(135deg,#f8fafc,#f1f5f9)', border:'1.5px solid #cbd5e1', borderRadius:12, padding:'14px 16px', marginBottom:16 }}>
-            <div style={{ fontSize:13, fontWeight:700, color:'#1e293b', marginBottom:8 }}>📋 粘贴/添加备注 Add Note</div>
-            <textarea
-              value={noteImportText}
-              onChange={e=>{ setNoteImportText(e.target.value); setNoteImportResult(null); setNoteImportSaved(false); }}
-              placeholder="粘贴备注内容或直接输入… Paste or type note here (Chinese/English)…"
-              style={{ ...inputStyle, minHeight:90, fontSize:13, resize:'vertical', background:'#fff' }}
-            />
-            {noteImportResult && (
-              <div style={{ background:'#f0f9ff', border:'1px solid #bae6fd', borderRadius:8, padding:'10px 12px', marginTop:8, fontSize:13, color:'#0c4a6e', lineHeight:1.6 }}>
-                <div style={{ fontSize:11, fontWeight:700, color:'#0369a1', marginBottom:4 }}>🤖 AI摘要 Summary</div>
-                {noteImportResult}
-              </div>
-            )}
-            <div style={{ display:'flex', gap:8, marginTop:10, flexWrap:'wrap' }}>
-              {noteImportText.trim() && !noteImportResult && (
-                <button onClick={parseNoteImport} disabled={noteImportParsing} style={{ padding:'7px 16px', background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, color:'#fff', fontWeight:700, fontSize:12, cursor:'pointer' }}>
-                  {noteImportParsing ? '⏳ AI处理中…' : '🤖 AI摘要 Summarise'}
-                </button>
-              )}
-              {noteImportText.trim() && (
-                <button onClick={()=>saveNoteImport(false)} style={{ padding:'7px 16px', background:'#f3f4f6', border:'1.5px solid #cbd5e1', borderRadius:8, color:'#374151', fontWeight:600, fontSize:12, cursor:'pointer' }}>
-                  📝 直接保存 Save as-is
-                </button>
-              )}
-              {noteImportResult && (
-                <button onClick={()=>saveNoteImport(true)} style={{ padding:'7px 16px', background:'linear-gradient(135deg,#10b981,#059669)', border:'none', borderRadius:8, color:'#fff', fontWeight:700, fontSize:12, cursor:'pointer' }}>
-                  ✅ 保存AI摘要 Save Summary
-                </button>
-              )}
-              {noteImportSaved && <span style={{ fontSize:12, color:'#10b981', fontWeight:600, alignSelf:'center' }}>✅ 已保存！</span>}
-            </div>
-          </div>
-
-          {/* Existing notes list */}
           {normalizeNotes(client.notes).length === 0
             ? <div style={{ color:'#1f2937', fontSize:14, padding:20, textAlign:'center' }}>No notes yet.</div>
             : [...normalizeNotes(client.notes)].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)).map(n => (
@@ -2071,27 +1640,27 @@ ${rawText.slice(0,5000)}` }]
           <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:18, padding:'14px 16px', background:'linear-gradient(135deg,#f0fdf4,#dcfce7)', borderRadius:12, border:'1px solid #86efac' }}>
             <div style={{ fontSize:28 }}>💬</div>
             <div>
-              <div style={{ fontSize:15, fontWeight:700, color:'#15803d' }}>Communication Import 沟通记录导入</div>
-              <div style={{ fontSize:12, color:'#4ade80', marginTop:2 }}>Paste any chat history (WeChat/SMS/etc) — AI extracts key info &amp; summaries 粘贴任意聊天记录</div>
+              <div style={{ fontSize:15, fontWeight:700, color:'#15803d' }}>WeChat Communication Import</div>
+              <div style={{ fontSize:12, color:'#4ade80', marginTop:2 }}>Paste WeChat chat history — AI will extract key info, action items & summaries</div>
             </div>
           </div>
 
           {/* Paste area */}
           <div style={{ marginBottom:16 }}>
             <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:7 }}>
-              粘贴聊天记录 / Paste Chat Export
+              Paste WeChat Chat Export
               <span style={{ marginLeft:8, fontSize:10, fontWeight:500, color:'#1f2937', textTransform:'none', letterSpacing:0 }}>
-                (微信 · SMS · 任意聊天记录 — 直接粘贴即可)
+                (微信聊天记录 — 直接粘贴即可)
               </span>
             </label>
             <textarea
               value={wchat}
               onChange={e => { setWchat(e.target.value); setWchatResult(null); setWchatSaved(false); }}
-              placeholder="粘贴聊天记录（支持中文/英文）e.g. 2024-01-15 10:23 客户: 您好，我想咨询签证问题... / e.g. Client: Hi I need help with my student visa..."
+              placeholder="Paste WeChat chat history here (Chinese/English supported). e.g. 2024-01-15 10:23 Client: Hi I need help with my student visa..."
               style={{ ...inputStyle, minHeight:180, fontFamily:"'JetBrains Mono',monospace", fontSize:12.5, resize:'vertical', background:'#f9fafb', lineHeight:1.6 }}
             />
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:10 }}>
-              <span style={{ fontSize:12, color:'#1f2937' }}>{wchat.length > 0 ? `${wchat.length.toLocaleString()} chars · ${Math.ceil(wchat.length/4)} tokens` : '最多分析6000字符'}</span>
+              <span style={{ fontSize:12, color:'#1f2937' }}>{wchat.length > 0 ? `${wchat.length.toLocaleString()} chars · ${Math.ceil(wchat.length/4)} tokens` : 'Max 6000 chars will be analysed'}</span>
               <div style={{ display:'flex', gap:10 }}>
                 {wchat && <button onClick={()=>{setWchat('');setWchatResult(null);}} style={{ padding:'8px 14px', background:'#f3f4f6', border:'1.5px solid #cbd5e1', borderRadius:8, fontSize:12, color:'#1f2937', fontWeight:600 }}>Clear</button>}
                 <button
@@ -2199,231 +1768,25 @@ ${rawText.slice(0,5000)}` }]
         </div>
       )}
 
-      {/* ── EMAIL TAB ───────────────────────────────────── */}
-      {tab === 'email' && (
-        <div style={{ maxHeight:'65vh', overflowY:'auto', paddingRight:4 }}>
-          {/* Header */}
-          <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:18, padding:'14px 16px', background:'linear-gradient(135deg,#eff6ff,#dbeafe)', borderRadius:12, border:'1px solid #93c5fd' }}>
-            <div style={{ fontSize:28 }}>📧</div>
-            <div>
-              <div style={{ fontSize:15, fontWeight:700, color:'#1d4ed8' }}>Email Communication Import</div>
-              <div style={{ fontSize:12, color:'#3b82f6', marginTop:2 }}>Paste email thread — AI will summarise key points &amp; action items into client notes</div>
-            </div>
-          </div>
-
-          {/* Tip */}
-          <div style={{ padding:'10px 14px', background:'#fefce8', border:'1px solid #fde68a', borderRadius:9, fontSize:12, color:'#92400e', marginBottom:14 }}>
-            💡 <strong>Tip:</strong> Forward or CC client emails to your inbox, then paste the thread here. The AI will extract key information and save it as a timestamped note.
-          </div>
-
-          {/* Paste area */}
-          <div style={{ marginBottom:16 }}>
-            <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:7 }}>
-              Paste Email Thread
-              <span style={{ marginLeft:8, fontSize:10, fontWeight:500, color:'#6b7280', textTransform:'none', letterSpacing:0 }}>
-                (粘贴邮件内容 — 支持中英文)
-              </span>
-            </label>
-            <textarea
-              value={email}
-              onChange={e => { setEmail(e.target.value); setEmailResult(null); setEmailSaved(false); }}
-              placeholder="Paste email content here. Include subject, date, and body. e.g.&#10;From: client@email.com&#10;Subject: Re: Student Visa Application&#10;Date: 12 Mar 2026&#10;&#10;Hi, I have a question about my visa..."
-              style={{ width:'100%', padding:'12px 14px', border:'1.5px solid #cbd5e1', borderRadius:10, fontSize:12.5, fontFamily:"'JetBrains Mono',monospace", minHeight:180, resize:'vertical', background:'#f9fafb', lineHeight:1.6, boxSizing:'border-box' }}
-            />
-            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:10 }}>
-              <span style={{ fontSize:12, color:'#6b7280' }}>{email.length > 0 ? `${email.length.toLocaleString()} chars` : 'Max 6000 chars will be analysed'}</span>
-              <div style={{ display:'flex', gap:10 }}>
-                {email && <button onClick={()=>{setEmail('');setEmailResult(null);setEmailSaved(false);}} style={{ padding:'8px 14px', background:'#f3f4f6', border:'1.5px solid #cbd5e1', borderRadius:8, fontSize:12, color:'#374151', fontWeight:600, cursor:'pointer' }}>Clear</button>}
-                <button
-                  onClick={parseEmail}
-                  disabled={emailParsing || !email.trim()}
-                  style={{ padding:'9px 20px', background: emailParsing||!email.trim() ? '#e5e7eb' : 'linear-gradient(135deg,#3b82f6,#1d4ed8)', border:'none', borderRadius:9, color: emailParsing||!email.trim() ? '#9ca3af' : '#fff', fontWeight:700, fontSize:13, cursor: emailParsing||!email.trim() ? 'default':'pointer', display:'flex', alignItems:'center', gap:7, transition:'all 0.15s' }}
-                >
-                  {emailParsing ? <><span style={{ animation:'spin 1s linear infinite', display:'inline-block' }}>⏳</span> Analysing...</> : '🤖 Analyse with AI'}
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* AI result */}
-          {emailResult && (
-            <div style={{ background:'#fff', border:'1.5px solid #cbd5e1', borderRadius:14, overflow:'hidden', marginTop:4 }}>
-              {/* Result header */}
-              <div style={{ padding:'14px 18px', background:'linear-gradient(135deg,#eff6ff,#dbeafe)', borderBottom:'1px solid #bfdbfe', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                <div>
-                  <div style={{ fontSize:14, fontWeight:700, color:'#1d4ed8' }}>✅ Email Analysed</div>
-                  {emailResult.dateRange && <div style={{ fontSize:12, color:'#3b82f6', marginTop:2 }}>📅 {emailResult.dateRange}{emailResult.subject ? ` · ${emailResult.subject}` : ''}</div>}
-                </div>
-                <div style={{ display:'flex', gap:6, alignItems:'center' }}>
-                  {emailResult.sentiment && (
-                    <span style={{ padding:'3px 10px', borderRadius:99, fontSize:11, fontWeight:700,
-                      background: emailResult.sentiment==='urgent' ? '#fef2f2' : emailResult.sentiment==='positive' ? '#f0fdf4' : emailResult.sentiment==='concerned' ? '#fffbeb' : '#eff6ff',
-                      color: emailResult.sentiment==='urgent' ? '#dc2626' : emailResult.sentiment==='positive' ? '#16a34a' : emailResult.sentiment==='concerned' ? '#d97706' : '#1d4ed8'
-                    }}>
-                      {emailResult.sentiment==='urgent'?'🚨':emailResult.sentiment==='positive'?'😊':emailResult.sentiment==='concerned'?'⚠️':'📧'} {emailResult.sentiment}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <div style={{ padding:'16px 18px' }}>
-                {/* Summary */}
-                <div style={{ marginBottom:14 }}>
-                  <div style={{ fontSize:11, fontWeight:700, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:6 }}>Summary</div>
-                  <div style={{ fontSize:13.5, color:'#1f2937', lineHeight:1.6, background:'#f9fafb', padding:'10px 14px', borderRadius:9, border:'1px solid #e5e7eb' }}>{emailResult.summary}</div>
-                </div>
-
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:14 }}>
-                  {emailResult.actionItems?.length > 0 && (
-                    <div>
-                      <div style={{ fontSize:11, fontWeight:700, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:6 }}>🎯 Action Items</div>
-                      {emailResult.actionItems.map((item,i) => (
-                        <div key={i} style={{ display:'flex', alignItems:'flex-start', gap:6, marginBottom:5 }}>
-                          <span style={{ width:18, height:18, borderRadius:99, background:'#fef2f2', border:'1px solid #fecaca', display:'flex', alignItems:'center', justifyContent:'center', fontSize:9, fontWeight:700, color:'#dc2626', flexShrink:0, marginTop:1 }}>{i+1}</span>
-                          <span style={{ fontSize:12.5, color:'#1f2937', lineHeight:1.5 }}>{item}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {emailResult.clientRequests?.length > 0 && (
-                    <div>
-                      <div style={{ fontSize:11, fontWeight:700, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:6 }}>💬 Client Requests</div>
-                      {emailResult.clientRequests.map((req,i) => (
-                        <div key={i} style={{ display:'flex', alignItems:'flex-start', gap:6, marginBottom:5 }}>
-                          <span style={{ fontSize:13, flexShrink:0 }}>•</span>
-                          <span style={{ fontSize:12.5, color:'#1f2937', lineHeight:1.5 }}>{req}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {emailResult.importantDates?.length > 0 && (
-                  <div style={{ marginBottom:14 }}>
-                    <div style={{ fontSize:11, fontWeight:700, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:6 }}>📅 Important Dates</div>
-                    <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
-                      {emailResult.importantDates.map((d,i) => (
-                        <span key={i} style={{ padding:'4px 10px', background:'#eff6ff', border:'1px solid #bfdbfe', borderRadius:8, fontSize:12, color:'#2563eb', fontWeight:500 }}>{d}</span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {emailResult.tags?.length > 0 && (
-                  <div style={{ marginBottom:16 }}>
-                    <div style={{ fontSize:11, fontWeight:700, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:6 }}>🏷 Topics</div>
-                    <div style={{ display:'flex', flexWrap:'wrap', gap:5 }}>
-                      {emailResult.tags.map((tag,i) => (
-                        <span key={i} style={{ padding:'3px 9px', background:'#eff6ff', border:'1px solid #bfdbfe', borderRadius:7, fontSize:11.5, color:'#1d4ed8', fontWeight:500 }}>{tag}</span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Save to notes */}
-                <div style={{ borderTop:'1.5px solid #e2e8f0', paddingTop:14, display:'flex', justifyContent:'flex-end', gap:10 }}>
-                  {emailSaved && <span style={{ fontSize:13, color:'#16a34a', fontWeight:600, alignSelf:'center' }}>✅ Saved to client notes!</span>}
-                  <button onClick={saveEmailNote} disabled={emailSaved} style={{ padding:'9px 20px', background: emailSaved ? '#f3f4f6' : 'linear-gradient(135deg,#3b82f6,#1d4ed8)', border:'none', borderRadius:9, color: emailSaved ? '#9ca3af':'#fff', fontWeight:700, fontSize:13, cursor: emailSaved ? 'default':'pointer' }}>
-                    {emailSaved ? '✅ Saved' : '💾 Save Summary to Client Notes'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
       {/* ── IMPORT TAB ───────────────────────────────────── */}
       {tab === 'import' && (
         <div style={{ maxHeight:'65vh', overflowY:'auto' }}>
           {applyMsg && <div style={{ padding:'10px 14px', background:'#f0fdf4', border:'1px solid #86efac', borderRadius:8, color:'#15803d', fontSize:13, marginBottom:14 }}>{applyMsg}</div>}
 
           {!importPreview && (
-            <div>
-              {/* ── Openclaw 快照 ── */}
-              <div style={{ background:'linear-gradient(135deg,#f0f4ff,#e8f0fe)', border:'1px solid #c7d2fe', borderRadius:12, padding:'18px 20px', marginBottom:16 }}>
-                <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10 }}>
-                  <span style={{ fontSize:22 }}>🤖</span>
-                  <div>
-                    <div style={{ fontSize:14, fontWeight:700, color:'#1e1b4b' }}>Openclaw 快照导入</div>
-                    <div style={{ fontSize:11, color:'#4338ca' }}>按客户姓名直接从 Openclaw Bot 拉取档案</div>
-                  </div>
-                </div>
-                <div style={{ display:'flex', gap:8 }}>
-                  <input
-                    value={ocName}
-                    onChange={e => setOcName(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && !ocFetching && handleOpenclawFetch()}
-                    placeholder="输入客户姓名，如：孙丽芳 / Sun Lifang"
-                    disabled={ocFetching}
-                    style={{ flex:1, padding:'10px 13px', border:'1px solid #a5b4fc', borderRadius:8, fontSize:13, outline:'none', background: ocFetching ? '#f3f4f6' : '#fff', color:'#111827' }}
-                  />
-                  <button
-                    onClick={handleOpenclawFetch}
-                    disabled={ocFetching}
-                    style={{ padding:'10px 18px', background: ocFetching ? '#e5e7eb' : 'linear-gradient(135deg,#4f46e5,#7c3aed)', border:'none', borderRadius:8, color: ocFetching ? '#6b7280' : '#fff', fontWeight:700, fontSize:13, cursor: ocFetching ? 'default' : 'pointer', whiteSpace:'nowrap' }}
-                  >
-                    {ocFetching ? '⏳ 获取中...' : '🔍 获取快照'}
-                  </button>
-                </div>
-              </div>
-
-              {/* ── 分割线 ── */}
-              <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:16 }}>
-                <div style={{ flex:1, height:1, background:'#e5e7eb' }} />
-                <span style={{ fontSize:11, color:'#9ca3af', fontWeight:500 }}>或粘贴文本</span>
-                <div style={{ flex:1, height:1, background:'#e5e7eb' }} />
-              </div>
-
-              {/* ── 粘贴文本导入 ── */}
-              <div style={{ background:'linear-gradient(135deg,#f5f3ff,#ede9fe)', border:'1px solid #c4b5fd', borderRadius:12, padding:'16px 18px', marginBottom:16 }}>
-                <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10 }}>
-                  <span style={{ fontSize:20 }}>📋</span>
-                  <div>
-                    <div style={{ fontSize:13, fontWeight:700, color:'#4c1d95' }}>粘贴文本导入 Paste Text Import</div>
-                    <div style={{ fontSize:11, color:'#7c3aed' }}>直接粘贴客户快照文本（支持中英文）— 无需上传文件</div>
-                  </div>
-                </div>
-                <textarea
-                  value={pasteText}
-                  onChange={e => setPasteText(e.target.value)}
-                  placeholder="粘贴客户档案快照文本... Paste client snapshot text here..."
-                  style={{ width:'100%', padding:'10px 12px', border:'1.5px solid #c4b5fd', borderRadius:8, fontSize:12.5, minHeight:120, resize:'vertical', background:'#fff', fontFamily:'inherit', lineHeight:1.6, boxSizing:'border-box', outline:'none', color:'#111827' }}
-                />
-                <div style={{ display:'flex', justifyContent:'flex-end', marginTop:10, gap:8 }}>
-                  {pasteText && <button onClick={()=>setPasteText('')} style={{ padding:'7px 14px', background:'#f3f4f6', border:'1.5px solid #cbd5e1', borderRadius:7, fontSize:12, color:'#374151', fontWeight:600, cursor:'pointer' }}>清除</button>}
-                  <button
-                    onClick={handlePasteImport}
-                    disabled={pasteImporting || !pasteText.trim()}
-                    style={{ padding:'8px 18px', background: pasteImporting||!pasteText.trim() ? '#e5e7eb' : 'linear-gradient(135deg,#7c3aed,#6d28d9)', border:'none', borderRadius:8, color: pasteImporting||!pasteText.trim() ? '#9ca3af' : '#fff', fontWeight:700, fontSize:12, cursor: pasteImporting||!pasteText.trim() ? 'default':'pointer' }}
-                  >
-                    {pasteImporting ? '⏳ 分析中...' : '🤖 AI 提取信息'}
-                  </button>
-                </div>
-              </div>
-
-              {/* ── 分割线 ── */}
-              <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:16 }}>
-                <div style={{ flex:1, height:1, background:'#e5e7eb' }} />
-                <span style={{ fontSize:11, color:'#9ca3af', fontWeight:500 }}>或上传文件</span>
-                <div style={{ flex:1, height:1, background:'#e5e7eb' }} />
-              </div>
-
-              {/* ── 原有 docx 上传 ── */}
-              <div style={{ textAlign:'center', padding:'32px 24px', border:'2px dashed #dde1f0', borderRadius:12 }}>
+            <div style={{ textAlign:'center', padding:'40px 24px', border:'2px dashed #dde1f0', borderRadius:12 }}>
               <div style={{ fontSize:40, marginBottom:12 }}>📄</div>
               <div style={{ fontSize:15, fontWeight:600, color:'#111827', marginBottom:6 }}>Upload Client Information Card</div>
-              <div style={{ fontSize:13, color:'#1f2937', marginBottom:20 }}>Supports <strong style={{color:'#1f2937'}}>.docx / .txt</strong> files — AI will extract all fields automatically</div>
-              <input ref={fileRef} type="file" accept=".docx,.pdf,.txt" onChange={handleFile} style={{ display:'none' }} />
+              <div style={{ fontSize:13, color:'#1f2937', marginBottom:20 }}>Supports <strong style={{color:'#1f2937'}}>.docx</strong> files — AI will extract all fields automatically</div>
+              <input ref={fileRef} type="file" accept=".docx,.pdf" onChange={handleFile} style={{ display:'none' }} />
               <button
                 onClick={() => fileRef.current?.click()}
                 disabled={importing}
                 style={{ padding:'11px 24px', background: importing ? '#e5e7eb' : 'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:9, color: importing ? '#6b7280' : '#fff', fontWeight:700, fontSize:14, cursor: importing ? 'default' : 'pointer' }}
               >
-                {importing ? '⏳ Analysing document...' : '📥 Select File (.docx / .txt)'}
+                {importing ? '⏳ Analysing document...' : '📥 Select .docx File'}
               </button>
               <div style={{ marginTop:16, fontSize:11, color:'#1f2937' }}>Powered by Claude AI · Your files are not stored</div>
-            </div>
             </div>
           )}
 
@@ -2451,50 +1814,6 @@ ${rawText.slice(0,5000)}` }]
                   </div>
                 ) : null)}
               </div>
-
-              {/* ── 四、Skills Assessment preview ── */}
-              {(importPreview.profile?.skillsAssessments||[]).filter(s=>s.appId||s.occupation).length > 0 && (
-                <div style={{ marginBottom:14 }}>
-                  <div style={{ fontSize:11, color:'#6366f1', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:8, fontWeight:700 }}>📊 四、职业评估 ({importPreview.profile.skillsAssessments.filter(s=>s.appId||s.occupation).length} entries)</div>
-                  {importPreview.profile.skillsAssessments.filter(s=>s.appId||s.occupation).map((sa,i) => (
-                    <div key={i} style={{ background:'#f9fafb', borderRadius:7, padding:'8px 12px', border:'1px solid #e5e7eb', marginBottom:6, fontSize:12, color:'#374151' }}>
-                      <div style={{ fontWeight:600, color:'#111827' }}>{sa.occupation || '—'} {sa.appId ? `(ID: ${sa.appId})` : ''}</div>
-                      <div style={{ marginTop:2 }}>Lodge: {sa.lodgeDate||'—'} · Outcome: <span style={{ fontWeight:700, color: sa.outcome==='Pending'?'#d97706':'#16a34a' }}>{sa.outcome||'—'}</span></div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* ── 五、Case Timeline preview ── */}
-              {(importPreview.profile?.caseTimeline||[]).filter(e=>e.event).length > 0 && (
-                <div style={{ marginBottom:14 }}>
-                  <div style={{ fontSize:11, color:'#6366f1', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:8, fontWeight:700 }}>📅 五、大事记 ({importPreview.profile.caseTimeline.filter(e=>e.event).length} events)</div>
-                  <div style={{ maxHeight:160, overflowY:'auto', display:'flex', flexDirection:'column', gap:4 }}>
-                    {importPreview.profile.caseTimeline.filter(e=>e.event).map((ev,i) => {
-                      const col = ev.status==='Completed'?'#16a34a':ev.status==='Urgent'?'#dc2626':'#6366f1';
-                      return (
-                        <div key={i} style={{ background:'#f9fafb', borderRadius:7, padding:'7px 11px', border:'1px solid #e5e7eb', display:'flex', justifyContent:'space-between', alignItems:'center', gap:8 }}>
-                          <div style={{ fontSize:12, color:'#374151' }}><span style={{ fontWeight:600, color:'#111827' }}>{ev.date||'—'}</span> · {ev.event}</div>
-                          <span style={{ fontSize:10, fontWeight:700, color:col, background:col+'15', padding:'2px 7px', borderRadius:10, flexShrink:0 }}>{ev.status}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* ── 六、Current Status preview ── */}
-              {(importPreview.profile?.currentStatus || (importPreview.profile?.nextSteps||[]).length > 0) && (
-                <div style={{ marginBottom:14 }}>
-                  <div style={{ fontSize:11, color:'#6366f1', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:8, fontWeight:700 }}>⚡ 六、当前状态</div>
-                  {importPreview.profile.currentStatus && (
-                    <div style={{ background:'#fff7ed', borderRadius:7, padding:'8px 12px', border:'1px solid #fed7aa', fontSize:12, color:'#92400e', marginBottom:6, lineHeight:1.5 }}>{importPreview.profile.currentStatus}</div>
-                  )}
-                  {(importPreview.profile.nextSteps||[]).map((s,i) => (
-                    <div key={i} style={{ background:'#f0fdf4', borderRadius:7, padding:'6px 10px', border:'1px solid #86efac', fontSize:12, color:'#14532d', marginBottom:4 }}>→ {s}</div>
-                  ))}
-                </div>
-              )}
 
               {importPreview.profile?.keyIssues?.length > 0 && (
                 <div style={{ marginBottom:14 }}>
@@ -2540,7 +1859,6 @@ function Clients({ clients, jobs, setClients, setJobs, team }) {
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState('All');
   const [filterStatus, setFilterStatus] = useState('All');
-  const [sortBy, setSortBy] = useState('newest');
   const [modal, setModal] = useState(null);
   const [form, setForm] = useState({});
   const [hoverId, setHoverId] = useState(null);
@@ -2555,12 +1873,6 @@ function Clients({ clients, jobs, setClients, setJobs, team }) {
       (filterType === 'All' || c.type === filterType) &&
       (filterStatus === 'All' || c.status === filterStatus)
     );
-  }).sort((a, b) => {
-    if (sortBy === 'newest') return (b.createdAt||'').localeCompare(a.createdAt||'');
-    if (sortBy === 'oldest') return (a.createdAt||'').localeCompare(b.createdAt||'');
-    if (sortBy === 'name_az') return (a.name||'').localeCompare(b.name||'');
-    if (sortBy === 'name_za') return (b.name||'').localeCompare(a.name||'');
-    return (b.createdAt||'').localeCompare(a.createdAt||'');
   });
 
   const openAdd = () => {
@@ -2573,7 +1885,7 @@ function Clients({ clients, jobs, setClients, setJobs, team }) {
   const save = async () => {
     if (!form.name.trim()) return;
     if (modal === 'add') {
-      const newClient = { ...form, id: 'c'+uid(), createdAt: new Date().toISOString() };
+      const newClient = { ...form, id: 'c'+uid() };
       setClients(prev => [...prev, newClient]);
       try { await sbInsert('clients', { id: newClient.id, data: newClient }); } catch(e) { console.warn('Save error:', e); }
     } else {
@@ -2652,19 +1964,13 @@ function Clients({ clients, jobs, setClients, setJobs, team }) {
           <option value="All">All Status</option>
           {CLIENT_STATUSES.map(s=><option key={s}>{s}</option>)}
         </select>
-        <select value={sortBy} onChange={e=>setSortBy(e.target.value)} style={{ ...selectStyle, width:160 }}>
-          <option value="newest">Newest First</option>
-          <option value="oldest">Oldest First</option>
-          <option value="name_az">Name A→Z</option>
-          <option value="name_za">Name Z→A</option>
-        </select>
       </div>
 
       <Card style={{ padding:0, overflow:'hidden' }}>
         <table style={{ width:'100%', borderCollapse:'collapse' }}>
           <thead>
             <tr style={{ borderBottom:'2px solid #e2e8f0' }}>
-              {['Client','Type','Status','Cases','Nationality','Notes','Created',''].map(h=>(
+              {['Client','Type','Status','Jobs','Nationality','Notes','Created',''].map(h=>(
                 <th key={h} style={{ padding:'12px 16px', textAlign:'left', fontSize:11, fontWeight:600, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.06em', background:'#f9fafb' }}>{h}</th>
               ))}
             </tr>
@@ -2764,50 +2070,17 @@ function Clients({ clients, jobs, setClients, setJobs, team }) {
 }
 
 /* ─── JOBS ────────────────────────────────────────────────────────────────────── */
-function Jobs({ jobs, clients, team, setJobs, openJobId, setOpenJobId, jobsMemberFilter, setJobsMemberFilter, jobsStatusFilter, setJobsStatusFilter }) {
+function Jobs({ jobs, clients, team, setJobs }) {
   const { t } = useLang(); // eslint-disable-line no-unused-vars
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('All');
   const [filterAssigned, setFilterAssigned] = useState('All');
   const [filterPriority, setFilterPriority] = useState('All');
-  const [sortBy, setSortBy] = useState('default');
   const [view, setView] = useState('list');
   const [modal, setModal] = useState(null);
   const [form, setForm] = useState({});
   const [viewJob, setViewJob] = useState(null);
   const [clientSearch, setClientSearch] = useState('');
-
-  // Open specific job from calendar or other navigation
-  useEffect(() => {
-    if (openJobId) {
-      const j = jobs.find(x => x.id === openJobId);
-      if (j) setViewJob(j);
-      if (setOpenJobId) setOpenJobId(null);
-    }
-  }, [openJobId]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Apply member filter from Dashboard Team Workload click
-  useEffect(() => {
-    if (jobsMemberFilter) {
-      setFilterAssigned(jobsMemberFilter);
-      setFilterStatus('active_not_awaiting');
-      if (setJobsMemberFilter) setJobsMemberFilter(null);
-    }
-  }, [jobsMemberFilter]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Apply status filter from Dashboard card clicks
-  useEffect(() => {
-    if (jobsStatusFilter) {
-      if (jobsStatusFilter === 'Urgent') {
-        setFilterStatus('active_not_awaiting');
-        setFilterPriority('Urgent');
-      } else {
-        setFilterStatus(jobsStatusFilter);
-        setFilterPriority('All');
-      }
-      if (setJobsStatusFilter) setJobsStatusFilter(null);
-    }
-  }, [jobsStatusFilter]); // eslint-disable-line react-hooks/exhaustive-deps
   const [clientDropOpen, setClientDropOpen] = useState(false);
   const sortedClients = [...clients].sort((a,b) => a.name.localeCompare(b.name));
 
@@ -2819,41 +2092,16 @@ function Jobs({ jobs, clients, team, setJobs, openJobId, setOpenJobId, jobsMembe
   const filtered = jobs.filter(j => {
     const q = search.toLowerCase();
     const client = getClient(j.clientId);
-    const statusMatch = filterStatus === 'All'
-      ? true
-      : filterStatus === 'active_not_awaiting'
-        ? j.status !== 'Completed' && j.status !== 'Awaiting Decision'
-        : j.status === filterStatus;
     return (
       (!q || j.title.toLowerCase().includes(q) || client?.name.toLowerCase().includes(q) || j.type.toLowerCase().includes(q)) &&
-      statusMatch &&
+      (filterStatus === 'All' || j.status === filterStatus) &&
       (filterAssigned === 'All' || j.assignedTo === filterAssigned) &&
       (filterPriority === 'All' || j.priority === filterPriority)
     );
-  }).sort((a, b) => {
-    if (sortBy === 'urgency') {
-      const PORDER = { Urgent:0, High:1, Medium:2, Low:3 };
-      const pa = PORDER[a.priority] ?? 99, pb = PORDER[b.priority] ?? 99;
-      if (pa !== pb) return pa - pb;
-      // Secondary: soonest deadline first
-      if (a.dueDate && b.dueDate) return a.dueDate.localeCompare(b.dueDate);
-      if (a.dueDate) return -1; if (b.dueDate) return 1;
-      return 0;
-    }
-    if (sortBy === 'progress') {
-      return (b.progress || 0) - (a.progress || 0);
-    }
-    // default: newest first
-    return (b.createdAt||'').localeCompare(a.createdAt||'');
   });
 
   const openAdd = () => { setForm({ title:'', type:'Subclass 500 – Student Visa', clientId: clients[0]?.id||'', assignedTo: team[0]?.id||'', status:'New', priority:'Medium', dueDate:'', notes:[], progress:0, createdAt:today() }); setModal('add'); };
-  const openEdit = (j) => {
-    setClientSearch(clients.find(c=>c.id===j.clientId)?.name||'');
-    const effectiveProgress = j.progress ?? STATUS_PROGRESS[j.status] ?? 0;
-    setForm({ ...j, notes: normalizeNotes(j.notes), progress: effectiveProgress });
-    setModal(j);
-  };
+  const openEdit = (j) => { setClientSearch(clients.find(c=>c.id===j.clientId)?.name||''); setForm({ ...j, notes: normalizeNotes(j.notes) }); setClientSearch(sortedClients[0]?.name||''); setModal(j); };
   const closeModal = () => setModal(null);
 
   const save = async () => {
@@ -2873,8 +2121,6 @@ function Jobs({ jobs, clients, team, setJobs, openJobId, setOpenJobId, jobsMembe
   const del = async (id) => {
     if(window.confirm('Delete this case?')) {
       setJobs(prev=>prev.filter(j=>j.id!==id));
-      setModal(null);
-      setViewJob(null);
       try { await sbDelete('jobs', id); } catch(e) { console.warn('Delete error:', e); }
     }
   };
@@ -2889,12 +2135,12 @@ function Jobs({ jobs, clients, team, setJobs, openJobId, setOpenJobId, jobsMembe
     return (
       <div className="animate-fade">
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
-          <div><h1 style={{ fontSize:24, fontWeight:700, color:'#111827' }}>Cases</h1><p style={{ color:'#1f2937', fontSize:14, marginTop:2 }}>{jobs.length} total cases</p></div>
+          <div><h1 style={{ fontSize:24, fontWeight:700, color:'#111827' }}>Jobs</h1><p style={{ color:'#1f2937', fontSize:14, marginTop:2 }}>{jobs.length} total</p></div>
           <div style={{ display:'flex', gap:10 }}>
             <div style={{ display:'flex', background:'#ffffff', borderRadius:8, border:'1.5px solid #cbd5e1', overflow:'hidden' }}>
               {['list','board'].map(v=><button key={v} onClick={()=>setView(v)} style={{ padding:'7px 14px', background: view===v?'#e5e7eb':'transparent', border:'none', color: view===v?'#e2e8f0':'#475569', fontSize:13, fontWeight:500, textTransform:'capitalize' }}>{v}</button>)}
             </div>
-            <button onClick={openAdd} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:10, padding:'9px 16px', color:'#fff', fontWeight:700, fontSize:13 }}>+ New Case</button>
+            <button onClick={openAdd} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:10, padding:'9px 16px', color:'#fff', fontWeight:700, fontSize:13 }}>+ New Job</button>
           </div>
         </div>
         <div style={{ display:'flex', gap:14, overflowX:'auto', paddingBottom:12 }}>
@@ -2937,13 +2183,13 @@ function Jobs({ jobs, clients, team, setJobs, openJobId, setOpenJobId, jobsMembe
           })}
         </div>
         {modal && (
-          <Modal title={modal==='add'?'New Case':'Edit Case'} onClose={closeModal} wide>
+          <Modal title={modal==='add'?'New Job':'Edit Job'} onClose={closeModal} wide>
                 <>
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
-        <FormField label="Case Title" required>
+        <FormField label="Job Title" required>
           <input style={inputStyle} value={form.title||''} onChange={e=>setForm(f=>({...f,title:e.target.value}))} placeholder="e.g. Visa Application" />
         </FormField>
-        <FormField label="Case Type">
+        <FormField label="Job Type">
           <select style={selectStyle} value={form.type} onChange={e=>setForm(f=>({...f,type:e.target.value}))}>
             {JOB_TYPES.map(t=><option key={t}>{t}</option>)}
           </select>
@@ -2987,7 +2233,7 @@ function Jobs({ jobs, clients, team, setJobs, openJobId, setOpenJobId, jobsMembe
           </select>
         </FormField>
         <FormField label="Status">
-          <select style={selectStyle} value={form.status} onChange={e=>setForm(f=>({...f, status:e.target.value, progress: STATUS_PROGRESS[e.target.value] ?? f.progress ?? 0}))}>
+          <select style={selectStyle} value={form.status} onChange={e=>setForm(f=>({...f,status:e.target.value}))}>
             {JOB_STATUSES.map(s=><option key={s}>{s}</option>)}
           </select>
         </FormField>
@@ -2999,8 +2245,8 @@ function Jobs({ jobs, clients, team, setJobs, openJobId, setOpenJobId, jobsMembe
         <FormField label="Due Date">
           <input type="date" style={inputStyle} value={form.dueDate||''} onChange={e=>setForm(f=>({...f,dueDate:e.target.value}))} />
         </FormField>
-        <FormField label={`Progress: ${form.progress ?? 0}%`}>
-          <input type="range" min={0} max={100} step={5} value={form.progress ?? 0} onChange={e=>setForm(f=>({...f,progress:parseInt(e.target.value)}))} style={{ width:'100%', accentColor:'#6366f1', marginTop:8 }} />
+        <FormField label={`Progress: ${form.progress||0}%`}>
+          <input type="range" min={0} max={100} step={5} value={form.progress||0} onChange={e=>setForm(f=>({...f,progress:e.target.value}))} style={{ width:'100%', accentColor:'#6366f1', marginTop:8 }} />
         </FormField>
       </div>
       <div style={{ borderTop:'1.5px solid #e2e8f0', marginTop:8, paddingTop:16 }}>
@@ -3029,7 +2275,7 @@ function Jobs({ jobs, clients, team, setJobs, openJobId, setOpenJobId, jobsMembe
   
             <div style={{display:'flex',justifyContent:'flex-end',gap:10,marginTop:18}}>
               <button onClick={closeModal} style={{background:'#e5e7eb',border:'none',borderRadius:8,padding:'9px 18px',color:'#1f2937',fontWeight:500}}>Cancel</button>
-              <button onClick={save} style={{background:'linear-gradient(135deg,#6366f1,#8b5cf6)',border:'none',borderRadius:8,padding:'9px 20px',color:'#ffffff',fontWeight:700}}>Save Case</button>
+              <button onClick={save} style={{background:'linear-gradient(135deg,#6366f1,#8b5cf6)',border:'none',borderRadius:8,padding:'9px 20px',color:'#ffffff',fontWeight:700}}>Save Job</button>
             </div>
           </Modal>
         )}
@@ -3059,45 +2305,17 @@ function Jobs({ jobs, clients, team, setJobs, openJobId, setOpenJobId, jobsMembe
         </div>
         </div>
 
-        {/* ── QUICK UPDATE PANEL ──────────────────── */}
-        <div style={{ background:'#f8fafc', border:'1.5px solid #e2e8f0', borderRadius:10, padding:'12px 16px', marginBottom:16 }}>
-        <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:10 }}>快速更新 <span style={{ color:'#9ca3af', fontWeight:400, textTransform:'none', letterSpacing:0, fontSize:11 }}>Quick Update</span></div>
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:10 }}>
-          <div>
-            <div style={{ fontSize:11, color:'#374151', fontWeight:600, marginBottom:5 }}>状态 Status</div>
-            <select value={viewJob.status} onChange={async e => {
-              const updated = { ...viewJob, status: e.target.value };
-              setViewJob(updated);
-              setJobs(prev => prev.map(j => j.id===viewJob.id ? updated : j));
-              try { await sbUpdate('jobs', updated.id, { data: updated }); } catch(er){ console.warn(er); }
-            }} style={{ width:'100%', background:'#fff', border:'1.5px solid #d1d5db', borderRadius:7, padding:'7px 10px', fontSize:13, color:'#111827', outline:'none', cursor:'pointer' }}>
-              {JOB_STATUSES.map(s=><option key={s}>{s}</option>)}
-            </select>
-          </div>
-          <div>
-            <div style={{ fontSize:11, color:'#374151', fontWeight:600, marginBottom:5 }}>进度 Progress: <span style={{ color:'#6366f1', fontWeight:700 }}>{STATUS_PROGRESS[viewJob.status] ?? viewJob.progress ?? 0}%</span></div>
-            <input type="range" min={0} max={100} step={5} value={STATUS_PROGRESS[viewJob.status] ?? viewJob.progress ?? 0} onChange={async e => {
-              const updated = { ...viewJob, progress: parseInt(e.target.value) };
-              setViewJob(updated);
-              setJobs(prev => prev.map(j => j.id===viewJob.id ? updated : j));
-              try { await sbUpdate('jobs', updated.id, { data: updated }); } catch(er){ console.warn(er); }
-            }} style={{ width:'100%', accentColor:'#6366f1', marginTop:4 }} />
-          </div>
-        </div>
-        </div>
-
         {/* ── EDITABLE SNAPSHOT ───────────────────── */}
         <div style={{ marginBottom:14 }}>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
           <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em' }}>最新进展 <span style={{ color:'#9ca3af', fontWeight:400, textTransform:'none', letterSpacing:0, fontSize:11 }}>(失焦自动保存)</span></div>
           <label style={{ display:'flex', alignItems:'center', gap:5, padding:'4px 10px', background:'#f1f5f9', border:'1.5px solid #cbd5e1', borderRadius:6, color:'#374151', fontSize:11, fontWeight:600, cursor:'pointer' }}>
             📄 上传快照
-            <input type="file" accept=".docx,.pdf,.txt" style={{display:'none'}} onChange={async e => {
+            <input type="file" accept=".docx,.pdf" style={{display:'none'}} onChange={async e => {
               const file = e.target.files?.[0]; if (!file) return;
               try {
-                let rawText = '';
-                if (file.name.endsWith('.txt')) { rawText = await file.text(); }
-                else { const buf = await file.arrayBuffer(); const { value } = await mammoth.extractRawText({ arrayBuffer: buf }); rawText = value; }
+                const buf = await file.arrayBuffer();
+                const { value: rawText } = await mammoth.extractRawText({ arrayBuffer: buf });
                 const res = await fetch('/api/claude', { method:'POST', headers:{'Content-Type':'application/json'},
                   body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:2000,
                     messages:[{ role:'user', content:`Extract case timeline and current status from this immigration snapshot. Return ONLY valid JSON:
@@ -3254,19 +2472,18 @@ ${rawText.slice(0,5000)}` }]
   return (
     <div className="animate-fade">
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:24 }}>
-        <div><h1 style={{ fontSize:24, fontWeight:700, color:'#111827' }}>Cases</h1><p style={{ color:'#1f2937', fontSize:14, marginTop:2 }}>{jobs.length} total cases</p></div>
+        <div><h1 style={{ fontSize:24, fontWeight:700, color:'#111827' }}>Jobs</h1><p style={{ color:'#1f2937', fontSize:14, marginTop:2 }}>{jobs.length} total jobs</p></div>
         <div style={{ display:'flex', gap:10 }}>
           <div style={{ display:'flex', background:'#ffffff', borderRadius:8, border:'1.5px solid #cbd5e1', overflow:'hidden' }}>
             {['list','board'].map(v=><button key={v} onClick={()=>setView(v)} style={{ padding:'7px 14px', background: view===v?'#e5e7eb':'transparent', border:'none', color: view===v?'#e2e8f0':'#475569', fontSize:13, fontWeight:500, textTransform:'capitalize' }}>{v}</button>)}
           </div>
-          <button onClick={openAdd} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:10, padding:'9px 16px', color:'#fff', fontWeight:700, fontSize:13 }}>+ New Case</button>
+          <button onClick={openAdd} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:10, padding:'9px 16px', color:'#fff', fontWeight:700, fontSize:13 }}>+ New Job</button>
         </div>
       </div>
       <div style={{ display:'flex', gap:10, marginBottom:18, flexWrap:'wrap' }}>
         <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍  Search jobs..." style={{ ...inputStyle, width:240 }} />
         <select value={filterStatus} onChange={e=>setFilterStatus(e.target.value)} style={{ ...selectStyle, width:160 }}>
           <option value="All">All Status</option>
-          <option value="active_not_awaiting">Active (excl. Awaiting)</option>
           {JOB_STATUSES.map(s=><option key={s}>{s}</option>)}
         </select>
         <select value={filterAssigned} onChange={e=>setFilterAssigned(e.target.value)} style={{ ...selectStyle, width:160 }}>
@@ -3276,11 +2493,6 @@ ${rawText.slice(0,5000)}` }]
         <select value={filterPriority} onChange={e=>setFilterPriority(e.target.value)} style={{ ...selectStyle, width:140 }}>
           <option value="All">All Priority</option>
           {PRIORITIES.map(p=><option key={p}>{p}</option>)}
-        </select>
-        <select value={sortBy} onChange={e=>setSortBy(e.target.value)} style={{ ...selectStyle, width:180 }}>
-          <option value="default">↕ Default (Newest)</option>
-          <option value="urgency">🔥 By Urgency</option>
-          <option value="progress">📊 By Progress ↓</option>
         </select>
       </div>
       <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
@@ -3303,7 +2515,7 @@ ${rawText.slice(0,5000)}` }]
                 </div>
                 <div style={{ display:'flex', alignItems:'center', gap:10, flexShrink:0 }}>
                   <div style={{ width:120 }}>
-                    <div style={{ fontSize:11, color:'#1f2937', marginBottom:4, textAlign:'right' }}>{STATUS_PROGRESS[j.status] ?? j.progress ?? 0}%</div>
+                    <div style={{ fontSize:11, color:'#1f2937', marginBottom:4, textAlign:'right' }}>{j.progress}%</div>
                     <ProgressBar value={j.progress} status={j.status} />
                   </div>
                   <StatusBadge status={j.status} small />
@@ -3326,13 +2538,13 @@ ${rawText.slice(0,5000)}` }]
         })}
       </div>
       {modal && (
-        <Modal title={modal==='add'?'New Case':'Edit Case'} onClose={closeModal} wide>
+        <Modal title={modal==='add'?'New Job':'Edit Job'} onClose={closeModal} wide>
               <>
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
-        <FormField label="Case Title" required>
+        <FormField label="Job Title" required>
           <input style={inputStyle} value={form.title||''} onChange={e=>setForm(f=>({...f,title:e.target.value}))} placeholder="e.g. Visa Application" />
         </FormField>
-        <FormField label="Case Type">
+        <FormField label="Job Type">
           <select style={selectStyle} value={form.type} onChange={e=>setForm(f=>({...f,type:e.target.value}))}>
             {JOB_TYPES.map(t=><option key={t}>{t}</option>)}
           </select>
@@ -3376,7 +2588,7 @@ ${rawText.slice(0,5000)}` }]
           </select>
         </FormField>
         <FormField label="Status">
-          <select style={selectStyle} value={form.status} onChange={e=>setForm(f=>({...f, status:e.target.value, progress: STATUS_PROGRESS[e.target.value] ?? f.progress ?? 0}))}>
+          <select style={selectStyle} value={form.status} onChange={e=>setForm(f=>({...f,status:e.target.value}))}>
             {JOB_STATUSES.map(s=><option key={s}>{s}</option>)}
           </select>
         </FormField>
@@ -3388,8 +2600,8 @@ ${rawText.slice(0,5000)}` }]
         <FormField label="Due Date">
           <input type="date" style={inputStyle} value={form.dueDate||''} onChange={e=>setForm(f=>({...f,dueDate:e.target.value}))} />
         </FormField>
-        <FormField label={`Progress: ${form.progress ?? 0}%`}>
-          <input type="range" min={0} max={100} step={5} value={form.progress ?? 0} onChange={e=>setForm(f=>({...f,progress:parseInt(e.target.value)}))} style={{ width:'100%', accentColor:'#6366f1', marginTop:8 }} />
+        <FormField label={`Progress: ${form.progress||0}%`}>
+          <input type="range" min={0} max={100} step={5} value={form.progress||0} onChange={e=>setForm(f=>({...f,progress:e.target.value}))} style={{ width:'100%', accentColor:'#6366f1', marginTop:8 }} />
         </FormField>
       </div>
       <div style={{ borderTop:'1.5px solid #e2e8f0', marginTop:8, paddingTop:16 }}>
@@ -3418,7 +2630,7 @@ ${rawText.slice(0,5000)}` }]
   
           <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:18 }}>
             <button onClick={closeModal} style={{ background:'#e5e7eb', border:'none', borderRadius:8, padding:'9px 18px', color:'#1f2937', fontWeight:500 }}>Cancel</button>
-            <button onClick={save} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, padding:'9px 20px', color:'#fff', fontWeight:700 }}>Save Case</button>
+            <button onClick={save} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, padding:'9px 20px', color:'#fff', fontWeight:700 }}>Save Job</button>
           </div>
         </Modal>
       )}
@@ -3448,61 +2660,9 @@ ${rawText.slice(0,5000)}` }]
       </div>
       </div>
 
-      {/* ── QUICK UPDATE PANEL ──────────────────── */}
-      <div style={{ background:'#f8fafc', border:'1.5px solid #e2e8f0', borderRadius:10, padding:'12px 16px', marginBottom:16 }}>
-      <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:10 }}>快速更新 <span style={{ color:'#9ca3af', fontWeight:400, textTransform:'none', letterSpacing:0, fontSize:11 }}>Quick Update</span></div>
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
-        <div>
-          <div style={{ fontSize:11, color:'#374151', fontWeight:600, marginBottom:5 }}>状态 Status</div>
-          <select value={viewJob.status} onChange={async e => {
-            const updated = { ...viewJob, status: e.target.value };
-            setViewJob(updated);
-            setJobs(prev => prev.map(j => j.id===viewJob.id ? updated : j));
-            try { await sbUpdate('jobs', updated.id, { data: updated }); } catch(er){ console.warn(er); }
-          }} style={{ width:'100%', background:'#fff', border:'1.5px solid #d1d5db', borderRadius:7, padding:'7px 10px', fontSize:13, color:'#111827', outline:'none', cursor:'pointer' }}>
-            {JOB_STATUSES.map(s=><option key={s}>{s}</option>)}
-          </select>
-        </div>
-        <div>
-          <div style={{ fontSize:11, color:'#374151', fontWeight:600, marginBottom:5 }}>进度 Progress: <span style={{ color:'#6366f1', fontWeight:700 }}>{STATUS_PROGRESS[viewJob.status] ?? viewJob.progress ?? 0}%</span></div>
-          <input type="range" min={0} max={100} step={5} value={STATUS_PROGRESS[viewJob.status] ?? viewJob.progress ?? 0} onChange={async e => {
-            const updated = { ...viewJob, progress: parseInt(e.target.value) };
-            setViewJob(updated);
-            setJobs(prev => prev.map(j => j.id===viewJob.id ? updated : j));
-            try { await sbUpdate('jobs', updated.id, { data: updated }); } catch(er){ console.warn(er); }
-          }} style={{ width:'100%', accentColor:'#6366f1', marginTop:4 }} />
-        </div>
-      </div>
-      </div>
-
       {/* ── EDITABLE SNAPSHOT ───────────────────── */}
       <div style={{ marginBottom:14 }}>
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
-        <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em' }}>最新进展 <span style={{ color:'#9ca3af', fontWeight:400, textTransform:'none', letterSpacing:0, fontSize:11 }}>(失焦自动保存)</span></div>
-        <label style={{ display:'flex', alignItems:'center', gap:5, padding:'4px 10px', background:'#f1f5f9', border:'1.5px solid #cbd5e1', borderRadius:6, color:'#374151', fontSize:11, fontWeight:600, cursor:'pointer' }}>
-          📄 上传快照
-          <input type="file" accept=".docx,.pdf,.txt" style={{display:'none'}} onChange={async e => {
-            const file = e.target.files?.[0]; if (!file) return;
-            try {
-              let rawText = '';
-              if (file.name.endsWith('.txt')) { rawText = await file.text(); }
-              else { const buf = await file.arrayBuffer(); const { value } = await mammoth.extractRawText({ arrayBuffer: buf }); rawText = value; }
-              const res = await fetch('/api/claude', { method:'POST', headers:{'Content-Type':'application/json'},
-                body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:2000,
-                  messages:[{ role:'user', content:`Extract case timeline and current status from this immigration snapshot. Return ONLY valid JSON:\n{"snapshot":"brief 1-2 sentence current status","caseTimeline":[{"date":"","event":"","status":"Completed"}]}\nStatus values: Completed/In Progress/Urgent/Pending\nDocument:\n${rawText.slice(0,5000)}` }]
-                })
-              });
-              const d = await res.json();
-              const txt = (d.content?.[0]?.text||'').replace(/```json|```/g,'').trim();
-              const parsed = JSON.parse(txt);
-              const updated = { ...viewJob, ...(parsed.snapshot?{snapshot:parsed.snapshot}:{}), ...(parsed.caseTimeline?.length?{caseTimeline:parsed.caseTimeline}:{}) };
-              setViewJob(updated); setJobs(prev=>prev.map(j=>j.id===viewJob.id?updated:j));
-              try { await sbUpdate('jobs', updated.id, {data:updated}); } catch(er){ console.warn(er); }
-            } catch(err) { window.alert('Import failed: '+err.message); }
-            e.target.value='';
-          }} />
-        </label>
-      </div>
+      <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:6 }}>最新进展 <span style={{ color:'#9ca3af', fontWeight:400, textTransform:'none', letterSpacing:0, fontSize:11 }}>(失焦自动保存)</span></div>
       <textarea
       style={{ width:'100%', background:'#f8fafc', border:'2px solid #c7d2e0', borderRadius:9, padding:'9px 12px', fontSize:13, color:'#111827', resize:'vertical', minHeight:72, fontFamily:'inherit', lineHeight:1.55, outline:'none', boxSizing:'border-box' }}
       placeholder="记录最新案件进展..."
@@ -3670,7 +2830,7 @@ function Team({ team, jobs, clients, setTeam, setJobs: setJobsOuter }) {
   };
 
   /* Shared job-row renderer used both in cards and drill-down modal */
-  const CaseRow = ({ j, idx, compact }) => {
+  const JobRow = ({ j, idx, compact }) => {
     const client = getClient(j.clientId);
     const overdue = isOverdue(j.dueDate);
     const pStyle = PRIORITY_STYLES[j.priority] || {};
@@ -3771,7 +2931,7 @@ function Team({ team, jobs, clients, setTeam, setJobs: setJobsOuter }) {
                     Top Cases — ranked by urgency
                   </div>
                   <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
-                    {preview.map((j, idx) => <CaseRow key={j.id} j={j} idx={idx} compact />)}
+                    {preview.map((j, idx) => <JobRow key={j.id} j={j} idx={idx} compact />)}
                   </div>
 
                   {/* View All button */}
@@ -3833,7 +2993,7 @@ function Team({ team, jobs, clients, setTeam, setJobs: setJobsOuter }) {
                   Active Cases ({allJobs.length}) — click to open
                 </div>
                 <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
-                  {allJobs.map((j, idx) => <CaseRow key={j.id} j={j} idx={idx} />)}
+                  {allJobs.map((j, idx) => <JobRow key={j.id} j={j} idx={idx} />)}
                 </div>
               </div>
             )}
@@ -4088,57 +3248,38 @@ const addDays = (d,n) => { const dt=new Date(d); dt.setDate(dt.getDate()+n); ret
 const daysUntil = d => Math.ceil((new Date(d) - new Date(today())) / 86400000);
 
 /* ─── DEADLINE ALERTS BANNER ──────────────────────────────────────────────────── */
-function DeadlineAlerts({ jobs, appointments, onGoTo, setOpenJobId }) {
+function DeadlineAlerts({ jobs, appointments }) {
   const soon = [];
   const todayStr = today();
   const sevenDays = addDays(todayStr, 7);
 
   jobs.forEach(j => {
-    if (['Completed', 'Awaiting Decision', 'On Hold'].includes(j.status)) return;
+    if (j.status === 'Completed') return;
     if (j.dueDate && j.dueDate <= sevenDays) {
       const d = daysUntil(j.dueDate);
-      soon.push({ type:'job', label: j.type || 'Case', id: j.id, days: d, overdue: d < 0, urgent: d <= 2 });
+      soon.push({ type:'job', label: j.type, ref: j.ref || j.id, days: d, overdue: d < 0, urgent: d <= 2 });
     }
   });
   appointments.forEach(a => {
     if (a.date && a.date <= sevenDays && a.date >= todayStr) {
-      soon.push({ type:'appt', label: a.title, id: a.id, days: daysUntil(a.date), overdue: false, urgent: daysUntil(a.date) <= 1 });
+      soon.push({ type:'appt', label: a.title, ref: a.id, days: daysUntil(a.date), overdue: false, urgent: daysUntil(a.date) <= 1 });
     }
   });
 
   if (!soon.length) return null;
   soon.sort((a,b) => a.days - b.days);
 
-  const handleClick = (s) => {
-    if (s.type === 'job' && onGoTo && setOpenJobId) {
-      setOpenJobId(s.id);
-      onGoTo('jobs');
-    }
-  };
-
   return (
-    <div style={{ background:'linear-gradient(135deg,#1e1b4b,#312e81)', border:'1.5px solid #6366f140', borderRadius:14, padding:'16px 20px', marginBottom:20, boxShadow:'0 4px 20px #6366f120' }}>
-      <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:12 }}>
-        <div style={{ background:'#f59e0b', borderRadius:8, padding:'5px 12px', fontSize:12, fontWeight:800, color:'#1c1917', letterSpacing:'0.05em', flexShrink:0 }}>
-          ⏰ {soon.length} UPCOMING
-        </div>
-        <span style={{ fontSize:13, color:'#c7d2fe', fontWeight:500 }}>deadline{soon.length>1?'s':''} in the next 7 days</span>
-      </div>
-      <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-        {soon.slice(0,6).map((s,i) => (
-          <div key={i} onClick={() => handleClick(s)} style={{ display:'flex', alignItems:'center', gap:6, background: s.overdue?'#ef444425':s.urgent?'#f9731625':'#ffffff12', border:`1px solid ${s.overdue?'#ef4444':s.urgent?'#f97316':'#6366f145'}`, borderRadius:8, padding:'6px 12px', cursor: s.type==='job' ? 'pointer' : 'default', transition:'filter 0.15s, transform 0.15s' }}
-            onMouseEnter={e => { if (s.type==='job') { e.currentTarget.style.filter='brightness(1.25)'; e.currentTarget.style.transform='translateY(-1px)'; }}}
-            onMouseLeave={e => { e.currentTarget.style.filter='none'; e.currentTarget.style.transform='translateY(0)'; }}>
-            <span style={{ fontSize:11 }}>{s.overdue?'🔴':s.urgent?'⚠️':'📅'}</span>
-            <div>
-              <div style={{ fontSize:12, fontWeight:700, color: s.overdue?'#fca5a5':s.urgent?'#fdba74':'#e0e7ff', maxWidth:180, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{s.label}</div>
-              <div style={{ fontSize:10, color: s.overdue?'#f87171':s.urgent?'#fb923c':'#a5b4fc', marginTop:1 }}>
-                {s.overdue ? `${Math.abs(s.days)}d overdue` : s.days===0 ? 'Today' : `${s.days}d left`}
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
+    <div style={{ background:'#7f1d1d20', border:'1px solid #ef444430', borderRadius:10, padding:'12px 16px', marginBottom:20, display:'flex', gap:12, flexWrap:'wrap', alignItems:'center' }}>
+      <span style={{ fontSize:16 }}>⚠️</span>
+      <span style={{ fontSize:12, fontWeight:600, color:'#fca5a5', textTransform:'uppercase', letterSpacing:'0.06em' }}>
+        {soon.length} Upcoming Deadline{soon.length>1?'s':''}
+      </span>
+      {soon.slice(0,5).map((s,i) => (
+        <span key={i} style={{ fontSize:12, background: s.overdue?'#ef444430': s.urgent?'#f97316 20':'#e5e7eb', color: s.overdue?'#f87171': s.urgent?'#fdba74':'#94a3b8', borderRadius:6, padding:'3px 9px' }}>
+          {s.label} · {s.overdue ? `${Math.abs(s.days)}d overdue` : s.days === 0 ? 'Today' : `${s.days}d`}
+        </span>
+      ))}
     </div>
   );
 }
@@ -4288,7 +3429,7 @@ function Leads({ leads, setLeads, clients, setClients, jobs, setJobs, team, agen
 }
 
 /* ─── CALENDAR PAGE ──────────────────────────────────────────────────────────── */
-function CalendarPage({ appointments, setAppointments, jobs, clients, team, onGoTo, onViewJob }) {
+function CalendarPage({ appointments, setAppointments, jobs, clients, team }) {
   const [showForm, setShowForm] = useState(false);
   const [editAppt, setEditAppt] = useState(null);
   const [curMonth, setCurMonth] = useState(() => { const d=new Date(); return {y:d.getFullYear(),m:d.getMonth()}; });
@@ -4330,21 +3471,14 @@ function CalendarPage({ appointments, setAppointments, jobs, clients, team, onGo
     if (!apptsByDay[key]) apptsByDay[key] = [];
     apptsByDay[key].push(a);
   });
-  // Also add job deadlines as events with client name + priority colour
+  // Also add job deadlines as events
   jobs.forEach(j => {
     if (!j.dueDate || j.status==='Completed') return;
     const [y,mo,dd] = j.dueDate.split('-');
     if (parseInt(y)===curMonth.y && parseInt(mo)-1===curMonth.m && dd) {
       const key = parseInt(dd);
       if (!apptsByDay[key]) apptsByDay[key] = [];
-      const cl = clients.find(c => c.id === j.clientId);
-      const lastName = cl ? (cl.name||'').split(',')[0].trim() : '';
-      const visaCode = (j.type||'').replace('Subclass ','').split('–')[0].trim().split(' ')[0];
-      const PCOLORS = { Urgent:'#ef4444', High:'#f97316', Medium:'#f59e0b', Low:'#6366f1' };
-      const isAwaiting = j.status === 'Awaiting Decision';
-      const pColor = isAwaiting ? '#64748b' : (PCOLORS[j.priority] || '#f59e0b');
-      const label = (isAwaiting ? '⏳ ' : '') + (lastName ? `${lastName} · ${visaCode}` : (visaCode || 'Case'));
-      apptsByDay[key].push({ id:'jd_'+j.id, jobId:j.id, title:label, type:'Deadline', isDeadline:true, priorityColor:pColor });
+      apptsByDay[key].push({ id:'jd_'+j.id, title:`📋 ${j.type||'Job'} Deadline`, type:'Deadline', isDeadline:true });
     }
   });
 
@@ -4388,22 +3522,7 @@ function CalendarPage({ appointments, setAppointments, jobs, clients, team, onGo
                     <>
                       <div style={{ fontSize:13, fontWeight: isToday?700:400, color: isToday?'#6366f1':'#94a3b8', marginBottom:4 }}>{d}</div>
                       {events.slice(0,3).map((ev,ei) => (
-                        <div key={ei}
-                          onClick={()=>{
-                            if (ev.isDeadline) { if(onViewJob) onViewJob(ev.jobId); }
-                            else { setForm({...ev}); setEditAppt(ev.id); setShowForm(true); }
-                          }}
-                          title={ev.isDeadline ? 'Click to view case' : ev.title}
-                          style={{
-                            fontSize:10,
-                            background: ev.isDeadline ? (ev.priorityColor||'#f97316')+'22' : '#38bdf815',
-                            color: ev.isDeadline ? (ev.priorityColor||'#f97316') : '#6366f1',
-                            borderLeft: ev.isDeadline ? `3px solid ${ev.priorityColor||'#f97316'}` : 'none',
-                            borderRadius:4, padding:'2px 5px', marginBottom:2,
-                            cursor:'pointer',
-                            overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
-                            fontWeight: ev.isDeadline ? 600 : 400,
-                          }}>
+                        <div key={ei} onClick={()=>{ if(!ev.isDeadline){setForm({...ev});setEditAppt(ev.id);setShowForm(true);}}} style={{ fontSize:10, background: ev.isDeadline?'#f59e0b20':'#38bdf815', color: ev.isDeadline?'#fbbf24':'#6366f1', borderRadius:4, padding:'2px 5px', marginBottom:2, cursor: ev.isDeadline?'default':'pointer', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                           {ev.time && !ev.isDeadline ? ev.time.slice(0,5)+' ' : ''}{ev.title}
                         </div>
                       ))}
@@ -4575,7 +3694,7 @@ function Invoices({ invoices, setInvoices, clients, jobs }) {
         <table style={{ width:'100%', borderCollapse:'collapse' }}>
           <thead>
             <tr style={{ background:'#e9eaf3' }}>
-              {['Invoice #','Client','Case','Amount','Status','Due Date',''].map(h=>(
+              {['Invoice #','Client','Job','Amount','Status','Due Date',''].map(h=>(
                 <th key={h} style={{ padding:'10px 14px', textAlign:'left', fontSize:11, color:'#1f2937', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.06em' }}>{h}</th>
               ))}
             </tr>
@@ -4622,7 +3741,7 @@ function Invoices({ invoices, setInvoices, clients, jobs }) {
                 {clients.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </FormField>
-            <FormField label="Related Case">
+            <FormField label="Related Job">
               <select value={form.jobId||''} onChange={e=>setForm(f=>({...f,jobId:e.target.value}))} style={{ ...inputStyle }}>
                 <option value="">— None —</option>
                 {jobs.filter(j=>!form.clientId||j.clientId===form.clientId).map(j=><option key={j.id} value={j.id}>{j.type?.slice(0,40)}</option>)}
@@ -5078,9 +4197,6 @@ function App() {
   const [appointments, setAppointments] = useState(INIT_APPOINTMENTS);
   const [agents, setAgents]             = useState(INIT_AGENTS);
   const [view, setView]                 = useState('dashboard');
-  const [openJobId, setOpenJobId]       = useState(null);
-  const [jobsMemberFilter, setJobsMemberFilter] = useState(null);
-  const [jobsStatusFilter, setJobsStatusFilter] = useState(null);
   const [, setLoaded]               = useState(false);
   const [authed, setAuthed]             = useState(() => sessionStorage.getItem('ozsky_auth') === '1');
   const [isManager, setIsManager]       = useState(() => sessionStorage.getItem('ozsky_role') === 'manager');
@@ -5256,15 +4372,15 @@ function App() {
           <main className="oz-main-content" style={{ flex:1, overflowY:'auto', padding:'28px 32px' }}>
             {view === 'dashboard' && (
               <>
-                <DeadlineAlerts jobs={jobs} appointments={appointments} onGoTo={setView} setOpenJobId={setOpenJobId} />
-                <Dashboard clients={clients} jobs={jobs} team={team} onGoTo={setView} setJobsMemberFilter={setJobsMemberFilter} setJobsStatusFilter={setJobsStatusFilter} />
+                <DeadlineAlerts jobs={jobs} appointments={appointments} />
+                <Dashboard clients={clients} jobs={jobs} team={team} onGoTo={setView} />
               </>
             )}
             {view === 'clients'   && <Clients   clients={clients} jobs={jobs} setClients={setClients} setJobs={setJobs} team={team} />}
-            {view === 'jobs'      && <Jobs       jobs={jobs} clients={clients} team={team} setJobs={setJobs} openJobId={openJobId} setOpenJobId={setOpenJobId} jobsMemberFilter={jobsMemberFilter} setJobsMemberFilter={setJobsMemberFilter} jobsStatusFilter={jobsStatusFilter} setJobsStatusFilter={setJobsStatusFilter} />}
+            {view === 'jobs'      && <Jobs       jobs={jobs} clients={clients} team={team} setJobs={setJobs} />}
             {view === 'team'      && isManager && <Team       team={team} jobs={jobs} clients={clients} setTeam={setTeam} setJobs={setJobs} />}
             {view === 'leads'     && <Leads      leads={leads} setLeads={setLeads} clients={clients} setClients={setClients} jobs={jobs} setJobs={setJobs} team={team} agents={agents} />}
-            {view === 'calendar'  && <CalendarPage appointments={appointments} setAppointments={setAppointments} jobs={jobs} clients={clients} team={team} onGoTo={setView} onViewJob={(jid)=>{setOpenJobId(jid);setView('jobs');}} />}
+            {view === 'calendar'  && <CalendarPage appointments={appointments} setAppointments={setAppointments} jobs={jobs} clients={clients} team={team} />}
             {view === 'invoices'  && <Invoices   invoices={invoices} setInvoices={setInvoices} clients={clients} jobs={jobs} />}
             {view === 'agents'    && <AgentsPage agents={agents} setAgents={setAgents} leads={leads} jobs={jobs} invoices={invoices} />}
             {view === 'reports'   && isManager && <Reports clients={clients} jobs={jobs} leads={leads} invoices={invoices} team={team} />}
