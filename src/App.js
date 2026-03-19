@@ -1085,99 +1085,138 @@ function ClientDetailModal({ client, jobs, setJobs, team, onClose, onEdit, onSav
   const extractAndParseJson = (raw) => {
     if (!raw || typeof raw !== 'string') throw new Error('Empty AI response');
 
-    let text = raw.replace(/```json/gi, '').replace(/```/g, '').trim();
+    // Strip markdown fences
+    let text = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
 
+    // Extract outermost { ... }
     const start = text.indexOf('{');
     const end   = text.lastIndexOf('}');
     if (start === -1 || end === -1 || end <= start)
       throw new Error('No JSON object found in AI response');
 
     text = text.slice(start, end + 1)
-      .replace(/[\u201c\u201d]/g, '"')
-      .replace(/[\u2018\u2019]/g, "'")
-      .replace(/^\uFEFF/, '');
+      .replace(/[\u201c\u201d]/g, '"')   // curly double quotes → straight
+      .replace(/[\u2018\u2019]/g, "'")   // curly single quotes → straight
+      .replace(/^\uFEFF/, '');            // BOM
 
-    // Strip control chars but KEEP newlines — they are value delimiters
+    // Strip non-printable control chars but KEEP \n \r
     text = Array.from(text, ch => {
       const c = ch.charCodeAt(0);
       return (c < 32 && c !== 10 && c !== 13) ? ' ' : ch;
     }).join('');
 
-    // ── Phase 1: Fix unquoted scalar values (including Chinese text) ──────────
-    // Step 1a: Safely expand compact JSON so each key-value pair is on its own line.
-    // Uses a state machine to skip content inside strings (avoids corrupting string values).
+    // ── Pass 1: Replace Chinese full-width punctuation OUTSIDE strings ────────
     {
-      let out = '';
-      let inString = false;
+      let out = ''; let inStr = false;
       for (let i = 0; i < text.length; i++) {
         const ch = text[i];
-        if (inString) {
+        if (inStr) {
           out += ch;
-          if (ch === '\\') { out += text[++i] || ''; }
-          else if (ch === '"') { inString = false; }
+          if (ch === '\\') out += text[++i] || '';
+          else if (ch === '"') inStr = false;
         } else {
-          if (ch === '"') { inString = true; out += ch; }
-          else if (ch === ',') {
-            // Look ahead: is the next non-space char a '"' (start of a key)?
-            let j = i + 1;
-            while (j < text.length && (text[j] === ' ' || text[j] === '\t')) j++;
-            if (text[j] === '"') {
-              out += ',\n';
-            } else {
-              out += ch;
-            }
-          } else {
-            out += ch;
-          }
+          if      (ch === '"') { inStr = true; out += ch; }
+          else if (ch === '，') out += ',';
+          else if (ch === '：') out += ':';
+          else                  out += ch;
         }
       }
       text = out;
     }
 
-    // Step 1b: Process line by line
-    text = text.split('\n').map(line => {
-      const m = line.match(/^(\s*"(?:[^"\\]|\\.)*"\s*:\s*)(.*)/);
-      if (!m) return line;
-      const [, keyPart, rest] = m;
-      const val = rest.trim();
+    // ── Pass 2: Fix unquoted values with a full character-level state machine ─
+    // Tracks context so it knows when a value is expected (after ':', after '[',
+    // after ',' inside an array). Any value that does not start with a valid JSON
+    // token (", {, [, null, true, false, digit, -) is collected until the next
+    // structural delimiter and wrapped in double quotes.
+    // This correctly handles NESTED objects like {"form80": 不详, ...} where the
+    // old line-by-line approach failed because the line started with '{'.
+    {
+      let out = ''; let i = 0; const n = text.length;
+      let inStr = false;
+      let expectVal = false;        // true → next non-WS char starts a value
+      const ctxStack = [];          // 'obj' | 'arr'
 
-      // Already a valid JSON value type — leave alone
-      if (val === '' || val.startsWith('{') || val.startsWith('[')) return line;
-      const trailing = val.trimEnd().endsWith(',') ? ',' : '';
-      const bare = val.replace(/,\s*$/, '').trim();
-      if (bare === 'null' || bare === 'true' || bare === 'false') return line;
-      if (/^-?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/.test(bare)) return line;
+      while (i < n) {
+        const ch = text[i];
 
-      // Quoted string — check for "JSON injection" (AI stuffed multiple fields into one value)
-      // e.g. "sex": "null,\"dob\":\"24 Feb\",\"birthplace\":null"
-      if (val.startsWith('"')) {
-        const strMatch = val.match(/^"((?:[^"\\]|\\.)*)"(,?)$/);
-        if (strMatch) {
-          const inner = strMatch[1];
-          const tc = strMatch[2] || '';
-          const indent = line.match(/^(\s*)/)[1];
-          // Contaminated: inner looks like JSON fragments
-          if (/",\s*"[a-zA-Z]/.test(inner) || /[a-zA-Z]"\s*:\s*(null|true|false|\d|")/.test(inner)) {
-            return `${indent}${keyPart.trimStart()}null${tc}`;
-          }
+        // ── Inside a string ──
+        if (inStr) {
+          out += ch;
+          if (ch === '\\') out += text[++i] || '';
+          else if (ch === '"') inStr = false;
+          i++; continue;
         }
-        return line;
+
+        // ── Whitespace — preserve, keep expectVal state ──
+        if (ch === ' ' || ch === '\t' || ch === '\r' || ch === '\n') {
+          out += ch; i++; continue;
+        }
+
+        // ── Expecting a value ──
+        if (expectVal) {
+          expectVal = false;
+          if (ch === '"') { inStr = true; out += ch; i++; continue; }
+          if (ch === '{') { ctxStack.push('obj'); out += ch; i++; continue; }
+          if (ch === '[') { ctxStack.push('arr'); expectVal = true; out += ch; i++; continue; }
+          if (ch === ']') { if (ctxStack.length) ctxStack.pop(); out += ch; i++; continue; } // empty array
+          if (ch === '}') { if (ctxStack.length) ctxStack.pop(); out += ch; i++; continue; } // safety
+
+          // null / true / false / number
+          const rem = text.slice(i);
+          const kw = rem.match(/^(null|true|false|-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?)/);
+          if (kw) { out += kw[0]; i += kw[0].length; continue; }
+
+          // ── Unquoted string value — collect to structural delimiter / newline ──
+          let raw2 = '';
+          while (i < n) {
+            const c = text[i];
+            if (c === ',' || c === '}' || c === ']' || c === '\n' || c === '\r') break;
+            raw2 += c; i++;
+          }
+          const val = raw2.trim();
+          if (!val) {
+            out += 'null';
+          } else if (val === 'null' || val === 'true' || val === 'false') {
+            out += val;
+          } else if (/^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?$/.test(val)) {
+            out += val;
+          } else {
+            out += '"' + val.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
+          }
+          continue;
+        }
+
+        // ── Normal structural characters ──
+        if (ch === '"') { inStr = true; out += ch; i++; continue; }
+        if (ch === ':') { expectVal = true; out += ch; i++; continue; }
+        if (ch === '{') { ctxStack.push('obj'); out += ch; i++; continue; }
+        if (ch === '[') { ctxStack.push('arr'); expectVal = true; out += ch; i++; continue; }
+        if (ch === '}' || ch === ']') { if (ctxStack.length) ctxStack.pop(); out += ch; i++; continue; }
+        if (ch === ',') {
+          if (ctxStack[ctxStack.length - 1] === 'arr') expectVal = true;
+          out += ch; i++; continue;
+        }
+        out += ch; i++;
       }
+      text = out;
+    }
 
-      // Unquoted value (bare Chinese text, bare English word, etc.) — wrap in double quotes
-      const indent = line.match(/^(\s*)/)[1];
-      const escaped = bare.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-      return `${indent}${keyPart.trimStart()}"${escaped}"${trailing}`;
-    }).join('\n');
-
-    // ── Phase 2: Normalise Chinese punctuation AFTER values are safely quoted ─
-    // Replace Chinese commas/colons that are OUTSIDE quoted strings
-    // Simple approach: only replace at JSON structural positions (after } ] null true false or numbers)
-    text = text.replace(/，/g, ',').replace(/：/g, ':');
-
-    // Remove trailing commas before } or ]
+    // ── Pass 3: Remove trailing commas before } or ] ─────────────────────────
     text = text.replace(/,(\s*[}\]])/g, '$1');
 
+    // ── Pass 4: Nullify "JSON-injection" strings ──────────────────────────────
+    // e.g. AI stuffed multiple fields into one value:
+    //   "sex": "null,\"dob\":\"24 Feb\",\"birthplace\":null"  → "sex": null
+    text = text.replace(/"((?:[^"\\]|\\.)*)"/g, (match, inner) => {
+      if (/",\s*"[a-zA-Z_]/.test(inner) ||
+          /[a-zA-Z_]"\s*:\s*(?:null|true|false|\d|")/.test(inner)) {
+        return 'null';
+      }
+      return match;
+    });
+
+    // ── Final: Parse ─────────────────────────────────────────────────────────
     try {
       return JSON.parse(text);
     } catch (err) {
