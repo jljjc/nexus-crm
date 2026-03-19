@@ -1106,17 +1106,30 @@ function ClientDetailModal({ client, jobs, setJobs, team, onClose, onEdit, onSav
     }).join('');
 
     // ── Pass 1: Convert Chinese COLON only (outside strings) ─────────────────
-    // NOTE: We do NOT globally replace Chinese COMMA here — it may appear
-    // legitimately inside unquoted Chinese text values (e.g. 不适用，N/A).
-    // Structural Chinese commas are handled per-context in Pass 2.
+    // Also fixes unescaped quotes inside string values: when a "closing" quote is
+    // followed by something other than a JSON structural char, treat it as escaped.
     {
       let out = ''; let inStr = false;
       for (let i = 0; i < text.length; i++) {
         const ch = text[i];
         if (inStr) {
-          out += ch;
-          if (ch === '\\') out += text[++i] || '';
-          else if (ch === '"') inStr = false;
+          if (ch === '\\') { out += ch + (text[++i] || ''); }
+          else if (ch === '"') {
+            // Peek ahead: is the next non-whitespace char a JSON structural element?
+            let j = i + 1;
+            while (j < text.length && (text[j] === ' ' || text[j] === '\t')) j++;
+            const next = text[j] || '';
+            if (next === ',' || next === ':' || next === '}' || next === ']' ||
+                next === '\n' || next === '\r' || next === '' ) {
+              // Looks like a real end-quote
+              out += ch; inStr = false;
+            } else {
+              // Unescaped quote inside string — escape it
+              out += '\\"';
+            }
+          } else {
+            out += ch;
+          }
         } else {
           if      (ch === '"') { inStr = true; out += ch; }
           else if (ch === '：') out += ':';
@@ -1141,10 +1154,21 @@ function ClientDetailModal({ client, jobs, setJobs, team, onClose, onEdit, onSav
 
         // ── Inside a string ──────────────────────────────────────────────────
         if (inStr) {
-          out += ch;
-          if (ch === '\\') out += text[++i] || '';
-          else if (ch === '"') inStr = false;
-          i++; continue;
+          if (ch === '\\') { out += ch + (text[++i] || ''); i++; continue; }
+          if (ch === '"') {
+            // Peek ahead: real end-quote or unescaped quote inside string?
+            let j = i + 1;
+            while (j < n && (text[j] === ' ' || text[j] === '\t')) j++;
+            const next = text[j] || '';
+            if (next === ',' || next === ':' || next === '}' || next === ']' ||
+                next === '\n' || next === '\r' || j >= n) {
+              out += ch; inStr = false; // real end quote
+            } else {
+              out += '\\"'; // unescaped quote inside string — escape it
+            }
+            i++; continue;
+          }
+          out += ch; i++; continue;
         }
 
         // ── Whitespace (preserve, keep expectVal state) ──────────────────────
@@ -1172,9 +1196,8 @@ function ClientDetailModal({ client, jobs, setJobs, team, onClose, onEdit, onSav
           // In ARRAY context : any comma (ASCII or Chinese) stops the element.
           // In OBJECT context: ASCII comma stops only if lookahead shows a key/closer;
           //                    Chinese comma '，' is part of the value text.
-          // IMPORTANT: Don't stop at \n unless the NEXT non-space line starts with
-          //            a JSON key (") or a closer (} or ]). This handles multi-line
-          //            bare values that the AI splits across lines.
+          // Newline: only stop if next non-blank line starts with a key/closer.
+          // This handles multi-line bare values that AI splits across lines.
           const inArr = ctxStack[ctxStack.length - 1] === 'arr';
           let raw2 = '';
           let terminatedByChinComma = false;
@@ -1182,24 +1205,22 @@ function ClientDetailModal({ client, jobs, setJobs, team, onClose, onEdit, onSav
             const c = text[i];
             if (c === '}' || c === ']') break;
             if (c === '\n' || c === '\r') {
-              // Peek ahead past whitespace — if next visible char is a key/closer, stop
+              // Peek ahead past whitespace — stop if next visible char is key/closer
               let j = i + 1;
               while (j < n && (text[j] === ' ' || text[j] === '\t' || text[j] === '\n' || text[j] === '\r')) j++;
               if (j >= n || text[j] === '"' || text[j] === '}' || text[j] === ']') break;
-              // Otherwise: multi-line value — include a space and continue
+              // Otherwise: multi-line bare value — merge with a space
               raw2 += ' '; i++; continue;
             }
             if (c === '，') {
-              if (inArr) { terminatedByChinComma = true; i++; break; } // Chinese comma = array separator
-              raw2 += c; i++; continue;  // In object: include in value
+              if (inArr) { terminatedByChinComma = true; i++; break; }
+              raw2 += c; i++; continue;
             }
             if (c === ',') {
-              if (inArr) break; // In arrays ASCII comma always separates elements
-              // In objects: stop only if next non-space char looks like a key/closer
+              if (inArr) break;
               let j = i + 1;
               while (j < n && (text[j] === ' ' || text[j] === '\t')) j++;
               if (j >= n || text[j] === '"' || text[j] === '}' || text[j] === ']' || text[j] === '\n') break;
-              // Inline ASCII comma inside value text → include
             }
             raw2 += c; i++;
           }
@@ -1213,7 +1234,6 @@ function ClientDetailModal({ client, jobs, setJobs, team, onClose, onEdit, onSav
           } else {
             out += '"' + val.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
           }
-          // If terminated by Chinese comma in array context, emit comma + expect next value
           if (terminatedByChinComma) { out += ','; expectVal = true; }
           continue;
         }
