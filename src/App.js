@@ -1095,9 +1095,9 @@ function ClientDetailModal({ client, jobs, setJobs, team, onClose, onEdit, onSav
       throw new Error('No JSON object found in AI response');
 
     text = text.slice(start, end + 1)
-      .replace(/[\u201c\u201d]/g, '"')   // curly double quotes → straight
-      .replace(/[\u2018\u2019]/g, "'")   // curly single quotes → straight
-      .replace(/^\uFEFF/, '');            // BOM
+      .replace(/[\u201c\u201d]/g, '"')
+      .replace(/[\u2018\u2019]/g, "'")
+      .replace(/^\uFEFF/, '');
 
     // Strip non-printable control chars but KEEP \n \r
     text = Array.from(text, ch => {
@@ -1106,10 +1106,9 @@ function ClientDetailModal({ client, jobs, setJobs, team, onClose, onEdit, onSav
     }).join('');
 
     // ── Pass 1: Convert Chinese COLON only (outside strings) ─────────────────
-    // NOTE: We do NOT convert Chinese COMMA here — it may appear inside
-    // unquoted Chinese text values and would corrupt them if replaced globally.
-    // Chinese commas inside strings are perfectly valid JSON string content.
-    // Structural Chinese commas are handled in Pass 2 below.
+    // NOTE: We do NOT globally replace Chinese COMMA here — it may appear
+    // legitimately inside unquoted Chinese text values (e.g. 不适用，N/A).
+    // Structural Chinese commas are handled per-context in Pass 2.
     {
       let out = ''; let inStr = false;
       for (let i = 0; i < text.length; i++) {
@@ -1120,7 +1119,7 @@ function ClientDetailModal({ client, jobs, setJobs, team, onClose, onEdit, onSav
           else if (ch === '"') inStr = false;
         } else {
           if      (ch === '"') { inStr = true; out += ch; }
-          else if (ch === '：') out += ':';   // Chinese colon → ASCII colon
+          else if (ch === '：') out += ':';
           else                  out += ch;
         }
       }
@@ -1128,15 +1127,14 @@ function ClientDetailModal({ client, jobs, setJobs, team, onClose, onEdit, onSav
     }
 
     // ── Pass 2: Full character-level state machine ────────────────────────────
-    // Tracks JSON structure to detect "value expected" positions, then wraps
-    // any bare (unquoted) value in double-quotes. Handles ALL nesting levels.
-    // Chinese comma 「，」 is handled as a structural separator in object/array
-    // context, but is INCLUDED in bare-value text when collecting unquoted values.
+    // Tracks JSON structure depth so it knows exactly when a value is expected.
+    // Any unquoted token that doesn't start with a valid JSON value character
+    // is collected and wrapped in double-quotes.
     {
       let out = ''; let i = 0; const n = text.length;
       let inStr = false;
       let expectVal = false;
-      const ctxStack = [];  // 'obj' | 'arr'
+      const ctxStack = []; // 'obj' | 'arr'
 
       while (i < n) {
         const ch = text[i];
@@ -1149,12 +1147,12 @@ function ClientDetailModal({ client, jobs, setJobs, team, onClose, onEdit, onSav
           i++; continue;
         }
 
-        // ── Whitespace ───────────────────────────────────────────────────────
+        // ── Whitespace (preserve, keep expectVal state) ──────────────────────
         if (ch === ' ' || ch === '\t' || ch === '\r' || ch === '\n') {
           out += ch; i++; continue;
         }
 
-        // ── In "expecting a value" state ─────────────────────────────────────
+        // ── Expecting a value ────────────────────────────────────────────────
         if (expectVal) {
           expectVal = false;
 
@@ -1169,29 +1167,27 @@ function ClientDetailModal({ client, jobs, setJobs, team, onClose, onEdit, onSav
           const kw = rem.match(/^(null|true|false|-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?)/);
           if (kw) { out += kw[0]; i += kw[0].length; continue; }
 
-          // ── Unquoted bare value (bare Chinese, bare English word, etc.) ────
-          // Collect until a STRUCTURAL delimiter:
-          //   • } or ] or newline → always stop
-          //   • In ARRAY context: comma always stops (elements are separated by comma)
-          //   • In OBJECT context: comma stops only if followed by '"', '}', ']', or '\n'
-          //     (looks like a JSON field separator, not an inline comma in value text)
-          //   • Chinese comma '，' is included in object-context values but stops array items
-          let raw2 = '';
+          // ── Unquoted bare value ──────────────────────────────────────────
+          // Collect to next structural delimiter.
+          // In ARRAY context : any comma (ASCII or Chinese) stops the element.
+          // In OBJECT context: ASCII comma stops only if lookahead shows a key/closer;
+          //                    Chinese comma '，' is part of the value text.
           const inArr = ctxStack[ctxStack.length - 1] === 'arr';
+          let raw2 = '';
           while (i < n) {
             const c = text[i];
             if (c === '}' || c === ']' || c === '\n' || c === '\r') break;
             if (c === '，') {
-              if (inArr) { i++; break; } // Chinese comma stops array item, consume it
-              // In object context, include it in value (see note above)
+              if (inArr) { i++; break; } // Chinese comma = array item separator
+              raw2 += c; i++; continue;  // In object: include in value
             }
             if (c === ',') {
-              if (inArr) break; // In arrays, comma always separates elements
-              // In objects: stop only if next non-space is a key/closer
+              if (inArr) break; // In arrays ASCII comma always separates elements
+              // In objects: stop only if next non-space char looks like a key/closer
               let j = i + 1;
               while (j < n && (text[j] === ' ' || text[j] === '\t')) j++;
               if (j >= n || text[j] === '"' || text[j] === '}' || text[j] === ']' || text[j] === '\n') break;
-              // Otherwise (inline comma in Chinese text) → include it
+              // Inline ASCII comma inside value text → include
             }
             raw2 += c; i++;
           }
@@ -1208,7 +1204,7 @@ function ClientDetailModal({ client, jobs, setJobs, team, onClose, onEdit, onSav
           continue;
         }
 
-        // ── Normal structural characters (not in expectVal) ──────────────────
+        // ── Normal structural characters ─────────────────────────────────────
         if (ch === '"') { inStr = true; out += ch; i++; continue; }
         if (ch === ':') { expectVal = true; out += ch; i++; continue; }
         if (ch === '{') { ctxStack.push('obj'); out += ch; i++; continue; }
@@ -1218,8 +1214,8 @@ function ClientDetailModal({ client, jobs, setJobs, team, onClose, onEdit, onSav
           if (ctxStack[ctxStack.length - 1] === 'arr') expectVal = true;
           out += ch; i++; continue;
         }
-        // Chinese comma as structural separator (between key-value pairs in obj or items in arr)
         if (ch === '，') {
+          // Chinese comma as structural separator
           if (ctxStack[ctxStack.length - 1] === 'arr') expectVal = true;
           out += ','; i++; continue;
         }
@@ -1231,9 +1227,7 @@ function ClientDetailModal({ client, jobs, setJobs, team, onClose, onEdit, onSav
     // ── Pass 3: Remove trailing commas before } or ] ─────────────────────────
     text = text.replace(/,(\s*[}\]])/g, '$1');
 
-    // ── Pass 4: Nullify "JSON-injection" strings ──────────────────────────────
-    // Detect strings where AI stuffed multiple fields into one value, e.g.:
-    //   "sex": "null,\"dob\":\"24 Feb\",\"birthplace\":null"  → "sex": null
+    // ── Pass 4: Nullify "JSON-injection" contaminated strings ─────────────────
     text = text.replace(/"((?:[^"\\]|\\.)*)"/g, (match, inner) => {
       if (/",\s*"[a-zA-Z_]/.test(inner) ||
           /[a-zA-Z_]"\s*:\s*(?:null|true|false|\d|")/.test(inner)) {
@@ -1245,9 +1239,8 @@ function ClientDetailModal({ client, jobs, setJobs, team, onClose, onEdit, onSav
     // ── Parse ────────────────────────────────────────────────────────────────
     try {
       const result = JSON.parse(text);
-      // ── Post-process: normalise fields that should be arrays ─────────────
+      // ── Post-process: fix array fields that AI returned as strings/null ───
       if (result && result.profile) {
-        // If AI returned 不适用/N/A as a string instead of [] for array fields
         const arrFields = ['skillsAssessments','visaHistory','addressHistory',
                            'employmentHistory','keyIssues','documents','caseTimeline','nextSteps'];
         for (const f of arrFields) {
@@ -1670,7 +1663,7 @@ CRITICAL RULES — YOU MUST FOLLOW THESE:
 6. Current status summary → currentStatus string; bullet points → nextSteps array
 7. Extract ALL visa rows into visaHistory.
 8. Return [] for empty arrays, NOT null.
-9. 四、职业评估 says 不适用/N/A → return "skillsAssessments": [].` }] }),
+9. If 四、职业评估 says 不适用 or N/A → set "skillsAssessments": [].` }] }),
       });
       const d = await res.json();
       const raw = (d.content || []).map(c => c?.text || '').join('');
@@ -1756,7 +1749,7 @@ CRITICAL RULES — YOU MUST FOLLOW THESE:
 6. Current status summary → currentStatus string; bullet points → nextSteps array
 7. Extract ALL visa rows into visaHistory.
 8. Return [] for empty arrays, NOT null.
-9. 四、职业评估 says 不适用/N/A → return "skillsAssessments": [].` }] })
+9. If 四、职业评估 says 不适用 or N/A → set "skillsAssessments": [].` }] })
       });
       const d = await res.json();
       const raw = (d.content || []).map(c => c?.text || '').join('');
