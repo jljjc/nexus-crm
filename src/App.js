@@ -1105,7 +1105,11 @@ function ClientDetailModal({ client, jobs, setJobs, team, onClose, onEdit, onSav
       return (c < 32 && c !== 10 && c !== 13) ? ' ' : ch;
     }).join('');
 
-    // ── Pass 1: Replace Chinese full-width punctuation OUTSIDE strings ────────
+    // ── Pass 1: Convert Chinese COLON only (outside strings) ─────────────────
+    // NOTE: We do NOT convert Chinese COMMA here — it may appear inside
+    // unquoted Chinese text values and would corrupt them if replaced globally.
+    // Chinese commas inside strings are perfectly valid JSON string content.
+    // Structural Chinese commas are handled in Pass 2 below.
     {
       let out = ''; let inStr = false;
       for (let i = 0; i < text.length; i++) {
@@ -1116,31 +1120,28 @@ function ClientDetailModal({ client, jobs, setJobs, team, onClose, onEdit, onSav
           else if (ch === '"') inStr = false;
         } else {
           if      (ch === '"') { inStr = true; out += ch; }
-          else if (ch === '，') out += ',';
-          else if (ch === '：') out += ':';
+          else if (ch === '：') out += ':';   // Chinese colon → ASCII colon
           else                  out += ch;
         }
       }
       text = out;
     }
 
-    // ── Pass 2: Fix unquoted values with a full character-level state machine ─
-    // Tracks context so it knows when a value is expected (after ':', after '[',
-    // after ',' inside an array). Any value that does not start with a valid JSON
-    // token (", {, [, null, true, false, digit, -) is collected until the next
-    // structural delimiter and wrapped in double quotes.
-    // This correctly handles NESTED objects like {"form80": 不详, ...} where the
-    // old line-by-line approach failed because the line started with '{'.
+    // ── Pass 2: Full character-level state machine ────────────────────────────
+    // Tracks JSON structure to detect "value expected" positions, then wraps
+    // any bare (unquoted) value in double-quotes. Handles ALL nesting levels.
+    // Chinese comma 「，」 is handled as a structural separator in object/array
+    // context, but is INCLUDED in bare-value text when collecting unquoted values.
     {
       let out = ''; let i = 0; const n = text.length;
       let inStr = false;
-      let expectVal = false;        // true → next non-WS char starts a value
-      const ctxStack = [];          // 'obj' | 'arr'
+      let expectVal = false;
+      const ctxStack = [];  // 'obj' | 'arr'
 
       while (i < n) {
         const ch = text[i];
 
-        // ── Inside a string ──
+        // ── Inside a string ──────────────────────────────────────────────────
         if (inStr) {
           out += ch;
           if (ch === '\\') out += text[++i] || '';
@@ -1148,30 +1149,50 @@ function ClientDetailModal({ client, jobs, setJobs, team, onClose, onEdit, onSav
           i++; continue;
         }
 
-        // ── Whitespace — preserve, keep expectVal state ──
+        // ── Whitespace ───────────────────────────────────────────────────────
         if (ch === ' ' || ch === '\t' || ch === '\r' || ch === '\n') {
           out += ch; i++; continue;
         }
 
-        // ── Expecting a value ──
+        // ── In "expecting a value" state ─────────────────────────────────────
         if (expectVal) {
           expectVal = false;
+
           if (ch === '"') { inStr = true; out += ch; i++; continue; }
           if (ch === '{') { ctxStack.push('obj'); out += ch; i++; continue; }
           if (ch === '[') { ctxStack.push('arr'); expectVal = true; out += ch; i++; continue; }
-          if (ch === ']') { if (ctxStack.length) ctxStack.pop(); out += ch; i++; continue; } // empty array
-          if (ch === '}') { if (ctxStack.length) ctxStack.pop(); out += ch; i++; continue; } // safety
+          if (ch === ']') { if (ctxStack.length) ctxStack.pop(); out += ch; i++; continue; }
+          if (ch === '}') { if (ctxStack.length) ctxStack.pop(); out += ch; i++; continue; }
 
           // null / true / false / number
           const rem = text.slice(i);
           const kw = rem.match(/^(null|true|false|-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?)/);
           if (kw) { out += kw[0]; i += kw[0].length; continue; }
 
-          // ── Unquoted string value — collect to structural delimiter / newline ──
+          // ── Unquoted bare value (bare Chinese, bare English word, etc.) ────
+          // Collect until a STRUCTURAL delimiter:
+          //   • } or ] or newline → always stop
+          //   • In ARRAY context: comma always stops (elements are separated by comma)
+          //   • In OBJECT context: comma stops only if followed by '"', '}', ']', or '\n'
+          //     (looks like a JSON field separator, not an inline comma in value text)
+          //   • Chinese comma '，' is included in object-context values but stops array items
           let raw2 = '';
+          const inArr = ctxStack[ctxStack.length - 1] === 'arr';
           while (i < n) {
             const c = text[i];
-            if (c === ',' || c === '}' || c === ']' || c === '\n' || c === '\r') break;
+            if (c === '}' || c === ']' || c === '\n' || c === '\r') break;
+            if (c === '，') {
+              if (inArr) { i++; break; } // Chinese comma stops array item, consume it
+              // In object context, include it in value (see note above)
+            }
+            if (c === ',') {
+              if (inArr) break; // In arrays, comma always separates elements
+              // In objects: stop only if next non-space is a key/closer
+              let j = i + 1;
+              while (j < n && (text[j] === ' ' || text[j] === '\t')) j++;
+              if (j >= n || text[j] === '"' || text[j] === '}' || text[j] === ']' || text[j] === '\n') break;
+              // Otherwise (inline comma in Chinese text) → include it
+            }
             raw2 += c; i++;
           }
           const val = raw2.trim();
@@ -1187,7 +1208,7 @@ function ClientDetailModal({ client, jobs, setJobs, team, onClose, onEdit, onSav
           continue;
         }
 
-        // ── Normal structural characters ──
+        // ── Normal structural characters (not in expectVal) ──────────────────
         if (ch === '"') { inStr = true; out += ch; i++; continue; }
         if (ch === ':') { expectVal = true; out += ch; i++; continue; }
         if (ch === '{') { ctxStack.push('obj'); out += ch; i++; continue; }
@@ -1196,6 +1217,11 @@ function ClientDetailModal({ client, jobs, setJobs, team, onClose, onEdit, onSav
         if (ch === ',') {
           if (ctxStack[ctxStack.length - 1] === 'arr') expectVal = true;
           out += ch; i++; continue;
+        }
+        // Chinese comma as structural separator (between key-value pairs in obj or items in arr)
+        if (ch === '，') {
+          if (ctxStack[ctxStack.length - 1] === 'arr') expectVal = true;
+          out += ','; i++; continue;
         }
         out += ch; i++;
       }
@@ -1206,7 +1232,7 @@ function ClientDetailModal({ client, jobs, setJobs, team, onClose, onEdit, onSav
     text = text.replace(/,(\s*[}\]])/g, '$1');
 
     // ── Pass 4: Nullify "JSON-injection" strings ──────────────────────────────
-    // e.g. AI stuffed multiple fields into one value:
+    // Detect strings where AI stuffed multiple fields into one value, e.g.:
     //   "sex": "null,\"dob\":\"24 Feb\",\"birthplace\":null"  → "sex": null
     text = text.replace(/"((?:[^"\\]|\\.)*)"/g, (match, inner) => {
       if (/",\s*"[a-zA-Z_]/.test(inner) ||
@@ -1216,9 +1242,21 @@ function ClientDetailModal({ client, jobs, setJobs, team, onClose, onEdit, onSav
       return match;
     });
 
-    // ── Final: Parse ─────────────────────────────────────────────────────────
+    // ── Parse ────────────────────────────────────────────────────────────────
     try {
-      return JSON.parse(text);
+      const result = JSON.parse(text);
+      // ── Post-process: normalise fields that should be arrays ─────────────
+      if (result && result.profile) {
+        // If AI returned 不适用/N/A as a string instead of [] for array fields
+        const arrFields = ['skillsAssessments','visaHistory','addressHistory',
+                           'employmentHistory','keyIssues','documents','caseTimeline','nextSteps'];
+        for (const f of arrFields) {
+          if (result.profile[f] !== undefined && !Array.isArray(result.profile[f])) {
+            result.profile[f] = [];
+          }
+        }
+      }
+      return result;
     } catch (err) {
       const posMatch = /position\s+(\d+)/i.exec(err?.message || '');
       if (posMatch) {
@@ -1631,7 +1669,8 @@ CRITICAL RULES — YOU MUST FOLLOW THESE:
 5. Timeline rows / 大事记 → caseTimeline array; status: "Completed"/"In Progress"/"Urgent"/"Pending"
 6. Current status summary → currentStatus string; bullet points → nextSteps array
 7. Extract ALL visa rows into visaHistory.
-8. Return [] for empty arrays, NOT null.` }] }),
+8. Return [] for empty arrays, NOT null.
+9. 四、职业评估 says 不适用/N/A → return "skillsAssessments": [].` }] }),
       });
       const d = await res.json();
       const raw = (d.content || []).map(c => c?.text || '').join('');
@@ -1716,7 +1755,8 @@ CRITICAL RULES — YOU MUST FOLLOW THESE:
 5. Timeline rows / 大事记 → caseTimeline array; status: "Completed"/"In Progress"/"Urgent"/"Pending"
 6. Current status summary → currentStatus string; bullet points → nextSteps array
 7. Extract ALL visa rows into visaHistory.
-8. Return [] for empty arrays, NOT null.` }] })
+8. Return [] for empty arrays, NOT null.
+9. 四、职业评估 says 不适用/N/A → return "skillsAssessments": [].` }] })
       });
       const d = await res.json();
       const raw = (d.content || []).map(c => c?.text || '').join('');
