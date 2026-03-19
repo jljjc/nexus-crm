@@ -1172,13 +1172,25 @@ function ClientDetailModal({ client, jobs, setJobs, team, onClose, onEdit, onSav
           // In ARRAY context : any comma (ASCII or Chinese) stops the element.
           // In OBJECT context: ASCII comma stops only if lookahead shows a key/closer;
           //                    Chinese comma '，' is part of the value text.
+          // IMPORTANT: Don't stop at \n unless the NEXT non-space line starts with
+          //            a JSON key (") or a closer (} or ]). This handles multi-line
+          //            bare values that the AI splits across lines.
           const inArr = ctxStack[ctxStack.length - 1] === 'arr';
           let raw2 = '';
+          let terminatedByChinComma = false;
           while (i < n) {
             const c = text[i];
-            if (c === '}' || c === ']' || c === '\n' || c === '\r') break;
+            if (c === '}' || c === ']') break;
+            if (c === '\n' || c === '\r') {
+              // Peek ahead past whitespace — if next visible char is a key/closer, stop
+              let j = i + 1;
+              while (j < n && (text[j] === ' ' || text[j] === '\t' || text[j] === '\n' || text[j] === '\r')) j++;
+              if (j >= n || text[j] === '"' || text[j] === '}' || text[j] === ']') break;
+              // Otherwise: multi-line value — include a space and continue
+              raw2 += ' '; i++; continue;
+            }
             if (c === '，') {
-              if (inArr) { i++; break; } // Chinese comma = array item separator
+              if (inArr) { terminatedByChinComma = true; i++; break; } // Chinese comma = array separator
               raw2 += c; i++; continue;  // In object: include in value
             }
             if (c === ',') {
@@ -1201,6 +1213,8 @@ function ClientDetailModal({ client, jobs, setJobs, team, onClose, onEdit, onSav
           } else {
             out += '"' + val.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
           }
+          // If terminated by Chinese comma in array context, emit comma + expect next value
+          if (terminatedByChinComma) { out += ','; expectVal = true; }
           continue;
         }
 
