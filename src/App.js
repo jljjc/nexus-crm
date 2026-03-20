@@ -363,7 +363,7 @@ const GLOBAL_CSS = `
 `;
 
 /* ─── CONSTANTS ─────────────────────────────────────────────────────────────── */
-const JOB_STATUSES = ['New', 'In Progress', 'Awaiting Docs', 'Under Review', 'Awaiting Decision', 'Completed', 'On Hold'];
+const JOB_STATUSES = ['New', 'In Progress', 'Awaiting Docs', 'Under Review', 'State Nomination', 'Awaiting Decision', 'S56 Request (Further Information)', 'Completed', 'On Hold'];
 const JOB_TYPES = [
   // Skill Assessments
   'Skills Assessment – ACS (IT)',
@@ -415,8 +415,10 @@ const STATUS_STYLES = {
   'In Progress':   { bg: '#f59e0b20', text: '#fbbf24', dot: '#f59e0b' },
   'Awaiting Docs': { bg: '#a78bfa20', text: '#c4b5fd', dot: '#a78bfa' },
   'Under Review':  { bg: '#fb923c20', text: '#fdba74', dot: '#fb923c' },
+  'State Nomination': { bg: '#0891b220', text: '#06b6d4', dot: '#0891b2' },
   'Completed':     { bg: '#10b98120', text: '#34d399', dot: '#10b981' },
   'Awaiting Decision': { bg: '#64748b20', text: '#94a3b8', dot: '#64748b' },
+  'S56 Request (Further Information)': { bg: '#ef444420', text: '#f87171', dot: '#ef4444' },
   'On Hold':       { bg: '#94a3b820', text: '#94a3b8', dot: '#64748b' },
   'Active':        { bg: '#10b98120', text: '#34d399', dot: '#10b981' },
   'Pending':       { bg: '#f59e0b20', text: '#fbbf24', dot: '#f59e0b' },
@@ -589,7 +591,9 @@ function Avatar({ name, color, size=32 }) {
 
 const STATUS_PROGRESS = {
   'New': 5, 'In Progress': 40, 'Awaiting Docs': 25,
-  'Under Review': 70, 'Awaiting Decision': 100, 'Completed': 100, 'On Hold': 15,
+  'Under Review': 70, 'State Nomination': 85,
+  'Awaiting Decision': 100, 'S56 Request (Further Information)': 90,
+  'Completed': 100, 'On Hold': 100,
 };
 
 function ProgressBar({ value, status }) {
@@ -2302,8 +2306,8 @@ ${rawText.slice(0,5000)}` }]
         <Modal title={`编辑案件: ${editingJob.title}`} onClose={()=>setEditingJob(null)} wide>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:14 }}>
             <div><label style={{ fontSize:11, fontWeight:700, color:'#374151', textTransform:'uppercase', letterSpacing:'0.07em', display:'block', marginBottom:5 }}>状态</label>
-              <select value={jobForm.status||''} onChange={e=>setJobForm(f=>({...f,status:e.target.value}))} style={{ width:'100%', background:'#fff', border:'2px solid #c7d2e0', borderRadius:8, padding:'8px 10px', fontSize:13, color:'#111827', outline:'none' }}>
-                {['Preparing','Submitted','In Review','Awaiting Decision','Approved','Refused','Withdrawn','Completed'].map(s=><option key={s}>{s}</option>)}
+              <select value={jobForm.status||''} onChange={e=>setJobForm(f=>({...f,status:e.target.value, progress: STATUS_PROGRESS[e.target.value] ?? f.progress ?? 0}))} style={{ width:'100%', background:'#fff', border:'2px solid #c7d2e0', borderRadius:8, padding:'8px 10px', fontSize:13, color:'#111827', outline:'none' }}>
+                {JOB_STATUSES.map(s=><option key={s}>{s}</option>)}
               </select>
             </div>
             <div><label style={{ fontSize:11, fontWeight:700, color:'#374151', textTransform:'uppercase', letterSpacing:'0.07em', display:'block', marginBottom:5 }}>优先级</label>
