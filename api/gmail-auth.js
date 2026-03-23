@@ -53,11 +53,24 @@ export default async function handler(req, res) {
         return res.redirect(`/?gmail_error=${encodeURIComponent(tokens.error_description)}`);
       }
 
+      // Fetch user email (best effort — not critical)
+      let userEmail = '';
+      try {
+        const infoRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+          headers: { Authorization: `Bearer ${tokens.access_token}` },
+        });
+        if (infoRes.ok) {
+          const info = await infoRes.json();
+          userEmail = info.email || '';
+        }
+      } catch { /* non-critical */ }
+
       // Redirect back to app with tokens in URL fragment (never in query string)
       const fragment = new URLSearchParams({
         gmail_access_token:  tokens.access_token,
         gmail_refresh_token: tokens.refresh_token || '',
         gmail_expires_in:    tokens.expires_in || 3600,
+        gmail_user_email:    userEmail,
       });
       return res.redirect(`/#${fragment}`);
     } catch (err) {
