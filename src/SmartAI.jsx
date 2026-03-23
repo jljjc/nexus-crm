@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import * as mammoth from 'mammoth';
 import {
-  readSession, writeSession, clearSession, sessionIsValid, getValidToken,
+  readSession, clearSession, sessionIsValid, getValidToken,
 } from './utils/gmailSession';
 
 /* ── Brand colours ────────────────────────────────────────────────────────── */
