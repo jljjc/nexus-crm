@@ -706,18 +706,38 @@ function SnapshotSection({
       const r = await fetch('/api/claude', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-6', max_tokens: 3000,
-          messages: [{ role: 'user', content: `请从以下客户快照中提取所有结构化信息，以纯JSON返回（不含markdown），严格使用以下结构，缺失字段用null：
-{"name":"","email":"","phone":"","nationality":"","type":"Migration","nameChinese":"",
-"profile":{"sex":null,"dob":null,"birthplace":null,"passportNo":null,"passportExpiry":null,"auAddress":null,"maritalStatus":null,"chinaId":null,"consultant":null,"visaTarget":null,
-"visaHistory":[{"applicationNo":"","visaType":"","grantDate":"","expiry":"","status":""}],
-"skillsAssessments":[{"appId":"","occupation":"","outcome":"","submitted":""}],
-"caseTimeline":[{"date":"","event":"","status":"Completed"}],
-"keyIssues":[{"priority":"High","item":"","detail":""}],
-"sponsor":{"name":null,"dob":null,"nationality":null,"passportNo":null,"relationship":null,"address":null,"occupation":null},
-"serviceAgreement":{"contractDate":null,"totalFee":null}}}
+          model: 'claude-sonnet-4-6', max_tokens: 1500,
+          messages: [{ role: 'user', content: `从以下客户快照提取信息，返回纯JSON（无markdown，无注释），只填写找到的字段，找不到的字段省略不写：
+{
+  "name": "",
+  "email": "",
+  "phone": "",
+  "nationality": "",
+  "nameChinese": "",
+  "profile": {
+    "sex": "",
+    "dob": "",
+    "passportNo": "",
+    "passportExpiry": "",
+    "auAddress": "",
+    "maritalStatus": "",
+    "chinaId": "",
+    "nameZh": "",
+    "visaTarget": "",
+    "consultant": "",
+    "sponsor": {
+      "name": "",
+      "dob": "",
+      "nationality": "",
+      "passportNo": "",
+      "relationship": "",
+      "address": "",
+      "occupation": ""
+    }
+  }
+}
 
-快照文本：\n${snapshot.slice(0, 6000)}` }] }),
+快照文本：\n${snapshot.slice(0, 4000)}` }] }),
       });
       const data = await r.json();
       if (!r.ok) throw new Error(data.error || 'AI 提取失败');
