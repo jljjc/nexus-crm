@@ -291,14 +291,189 @@ const errorStyle = {
   borderRadius: 6, padding: '8px 10px', fontSize: 12, marginTop: 8,
 };
 
-// Placeholder — Document and Snapshot sections added in Tasks 8-9
+/* ════════════════════════════════════════════════════════════════════════════
+   Document Section
+════════════════════════════════════════════════════════════════════════════ */
+function DocumentSection({ selectedClient, sessionDocs, setSessionDocs, onImportClient }) {
+  const [open, setOpen] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [preview, setPreview] = useState(null);
+  const fileRef = useRef();
+
+  const handleFile = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setError(''); setPreview(null);
+
+    if (file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = ev => setPreview({ imageUrl: ev.target.result });
+      reader.readAsDataURL(file);
+    }
+
+    setLoading(true);
+    try {
+      let body;
+
+      if (file.name.toLowerCase().endsWith('.docx')) {
+        const arrayBuffer = await file.arrayBuffer();
+        const { value: textContent } = await mammoth.extractRawText({ arrayBuffer });
+        if (!textContent?.trim()) throw new Error('DOCX 文本提取失败（文件可能受密码保护或已损坏）');
+        body = { fileName: file.name, textContent, mimeType: 'text/plain' };
+      } else if (file.name.toLowerCase().endsWith('.txt')) {
+        const textContent = await file.text();
+        body = { fileName: file.name, textContent, mimeType: 'text/plain' };
+      } else {
+        const base64 = await fileToBase64(file);
+        body = { fileBase64: base64, mimeType: file.type || guessMime(file.name), fileName: file.name };
+      }
+
+      const r = await fetch('/api/parse-document', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || '识别失败');
+
+      const docEntry = {
+        id: Date.now(),
+        fileName: file.name,
+        docType: data.documentType || 'unknown',
+        extracted: data.extracted || {},
+        summary: buildDocSummary(data.documentType, data.extracted || {}),
+      };
+      setSessionDocs(prev => [...prev, docEntry]);
+      setPreview(prev => ({ ...(prev || {}), extracted: data.extracted, docType: data.documentType }));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleApplyDoc = (docEntry) => {
+    if (!onImportClient) return;
+    const d = docEntry.extracted;
+    onImportClient({
+      name: d.fullName || '',
+      nationality: d.nationality || '',
+      profile: {
+        dob: d.dob || '',
+        passportNo: d.passportNo || '',
+        passportExpiry: d.passportExpiry || d.expiryDate || '',
+        nameZh: d.nameChinese || '',
+        auAddress: d.auAddress || '',
+        chinaId: d.chinaId || '',
+        maritalStatus: d.maritalStatus || '',
+        sex: d.sex || '',
+        sponsor: d.sponsorName ? {
+          name: d.sponsorName, dob: d.sponsorDob, nationality: d.sponsorNationality,
+          passportNo: d.sponsorPassportNo, address: d.sponsorAddress,
+          occupation: d.sponsorOccupation, relationship: d.sponsorRelationship,
+        } : undefined,
+      },
+    });
+  };
+
+  return (
+    <div style={sectionStyle}>
+      <div style={sectionHeaderStyle(open)} onClick={() => setOpen(o => !o)}>
+        <span>📄</span>
+        <span style={{ fontWeight: 700, fontSize: 14, color: C.blue }}>文件识别</span>
+        {sessionDocs.length > 0 && (
+          <span style={{ ...badgeStyle, background: C.mid, marginLeft: 4 }}>{sessionDocs.length}</span>
+        )}
+        <span style={{ color: C.muted, fontSize: 12, marginLeft: 'auto' }}>{open ? '▲' : '▼'}</span>
+      </div>
+
+      {open && (
+        <div style={{ padding: 14 }}>
+          <div onClick={() => fileRef.current?.click()}
+            onDragOver={e => e.preventDefault()}
+            onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files?.[0];
+              if (f) { fileRef.current.files = e.dataTransfer.files; handleFile({ target: fileRef.current }); } }}
+            style={{ border: `2px dashed ${C.border}`, borderRadius: 10, padding: 16,
+              textAlign: 'center', cursor: 'pointer', background: C.light, marginBottom: 12 }}>
+            {preview?.imageUrl
+              ? <img src={preview.imageUrl} alt="preview" style={{ maxHeight: 120, maxWidth: '100%', borderRadius: 6 }} />
+              : <><div style={{ fontSize: 28, marginBottom: 6 }}>📂</div>
+                <div style={{ color: C.blue, fontWeight: 600, fontSize: 13 }}>点击上传或拖拽文件</div>
+                <div style={{ color: C.muted, fontSize: 11, marginTop: 2 }}>JPG · PNG · PDF · DOCX · TXT</div></>
+            }
+            <input ref={fileRef} type="file" accept="image/*,.pdf,.docx,.txt" style={{ display: 'none' }} onChange={handleFile} />
+          </div>
+
+          {loading && (
+            <div style={{ textAlign: 'center', padding: 12, color: C.mid }}>
+              <div style={{ fontSize: 22 }}>⏳</div>
+              <div style={{ fontSize: 13, marginTop: 4 }}>AI 正在识别文件...</div>
+            </div>
+          )}
+          {error && <div style={errorStyle}>{error}</div>}
+
+          {sessionDocs.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {sessionDocs.map(doc => (
+                <div key={doc.id} style={{ background: C.light, border: `1px solid ${C.border}`,
+                  borderRadius: 8, padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 18 }}>📄</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: C.text,
+                      whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {doc.fileName}
+                    </div>
+                    <div style={{ fontSize: 11, color: C.muted }}>{doc.summary}</div>
+                  </div>
+                  <button onClick={() => handleApplyDoc(doc)} style={{ ...btnStyle(C.mid), padding: '4px 10px', fontSize: 11 }}>
+                    ⬆️ 应用
+                  </button>
+                  <button onClick={() => setSessionDocs(prev => prev.filter(d => d.id !== doc.id))}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted, fontSize: 14 }}>
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function buildDocSummary(docType, extracted) {
+  const parts = [];
+  if (docType) parts.push(docType);
+  if (extracted.fullName) parts.push(extracted.fullName);
+  if (extracted.passportNo) parts.push(extracted.passportNo);
+  if (extracted.applicationId) parts.push(`ID: ${extracted.applicationId}`);
+  if (extracted.expiryDate) parts.push(`到期: ${extracted.expiryDate}`);
+  return parts.join(' — ') || '已识别';
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function guessMime(fileName) {
+  const ext = fileName.split('.').pop().toLowerCase();
+  return { jpg:'image/jpeg', jpeg:'image/jpeg', png:'image/png', gif:'image/gif', webp:'image/webp', pdf:'application/pdf' }[ext] || 'image/jpeg';
+}
+
 export default function SmartAI({ selectedClient, selectedCase, onImportClient, onImportCase, onAddNote }) {
   const [gmail, setGmail] = useState(readSession);
   const [emails, setEmails] = useState([]);
+  const [sessionDocs, setSessionDocs] = useState([]);
 
-  // NOTE: Do NOT add a hash-reading useEffect here.
-  // App.js (Task 5) owns post-OAuth hash reading. It writes the token to sessionStorage
-  // and restores the client modal. SmartAI reads the session via readSession() above.
+  // NOTE: No hash-reading useEffect here — App.js (Task 5) owns the OAuth callback.
 
   const updateGmail = useCallback((session) => {
     if (!session) clearSession();
@@ -322,7 +497,12 @@ export default function SmartAI({ selectedClient, selectedCase, onImportClient, 
           onAddNote={onAddNote}
           emails={emails} setEmails={setEmails}
         />
-        {/* Document and Snapshot sections coming in Tasks 8-9 */}
+        <DocumentSection
+          selectedClient={selectedClient}
+          sessionDocs={sessionDocs} setSessionDocs={setSessionDocs}
+          onImportClient={onImportClient}
+        />
+        {/* Snapshot section coming in Task 9 */}
       </div>
     </div>
   );
