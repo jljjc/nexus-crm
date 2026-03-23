@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import * as mammoth from 'mammoth';
 import SmartAI from './SmartAI';
 import { writeSession as writeGmailSession } from './utils/gmailSession';
+import { mergeClientData } from './utils/mergeProfile';
 
 /* ─── i18n LANGUAGE SYSTEM ──────────────────────────────────────────────────── */
 const LANG_ZH = {
@@ -1804,57 +1805,10 @@ CRITICAL RULES — YOU MUST FOLLOW THESE:
 
   const applyImport = async () => {
     if (!importPreview) return;
-    const existingProfile = client.profile || {};
-    const newProfile = importPreview.profile || {};
-    // Helper: only use new value if it's non-null and (for arrays) non-empty
-    const keep = (newVal, oldVal) => {
-      if (Array.isArray(newVal)) return newVal.length > 0 ? newVal : oldVal;
-      return newVal != null && newVal !== '' ? newVal : oldVal;
-    };
-    const merged = {
-      ...client,
-      ...(importPreview.name        ? { name: importPreview.name }               : {}),
-      ...(importPreview.email       ? { email: importPreview.email }             : {}),
-      ...(importPreview.phone       ? { phone: importPreview.phone }             : {}),
-      ...(importPreview.nationality ? { nationality: importPreview.nationality } : {}),
-      ...(importPreview.type        ? { type: importPreview.type }               : {}),
-      profile: {
-        ...existingProfile,
-        // Import scalar fields – only overwrite if new value exists
-        ...(newProfile.sex            ? { sex: newProfile.sex }                         : {}),
-        ...(newProfile.dob            ? { dob: newProfile.dob }                         : {}),
-        ...(newProfile.birthplace     ? { birthplace: newProfile.birthplace }           : {}),
-        ...(newProfile.passportNo     ? { passportNo: newProfile.passportNo }           : {}),
-        ...(newProfile.passportExpiry ? { passportExpiry: newProfile.passportExpiry }   : {}),
-        ...(newProfile.auAddress      ? { auAddress: newProfile.auAddress }             : {}),
-        ...(newProfile.maritalStatus  ? { maritalStatus: newProfile.maritalStatus }     : {}),
-        ...(newProfile.chinaId        ? { chinaId: newProfile.chinaId }                 : {}),
-        ...(newProfile.qq             ? { qq: newProfile.qq }                           : {}),
-        ...(newProfile.eaFileNo       ? { eaFileNo: newProfile.eaFileNo }               : {}),
-        ...(newProfile.consultant     ? { consultant: newProfile.consultant }           : {}),
-        ...(newProfile.visaTarget     ? { visaTarget: newProfile.visaTarget }           : {}),
-        // Import array fields – only overwrite if import has actual entries
-        visaHistory:        keep(newProfile.visaHistory,        existingProfile.visaHistory),
-        addressHistory:     keep(newProfile.addressHistory,     existingProfile.addressHistory),
-        employmentHistory:  keep(newProfile.employmentHistory,  existingProfile.employmentHistory),
-        keyIssues:          keep(newProfile.keyIssues,          existingProfile.keyIssues),
-        documents:          keep(newProfile.documents,          existingProfile.documents),
-        // Sections 4,5,6: use new data if import has it, otherwise keep existing
-        // NOTE: must use keep() not ||, because [] is truthy so || skips non-empty new arrays
-        skillsAssessments:  keep(newProfile.skillsAssessments, existingProfile.skillsAssessments),
-        caseTimeline:       keep(newProfile.caseTimeline,       existingProfile.caseTimeline),
-        currentStatus:      newProfile.currentStatus      || existingProfile.currentStatus      || null,
-        nextSteps:          keep(newProfile.nextSteps,          existingProfile.nextSteps),
-        // nested objects – merge carefully
-        character:  { ...(existingProfile.character||{}),  ...(newProfile.character||{})  },
-        sponsor:    { ...(existingProfile.sponsor||{}),    ...(newProfile.sponsor||{})    },
-        marriage:   { ...(existingProfile.marriage||{}),   ...(newProfile.marriage||{})   },
-        serviceAgreement: { ...(existingProfile.serviceAgreement||{}), ...(newProfile.serviceAgreement||{}) },
-      }
-    };
+    const merged = mergeClientData(client, importPreview, false);
     await onSaveProfile(merged);
-    setApplyMsg('✅ Client record updated!');
     setImportPreview(null);
+    setApplyMsg('✅ Client record updated!');
     setTimeout(() => setApplyMsg(''), 3000);
   };
 
@@ -2865,21 +2819,7 @@ ${rawText.slice(0,5000)}` }]
             selectedClient={client}
             selectedCase={clientJobs[0] || null}
             onImportClient={(data) => {
-              // Map extracted fields onto the client record
-              const merged = {
-                ...client,
-                ...(data.name        ? { name: data.name }               : {}),
-                ...(data.email       ? { email: data.email }             : {}),
-                ...(data.phone       ? { phone: data.phone }             : {}),
-                ...(data.nationality ? { nationality: data.nationality } : {}),
-                profile: {
-                  ...(client.profile || {}),
-                  ...(data.dob            ? { dob: data.dob }                         : {}),
-                  ...(data.passportNo     ? { passportNo: data.passportNo }           : {}),
-                  ...(data.passportExpiry ? { passportExpiry: data.passportExpiry }   : {}),
-                  ...(data.nameZh         ? { nameZh: data.nameZh }                   : {}),
-                },
-              };
+              const merged = mergeClientData(client, data, false);
               onSaveProfile(merged);
             }}
             onImportCase={(data) => {
