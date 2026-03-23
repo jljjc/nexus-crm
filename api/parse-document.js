@@ -14,7 +14,7 @@ export default async function handler(req, res) {
   const { fileBase64, mimeType, fileName = '', textContent } = req.body || {};
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return res.status(500).json({ error: 'ANTHROPIC_API_KEY not configured' });
-  if (!fileBase64 && !textContent) return res.status(400).json({ error: 'No file data provided' });
+  if (!fileBase64 && !textContent?.trim()) return res.status(400).json({ error: 'No file data provided' });
 
   // Build content blocks based on file type
   let contentBlocks;
@@ -63,11 +63,11 @@ Return only the JSON object, no markdown, no explanation.`;
         'Content-Type': 'application/json',
         'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
-        'anthropic-beta': 'pdfs-2024-09-25',
+        ...(contentBlocks[0]?.type === 'document' ? { 'anthropic-beta': 'pdfs-2024-09-25' } : {}),
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
-        max_tokens: 1500,
+        max_tokens: 2048,
         messages: [{
           role: 'user',
           content: [...contentBlocks, { type: 'text', text: extractionPrompt }],
@@ -75,8 +75,11 @@ Return only the JSON object, no markdown, no explanation.`;
       }),
     });
 
+    if (!r.ok) {
+      const errBody = await r.text();
+      return res.status(r.status).json({ error: errBody.slice(0, 300) || 'AI error' });
+    }
     const data = await r.json();
-    if (!r.ok) return res.status(r.status).json({ error: data.error?.message || 'AI error' });
 
     const rawText = data.content?.[0]?.text || '';
     const jsonMatch = rawText.match(/\{[\s\S]*\}/);
