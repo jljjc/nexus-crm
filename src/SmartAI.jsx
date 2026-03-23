@@ -43,10 +43,22 @@ const sectionHeaderStyle = (open) => ({
 });
 
 /* ── Note formatters ────────────────────────────────────────────────────── */
+function parseEmailDate(raw) {
+  if (!raw) return null;
+  const d = new Date(raw);
+  if (isNaN(d)) return null;
+  return d;
+}
+function fmtDate(raw) {
+  const d = parseEmailDate(raw);
+  if (!d) return raw?.slice(0, 10) || '?';
+  return d.toISOString().slice(0, 10); // YYYY-MM-DD
+}
+
 function formatEmailNote(email) {
   const ai = email.ai || {};
   return [
-    `[Gmail ${email.date?.slice(0, 10) || ''}]`,
+    `[Gmail ${fmtDate(email.date)}]`,
     `主题：${email.subject || '（无主题）'}`,
     `发件人：${email.from || ''}`,
     ai.rawSummary        ? `摘要：${ai.rawSummary}` : '',
@@ -58,11 +70,15 @@ function formatEmailNote(email) {
 function formatTimelineNote(clientName, emails) {
   const capped = emails.slice(0, 50);
   const lines = capped
-    .sort((a, b) => (a.date || '').localeCompare(b.date || ''))
+    .sort((a, b) => {
+      const da = parseEmailDate(a.date), db = parseEmailDate(b.date);
+      if (da && db) return da - db;
+      return (a.date || '').localeCompare(b.date || '');
+    })
     .map(e => {
       const ai = e.ai || {};
       const summary = ai.rawSummary ? ` — ${ai.rawSummary.slice(0, 80)}` : '';
-      return `• ${e.date?.slice(0, 10) || '?'} | ${e.subject || '（无主题）'}${summary}`;
+      return `• ${fmtDate(e.date)} | ${e.subject || '（无主题）'}${summary}`;
     })
     .join('\n');
   const overflow = emails.length > 50 ? `\n（仅显示最近 50 封，共 ${emails.length} 封相关邮件）` : '';
@@ -614,7 +630,7 @@ function SnapshotSection({
             if (relevant.length > 0) {
               emailContext = relevant.slice(0, 10).map((e, i) => {
                 const ai = e.ai || {};
-                return [`[邮件${i+1}] ${e.date?.slice(0,16)} | ${e.subject}`,
+                return [`[邮件${i+1}] ${fmtDate(e.date)} | ${e.subject}`,
                   ai.rawSummary && `摘要：${ai.rawSummary}`,
                   ai.keyNeeds   && `需求：${ai.keyNeeds}`,
                   ai.visaType   && `签证：${ai.visaType}`,
