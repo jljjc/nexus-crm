@@ -2818,8 +2818,8 @@ ${rawText.slice(0,5000)}` }]
           <SmartAI
             selectedClient={client}
             selectedCase={clientJobs[0] || null}
-            onImportClient={(data) => {
-              const merged = mergeClientData(client, data, false);
+            onImportClient={(data, overwrite = false) => {
+              const merged = mergeClientData(client, data, overwrite);
               onSaveProfile(merged);
             }}
             onImportCase={(data) => {
