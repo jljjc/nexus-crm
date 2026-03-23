@@ -92,6 +92,28 @@ function formatTimelineNote(clientName, emails) {
   ].filter(Boolean).join('\n');
 }
 
+/* ── JSON repair ─────────────────────────────────────────────────────────── */
+function repairAndParseJSON(raw) {
+  try { return JSON.parse(raw); } catch { /* fall through to repair */ }
+  // Remove trailing incomplete token: comma, colon, or partial string
+  let s = raw.replace(/,\s*$/, '').replace(/:\s*$/, ':null').replace(/"[^"]*$/, '"');
+  // Close unclosed strings, arrays, objects by tracking the stack
+  const stack = [];
+  let inStr = false, escaped = false;
+  for (const ch of s) {
+    if (escaped) { escaped = false; continue; }
+    if (ch === '\\' && inStr) { escaped = true; continue; }
+    if (ch === '"') { inStr = !inStr; continue; }
+    if (inStr) continue;
+    if (ch === '{') stack.push('}');
+    else if (ch === '[') stack.push(']');
+    else if (ch === '}' || ch === ']') stack.pop();
+  }
+  if (inStr) s += '"';
+  s += stack.reverse().join('');
+  return JSON.parse(s);
+}
+
 /* ════════════════════════════════════════════════════════════════════════════
    Gmail Section
 ════════════════════════════════════════════════════════════════════════════ */
@@ -684,7 +706,7 @@ function SnapshotSection({
       const r = await fetch('/api/claude', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-6', max_tokens: 2000,
+          model: 'claude-sonnet-4-6', max_tokens: 3000,
           messages: [{ role: 'user', content: `请从以下客户快照中提取所有结构化信息，以纯JSON返回（不含markdown），严格使用以下结构，缺失字段用null：
 {"name":"","email":"","phone":"","nationality":"","type":"Migration","nameChinese":"",
 "profile":{"sex":null,"dob":null,"birthplace":null,"passportNo":null,"passportExpiry":null,"auAddress":null,"maritalStatus":null,"chinaId":null,"consultant":null,"visaTarget":null,
@@ -700,9 +722,9 @@ function SnapshotSection({
       const data = await r.json();
       if (!r.ok) throw new Error(data.error || 'AI 提取失败');
       const text = data.content?.[0]?.text || '';
-      const match = text.match(/\{[\s\S]*\}/);
+      const match = text.match(/\{[\s\S]*/);
       if (!match) throw new Error('无法解析 AI 返回的 JSON');
-      setApplyPreview(JSON.parse(match[0]));
+      setApplyPreview(repairAndParseJSON(match[0]));
     } catch (e) {
       setError(e.message);
     } finally {
