@@ -25,9 +25,9 @@ export function mergeObjectField(existing, incoming) {
 export function mergeClientData(client = {}, importData = {}, overwrite = false) {
   const ep = client.profile || {};
   const np = importData.profile || {};
-  const s  = (ex, inc) => overwrite && inc ? inc : mergeScalar(ex, inc);
-  const a  = (ex, inc, kf) => overwrite ? (inc || []) : mergeArrayField(ex, inc, kf);
-  const o  = (ex, inc) => overwrite ? (inc || {}) : mergeObjectField(ex, inc);
+  const s  = (ex, inc) => overwrite ? inc : mergeScalar(ex, inc);
+  const a  = (ex, inc, kf) => overwrite ? (inc ?? []) : mergeArrayField(ex, inc, kf);
+  const o  = (ex, inc) => overwrite ? (inc ?? {}) : mergeObjectField(ex, inc);
 
   return {
     ...client,
