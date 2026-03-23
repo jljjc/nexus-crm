@@ -608,6 +608,7 @@ function SnapshotSection({
   const [applyBusy, setApplyBusy] = useState(false);
   const [applyPreview, setApplyPreview] = useState(null);
   const [overwrite, setOverwrite] = useState(false);
+  const [applyMsg, setApplyMsg]   = useState('');
 
   const generate = useCallback(async () => {
     if (!selectedClient) { setError('请先选择客户'); return; }
@@ -713,6 +714,8 @@ function SnapshotSection({
     if (!applyPreview) return;
     onImportClient?.(applyPreview, overwrite);
     setApplyPreview(null);
+    setApplyMsg('✅ 已应用到客户档案');
+    setTimeout(() => setApplyMsg(''), 4000);
   };
 
   return (
@@ -723,6 +726,7 @@ function SnapshotSection({
       </button>
 
       {error && <div style={errorStyle}>{error}</div>}
+      {applyMsg && <div style={{ background:'#EBF9F1', border:`1px solid ${C.green}`, color:C.green, borderRadius:6, padding:'8px 10px', fontSize:12 }}>{applyMsg}</div>}
 
       {snapshot && (
         <div>
