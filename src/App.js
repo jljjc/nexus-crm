@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import * as mammoth from 'mammoth';
 import SmartAI from './SmartAI';
+import { writeSession as writeGmailSession } from './utils/gmailSession';
 
 /* ─── i18n LANGUAGE SYSTEM ──────────────────────────────────────────────────── */
 const LANG_ZH = {
@@ -2925,7 +2926,7 @@ ${rawText.slice(0,5000)}` }]
 }
 
 /* ─── CLIENTS ────────────────────────────────────────────────────────────────── */
-function Clients({ clients, jobs, setClients, setJobs, team }) {
+function Clients({ clients, jobs, setClients, setJobs, team, pendingClientId, onPendingClientHandled }) {
   const { t } = useLang(); // eslint-disable-line no-unused-vars
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState('All');
@@ -2937,6 +2938,15 @@ function Clients({ clients, jobs, setClients, setJobs, team }) {
   const [tooltipPos, setTooltipPos] = useState({ x:0, y:0 });
   const [viewClient, setViewClient] = useState(null);
   const hoverTimer = useRef(null);
+
+  useEffect(() => {
+    if (!pendingClientId) return;
+    const target = clients.find(c => String(c.id) === pendingClientId);
+    if (target) {
+      setViewClient(target);
+    }
+    onPendingClientHandled?.();
+  }, [pendingClientId]); // eslint-disable-line
 
   const filtered = clients.filter(c => {
     const q = search.toLowerCase();
@@ -5476,12 +5486,32 @@ function App() {
   const [isManager, setIsManager]       = useState(() => sessionStorage.getItem('ozsky_role') === 'manager');
   const [sidebarOpen, setSidebarOpen]   = useState(false);
   const [toast, setToast]               = useState(null);
+  const [pendingClientId, setPendingClientId] = useState(null);
 
   // Listen for DB errors from sbFetch
   useEffect(() => {
     const handler = (e) => setToast({ message: e.detail, type:'error' });
     window.addEventListener('ozsky-db-error', handler);
     return () => window.removeEventListener('ozsky-db-error', handler);
+  }, []);
+
+  useEffect(() => {
+    if (!window.location.hash) return;
+    const p = new URLSearchParams(window.location.hash.slice(1));
+    const token = p.get('gmail_access_token');
+    if (!token) return;
+    writeGmailSession(
+      token,
+      p.get('gmail_refresh_token') || '',
+      parseInt(p.get('gmail_expires_in') || '3600', 10),
+      p.get('gmail_user_email') || '',
+    );
+    window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    const pendingId = sessionStorage.getItem('ozsky_pending_client_id');
+    if (pendingId) {
+      sessionStorage.removeItem('ozsky_pending_client_id');
+      setPendingClientId(pendingId);
+    }
   }, []);
 
   useEffect(() => {
@@ -5650,7 +5680,7 @@ function App() {
                 <Dashboard clients={clients} jobs={jobs} team={team} onGoTo={setView} setJobsMemberFilter={setJobsMemberFilter} setJobsStatusFilter={setJobsStatusFilter} />
               </>
             )}
-            {view === 'clients'   && <Clients   clients={clients} jobs={jobs} setClients={setClients} setJobs={setJobs} team={team} />}
+            {view === 'clients'   && <Clients   clients={clients} jobs={jobs} setClients={setClients} setJobs={setJobs} team={team} pendingClientId={pendingClientId} onPendingClientHandled={() => setPendingClientId(null)} />}
             {view === 'jobs'      && <Jobs       jobs={jobs} clients={clients} team={team} setJobs={setJobs} openJobId={openJobId} setOpenJobId={setOpenJobId} jobsMemberFilter={jobsMemberFilter} setJobsMemberFilter={setJobsMemberFilter} jobsStatusFilter={jobsStatusFilter} setJobsStatusFilter={setJobsStatusFilter} />}
             {view === 'team'      && isManager && <Team       team={team} jobs={jobs} clients={clients} setTeam={setTeam} setJobs={setJobs} />}
             {view === 'leads'     && <Leads      leads={leads} setLeads={setLeads} clients={clients} setClients={setClients} jobs={jobs} setJobs={setJobs} team={team} agents={agents} />}
