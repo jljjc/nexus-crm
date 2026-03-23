@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import * as mammoth from 'mammoth';
+import SmartAI from './SmartAI';
 
 /* ─── i18n LANGUAGE SYSTEM ──────────────────────────────────────────────────── */
 const LANG_ZH = {
@@ -1902,6 +1903,7 @@ CRITICAL RULES — YOU MUST FOLLOW THESE:
     { id:'wechat',   label:`💬 ${t('WeChat')||'聊天导入'}` },
     { id:'email',    label:`📧 Email` },
     { id:'import',   label:`📥 ${t('Import Doc')||'Import Doc'}` },
+    { id:'ai',       label:`🤖 AI 助手` },
   ];
 
   return (
@@ -2852,6 +2854,55 @@ ${rawText.slice(0,5000)}` }]
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ── AI 助手 TAB ───────────────────────────────────── */}
+      {tab === 'ai' && (
+        <div style={{ maxHeight:'70vh', overflowY:'auto', paddingRight:2 }}>
+          <SmartAI
+            selectedClient={client}
+            selectedCase={clientJobs[0] || null}
+            onImportClient={(data) => {
+              // Map extracted fields onto the client record
+              const merged = {
+                ...client,
+                ...(data.name        ? { name: data.name }               : {}),
+                ...(data.email       ? { email: data.email }             : {}),
+                ...(data.phone       ? { phone: data.phone }             : {}),
+                ...(data.nationality ? { nationality: data.nationality } : {}),
+                profile: {
+                  ...(client.profile || {}),
+                  ...(data.dob            ? { dob: data.dob }                         : {}),
+                  ...(data.passportNo     ? { passportNo: data.passportNo }           : {}),
+                  ...(data.passportExpiry ? { passportExpiry: data.passportExpiry }   : {}),
+                  ...(data.nameZh         ? { nameZh: data.nameZh }                   : {}),
+                },
+              };
+              onSaveProfile(merged);
+            }}
+            onImportCase={(data) => {
+              // Build a new case/job from AI-extracted case data
+              const priorityMap = { urgent:'Urgent', high:'High', medium:'Medium', low:'Low' };
+              const newJob = {
+                id: 'j' + Math.random().toString(36).slice(2,9),
+                clientId: client.id,
+                title: data.visaType || 'New Case',
+                type: data.visaType || '',
+                status: 'New',
+                priority: priorityMap[data.priority] || 'Medium',
+                assignedTo: data.assignee || '',
+                notes: [data.keyNeeds, data.nextAction].filter(Boolean).join('\n'),
+                progress: 0,
+                createdAt: new Date().toISOString(),
+              };
+              setJobs(prev => [...prev, newJob]);
+              try { sbInsert('jobs', { id: newJob.id, data: newJob }); } catch(e) { console.warn('Case insert error', e); }
+            }}
+            onAddNote={(text) => {
+              onSaveProfile({ ...client, notes: [makeNote(text), ...normalizeNotes(client.notes)] });
+            }}
+          />
         </div>
       )}
 
