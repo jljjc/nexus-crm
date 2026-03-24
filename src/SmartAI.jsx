@@ -604,7 +604,7 @@ function SnapshotSection({
   const [copied, setCopied]       = useState(false);
   const [applyBusy, setApplyBusy] = useState(false);
   const [applyPreview, setApplyPreview] = useState(null);
-  const [overwrite, setOverwrite] = useState(false);
+  const [overwrite, setOverwrite] = useState(true);
   const [applyMsg, setApplyMsg]   = useState('');
 
   const generate = useCallback(async () => {
@@ -791,7 +791,7 @@ function SnapshotSection({
                 </div>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, fontSize: 13, cursor: 'pointer' }}>
                   <input type="checkbox" checked={overwrite} onChange={e => setOverwrite(e.target.checked)} />
-                  覆盖已有字段（默认只填补空白）
+                  覆盖已有字段（已勾选）
                 </label>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button onClick={handleConfirmApply} style={btnStyle(C.blue)}>✅ 确认应用</button>

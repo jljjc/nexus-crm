@@ -1856,12 +1856,16 @@ CRITICAL RULES — YOU MUST FOLLOW THESE:
     </div>
   );
 
+  const allNotes = normalizeNotes(client.notes);
+  const gmailNoteCount = allNotes.filter(n => n.type === 'gmail').length;
+  const regularNoteCount = allNotes.length - gmailNoteCount;
+
   const tabs = [
     { id:'profile',  label:'👤 Profile' },
     { id:'jobs',     label:`📋 Cases (${clientJobs.length})` },
-    { id:'notes',    label:`📝 ${t('Notes')||'Notes'} (${normalizeNotes(client.notes).length})` },
+    { id:'notes',    label:`📝 ${t('Notes')||'Notes'} (${regularNoteCount})` },
     { id:'wechat',   label:`💬 ${t('WeChat')||'聊天导入'}` },
-    { id:'email',    label:`📧 Email` },
+    { id:'email',    label:`📧 Email${gmailNoteCount ? ` (${gmailNoteCount})` : ''}` },
     { id:'import',   label:`📥 ${t('Import Doc')||'Import Doc'}` },
     { id:'ai',       label:`🤖 AI 助手` },
   ];
@@ -2053,7 +2057,7 @@ CRITICAL RULES — YOU MUST FOLLOW THESE:
 
           {/* ── 七、NOTES ───────────────────────────────── */}
           <S icon="📝" title={`七、${t('NOTES')}`}>
-            <NotesPanel notes={normalizeNotes(client.notes)} onAddNote={(text) => onSaveProfile({...client, notes:[makeNote(text),...normalizeNotes(client.notes)]})} onDeleteNote={(nid)=>onSaveProfile({...client,notes:normalizeNotes(client.notes).filter(n=>n.id!==nid)})} />
+            <NotesPanel notes={normalizeNotes(client.notes).filter(n => n.type !== 'gmail')} onAddNote={(text) => onSaveProfile({...client, notes:[makeNote(text),...normalizeNotes(client.notes)]})} onDeleteNote={(nid)=>onSaveProfile({...client,notes:normalizeNotes(client.notes).filter(n=>n.id!==nid)})} />
           </S>
 
           {/* empty state */}
@@ -2352,9 +2356,9 @@ ${rawText.slice(0,5000)}` }]
           </div>
 
           {/* Existing notes list */}
-          {normalizeNotes(client.notes).length === 0
+          {normalizeNotes(client.notes).filter(n => n.type !== 'gmail').length === 0
             ? <div style={{ color:'#1f2937', fontSize:14, padding:20, textAlign:'center' }}>No notes yet.</div>
-            : [...normalizeNotes(client.notes)].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)).map(n => (
+            : [...normalizeNotes(client.notes).filter(n => n.type !== 'gmail')].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)).map(n => (
               <div key={n.id} style={{ background:'#ffffff', borderRadius:8, padding:'12px 14px', border:'1.5px solid #cbd5e1', marginBottom:8 }}>
                 <div style={{ fontSize:13, color:'#1f2937', whiteSpace:'pre-wrap', lineHeight:1.55 }}>{n.text}</div>
                 <div style={{ fontSize:11, color:'#1f2937', marginTop:6 }}>{fmtDateTime(n.createdAt)}</div>
