@@ -65,6 +65,10 @@ export default async function handler(req, res) {
         }
       } catch { /* non-critical */ }
 
+      if (!userEmail) {
+        return res.redirect('/?gmail_error=Authentication+failed');
+      }
+
       // Redirect back to app with tokens in URL fragment (never in query string)
       const fragment = new URLSearchParams({
         gmail_access_token:  tokens.access_token,
