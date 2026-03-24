@@ -3974,6 +3974,26 @@ function Team({ team, jobs, clients, setTeam, setJobs: setJobsOuter }) {
   const [form, setForm]             = useState({});
   const [drillMember, setDrillMember] = useState(null);  // member whose full case list is shown
   const [viewJob, setViewJob]       = useState(null);     // job detail modal
+  const [userRoles, setUserRoles]   = useState({});
+  const currentUserEmail = sessionStorage.getItem('ozsky_email') || '';
+
+  useEffect(() => {
+    sbFetch('user_roles?select=email,role')
+      .then(rows => {
+        if (!rows) return;
+        const map = {};
+        rows.forEach(r => { map[r.email] = r.role; });
+        setUserRoles(map);
+      })
+      .catch(() => {});
+  }, []);
+
+  const toggleRole = async (email) => {
+    const current = userRoles[email] || ALLOWED_USERS[email] || 'staff';
+    const next = current === 'manager' ? 'staff' : 'manager';
+    setUserRoles(prev => ({ ...prev, [email]: next }));
+    await sbUpsert('user_roles', { email, role: next });
+  };
 
   const PRIORITY_ORDER = { 'Urgent': 0, 'High': 1, 'Medium': 2, 'Low': 3 };
 
@@ -4377,10 +4397,67 @@ function Team({ team, jobs, clients, setTeam, setJobs: setJobsOuter }) {
           </FormField>
           <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:8 }}>
             <button onClick={() => setEditing(null)} style={{ background:'#e5e7eb', border:'none', borderRadius:8, padding:'9px 18px', color:'#1f2937', fontWeight:500 }}>Cancel</button>
-            <button onClick={save} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, padding:'9px 20px', color:'#fff', fontWeight:700 }}>Save</button>
+            <button onClick={save} style={{ background:'linear-gradient(135deg,#ff158a,#ff5fae)', border:'none', borderRadius:8, padding:'9px 20px', color:'#fff', fontWeight:700 }}>Save</button>
           </div>
         </Modal>
       )}
+
+      {/* ── Access Management ── */}
+      <div style={{ marginTop:32 }}>
+        <div style={{ marginBottom:16 }}>
+          <h2 style={{ fontSize:18, fontWeight:700, color:'#323338', marginBottom:4 }}>System Access</h2>
+          <p style={{ fontSize:13, color:'#676879' }}>Manage CRM login roles. Changes take effect on next login.</p>
+        </div>
+        <div style={{ background:'#fff', borderRadius:12, border:'1px solid #e9eaf3', boxShadow:'0 2px 8px rgba(0,0,0,0.06)', overflow:'hidden' }}>
+          <table style={{ width:'100%', borderCollapse:'collapse' }}>
+            <thead>
+              <tr style={{ background:'#f9fafb', borderBottom:'1px solid #e9eaf3' }}>
+                <th style={{ padding:'10px 16px', textAlign:'left', fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', color:'#676879' }}>Email</th>
+                <th style={{ padding:'10px 16px', textAlign:'left', fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', color:'#676879' }}>Role</th>
+                <th style={{ padding:'10px 16px', textAlign:'right', fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', color:'#676879' }}>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Object.keys(ALLOWED_USERS).map((email, i) => {
+                const role = userRoles[email] || ALLOWED_USERS[email];
+                const isSelf = email === currentUserEmail;
+                return (
+                  <tr key={email} style={{ borderBottom: i < Object.keys(ALLOWED_USERS).length - 1 ? '1px solid #f3f4f8' : 'none' }}>
+                    <td style={{ padding:'12px 16px', fontSize:13, color:'#323338' }}>{email}</td>
+                    <td style={{ padding:'12px 16px' }}>
+                      <span style={{
+                        display:'inline-flex', alignItems:'center', padding:'3px 10px', borderRadius:99,
+                        fontSize:11.5, fontWeight:600,
+                        background: role === 'manager' ? '#ffd6ee' : '#f3f4f6',
+                        color: role === 'manager' ? '#c11569' : '#676879',
+                      }}>
+                        {role === 'manager' ? '★ Manager' : 'Staff'}
+                      </span>
+                    </td>
+                    <td style={{ padding:'12px 16px', textAlign:'right' }}>
+                      <button
+                        onClick={() => toggleRole(email)}
+                        disabled={isSelf}
+                        title={isSelf ? "Can't change your own role" : `Make ${role === 'manager' ? 'staff' : 'manager'}`}
+                        style={{
+                          padding:'5px 12px', borderRadius:7, fontSize:12, fontWeight:600, cursor: isSelf ? 'not-allowed' : 'pointer',
+                          background: isSelf ? '#f3f4f6' : role === 'manager' ? '#fef2f2' : '#f0fdf4',
+                          border: isSelf ? '1px solid #e5e7eb' : role === 'manager' ? '1px solid #fecaca' : '1px solid #bbf7d0',
+                          color: isSelf ? '#9ca3af' : role === 'manager' ? '#dc2626' : '#166534',
+                          opacity: isSelf ? 0.5 : 1,
+                        }}
+                      >
+                        {role === 'manager' ? 'Demote' : 'Promote'}
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <p style={{ fontSize:11, color:'#9ca3af', marginTop:8 }}>You cannot change your own role.</p>
+      </div>
     </div>
   );
 }
