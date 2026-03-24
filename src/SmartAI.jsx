@@ -700,6 +700,10 @@ function SnapshotSection({
     "nameZh": "",
     "visaTarget": "",
     "consultant": "",
+    "serviceAgreement": {
+      "totalFee": "",
+      "contractDate": ""
+    },
     "sponsor": {
       "name": "",
       "dob": "",
@@ -781,6 +785,9 @@ function SnapshotSection({
                     ['护照号', applyPreview.profile?.passportNo],
                     ['护照有效期', applyPreview.profile?.passportExpiry],
                     ['澳洲地址', applyPreview.profile?.auAddress],
+                    ['目标签证', applyPreview.profile?.visaTarget],
+                    ['服务费', applyPreview.profile?.serviceAgreement?.totalFee],
+                    ['合同日期', applyPreview.profile?.serviceAgreement?.contractDate],
                     ['担保人', applyPreview.profile?.sponsor?.name],
                   ].filter(([, v]) => v).map(([k, v]) => (
                     <div key={k} style={{ background: '#f9fafb', borderRadius: 7, padding: '7px 10px', border: `1px solid ${C.border}` }}>

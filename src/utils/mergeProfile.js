@@ -22,14 +22,26 @@ export function mergeObjectField(existing, incoming) {
   return result;
 }
 
+// Like mergeObjectField but for overwrite mode: only replace sub-fields
+// that have a non-empty incoming value, never clear with empty strings.
+function mergeObjectOverwrite(existing, incoming) {
+  const result = { ...(existing || {}) };
+  for (const [k, v] of Object.entries(incoming || {})) {
+    if (v != null && v !== '') {
+      result[k] = v;
+    }
+  }
+  return result;
+}
+
 export function mergeClientData(client = {}, importData = {}, overwrite = false) {
   const ep = client.profile || {};
   const np = importData.profile || {};
   // When overwriting, only replace with a non-empty incoming value to avoid
   // clearing fields that the AI extraction left blank.
-  const s  = (ex, inc) => overwrite ? (inc != null && inc !== '' ? inc : ex) : mergeScalar(ex, inc);
-  const a  = (ex, inc, kf) => overwrite ? (inc ?? []) : mergeArrayField(ex, inc, kf);
-  const o  = (ex, inc) => overwrite ? (inc ?? {}) : mergeObjectField(ex, inc);
+  const s = (ex, inc) => overwrite ? (inc != null && inc !== '' ? inc : ex) : mergeScalar(ex, inc);
+  const a = (ex, inc, kf) => overwrite ? (inc ?? []) : mergeArrayField(ex, inc, kf);
+  const o = (ex, inc) => overwrite ? mergeObjectOverwrite(ex, inc) : mergeObjectField(ex, inc);
 
   return {
     ...client,
