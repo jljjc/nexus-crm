@@ -67,30 +67,6 @@ function formatEmailNote(email) {
   ].filter(Boolean).join('\n');
 }
 
-function formatTimelineNote(clientName, emails) {
-  const capped = emails.slice(0, 50);
-  const lines = capped
-    .sort((a, b) => {
-      const da = parseEmailDate(a.date), db = parseEmailDate(b.date);
-      if (da && db) return da - db;
-      return (a.date || '').localeCompare(b.date || '');
-    })
-    .map(e => {
-      const ai = e.ai || {};
-      const summary = ai.rawSummary ? ` — ${ai.rawSummary.slice(0, 80)}` : '';
-      return `• ${fmtDate(e.date)} | ${e.subject || '（无主题）'}${summary}`;
-    })
-    .join('\n');
-  const overflow = emails.length > 50 ? `\n（仅显示最近 50 封，共 ${emails.length} 封相关邮件）` : '';
-  return [
-    `[Gmail 邮件时间线 — ${clientName} — ${new Date().toISOString().slice(0, 10)}]`,
-    '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
-    lines,
-    overflow,
-    '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
-    `共 ${capped.length} 封相关邮件 | 由 AI 辅助整理`,
-  ].filter(Boolean).join('\n');
-}
 
 /* ── JSON repair ─────────────────────────────────────────────────────────── */
 function repairAndParseJSON(raw) {
