@@ -1890,7 +1890,7 @@ CRITICAL RULES — YOU MUST FOLLOW THESE:
               <div>
                 <div style={{ fontSize:10, color:'rgba(255,255,255,0.6)', textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:2 }}>CLIENT SNAPSHOT CARD</div>
                 <div style={{ fontSize:20, fontWeight:800, letterSpacing:'0.02em' }}>{client.name}</div>
-                {p.nameChinese && <div style={{ fontSize:14, color:'rgba(255,255,255,0.7)', marginTop:1 }}>{p.nameChinese}</div>}
+                {(p.nameZh || p.nameChinese) && <div style={{ fontSize:14, color:'rgba(255,255,255,0.7)', marginTop:1 }}>{p.nameZh || p.nameChinese}</div>}
                 {p.dob && <div style={{ fontSize:12, color:'rgba(255,255,255,0.6)', marginTop:3 }}>DOB: {p.dob}</div>}
               </div>
             </div>
@@ -3109,8 +3109,27 @@ function Clients({ clients, jobs, setClients, setJobs, team }) {
               </select>
             </FormField>
           </div>
+          {/* ── Profile Details ── */}
+          <div style={{ borderTop:'1.5px solid #e2e8f0', marginTop:16, paddingTop:16 }}>
+            <div style={{ fontSize:11, fontWeight:700, color:'#6b7280', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:12 }}>Profile Details</div>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+              <FormField label="Date of Birth"><input style={inputStyle} value={form.profile?.dob||''} onChange={e=>setForm(f=>({...f,profile:{...(f.profile||{}),dob:e.target.value}}))} placeholder="YYYY-MM-DD" /></FormField>
+              <FormField label="Chinese Name (中文姓名)"><input style={inputStyle} value={form.profile?.nameZh||''} onChange={e=>setForm(f=>({...f,profile:{...(f.profile||{}),nameZh:e.target.value}}))} placeholder="乔帅帅" /></FormField>
+              <FormField label="Passport No"><input style={inputStyle} value={form.profile?.passportNo||''} onChange={e=>setForm(f=>({...f,profile:{...(f.profile||{}),passportNo:e.target.value}}))} placeholder="E12345678" /></FormField>
+              <FormField label="Passport Expiry"><input style={inputStyle} value={form.profile?.passportExpiry||''} onChange={e=>setForm(f=>({...f,profile:{...(f.profile||{}),passportExpiry:e.target.value}}))} placeholder="YYYY-MM-DD" /></FormField>
+              <FormField label="AU Address"><input style={inputStyle} value={form.profile?.auAddress||''} onChange={e=>setForm(f=>({...f,profile:{...(f.profile||{}),auAddress:e.target.value}}))} placeholder="Perth, WA, Australia" /></FormField>
+              <FormField label="Marital Status"><input style={inputStyle} value={form.profile?.maritalStatus||''} onChange={e=>setForm(f=>({...f,profile:{...(f.profile||{}),maritalStatus:e.target.value}}))} placeholder="Single / Married" /></FormField>
+              <FormField label="Visa Target"><input style={inputStyle} value={form.profile?.visaTarget||''} onChange={e=>setForm(f=>({...f,profile:{...(f.profile||{}),visaTarget:e.target.value}}))} placeholder="e.g. Subclass 820 Partner Visa" /></FormField>
+              <FormField label="Consultant"><input style={inputStyle} value={form.profile?.consultant||''} onChange={e=>setForm(f=>({...f,profile:{...(f.profile||{}),consultant:e.target.value}}))} placeholder="Liang Jiang" /></FormField>
+              <FormField label="China ID (身份证)"><input style={inputStyle} value={form.profile?.chinaId||''} onChange={e=>setForm(f=>({...f,profile:{...(f.profile||{}),chinaId:e.target.value}}))} placeholder="身份证号码" /></FormField>
+              <FormField label="EA File No"><input style={inputStyle} value={form.profile?.eaFileNo||''} onChange={e=>setForm(f=>({...f,profile:{...(f.profile||{}),eaFileNo:e.target.value}}))} placeholder="EA File Number" /></FormField>
+              <FormField label="Service Fee (Total)"><input style={inputStyle} value={form.profile?.serviceAgreement?.totalFee||''} onChange={e=>setForm(f=>({...f,profile:{...(f.profile||{}),serviceAgreement:{...(f.profile?.serviceAgreement||{}),totalFee:e.target.value}}}))} placeholder="AUD 3,080" /></FormField>
+              <FormField label="Contract Date"><input style={inputStyle} value={form.profile?.serviceAgreement?.contractDate||''} onChange={e=>setForm(f=>({...f,profile:{...(f.profile||{}),serviceAgreement:{...(f.profile?.serviceAgreement||{}),contractDate:e.target.value}}}))} placeholder="YYYY-MM-DD" /></FormField>
+            </div>
+          </div>
+
           <div style={{ borderTop:'1.5px solid #e2e8f0', marginTop:8, paddingTop:18 }}>
-            <NotesPanel notes={normalizeNotes(form.notes)} onAddNote={addNote} onDeleteNote={deleteNote} />
+            <NotesPanel notes={normalizeNotes(form.notes).filter(n => n.type !== 'gmail')} onAddNote={addNote} onDeleteNote={deleteNote} />
           </div>
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:10, marginTop:18 }}>
             <button onClick={generateContractFromForm} style={{ padding:'9px 18px', background:'linear-gradient(135deg,#0f766e,#0d9488)', border:'none', borderRadius:8, color:'#fff', fontSize:13, fontWeight:600, boxShadow:'0 2px 8px rgba(15,118,110,0.3)' }}>📄 生成合同</button>
