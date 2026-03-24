@@ -136,19 +136,6 @@ function GmailSection({ gmail, onGmailUpdate, selectedClient, onAddNote, emails,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedClient?.id]);
 
-  const handleConnect = async () => {
-    if (selectedClient?.id) {
-      sessionStorage.setItem('ozsky_pending_client_id', selectedClient.id);
-    }
-    try {
-      const r = await fetch('/api/gmail-auth?action=url');
-      const data = await r.json();
-      window.location.href = data.url;
-    } catch {
-      setError('无法获取 Google 授权链接，请检查环境配置');
-    }
-  };
-
   const handleDisconnect = () => {
     clearSession();
     onGmailUpdate(null);
@@ -200,11 +187,8 @@ function GmailSection({ gmail, onGmailUpdate, selectedClient, onAddNote, emails,
         </div>
         <div style={{ padding: 16, textAlign: 'center' }}>
           <div style={{ fontSize: 36, marginBottom: 10 }}>📬</div>
-          <div style={{ color: C.blue, fontWeight: 600, marginBottom: 6 }}>连接 Gmail 邮箱</div>
-          <div style={{ color: C.muted, fontSize: 12, marginBottom: 12 }}>
-            授权后本次会话内无需重新连接。AI 将自动识别客户邮件并提取信息。
-          </div>
-          <button onClick={handleConnect} style={btnStyle(C.blue)}>🔐 连接 Google 账号</button>
+          <div style={{ color: C.muted, fontSize: 13, marginBottom: 6 }}>Gmail session expired.</div>
+          <div style={{ color: C.muted, fontSize: 12 }}>Please sign out and sign back in to reconnect.</div>
           {error && <div style={errorStyle}>{error}</div>}
         </div>
       </div>

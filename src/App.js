@@ -2866,7 +2866,7 @@ ${rawText.slice(0,5000)}` }]
 }
 
 /* ─── CLIENTS ────────────────────────────────────────────────────────────────── */
-function Clients({ clients, jobs, setClients, setJobs, team, pendingClientId, onPendingClientHandled }) {
+function Clients({ clients, jobs, setClients, setJobs, team }) {
   const { t } = useLang(); // eslint-disable-line no-unused-vars
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState('All');
@@ -2878,15 +2878,6 @@ function Clients({ clients, jobs, setClients, setJobs, team, pendingClientId, on
   const [tooltipPos, setTooltipPos] = useState({ x:0, y:0 });
   const [viewClient, setViewClient] = useState(null);
   const hoverTimer = useRef(null);
-
-  useEffect(() => {
-    if (!pendingClientId) return;
-    const target = clients.find(c => String(c.id) === pendingClientId);
-    if (target) {
-      setViewClient(target);
-    }
-    onPendingClientHandled?.();
-  }, [pendingClientId]); // eslint-disable-line
 
   const filtered = clients.filter(c => {
     const q = search.toLowerCase();
@@ -5306,9 +5297,32 @@ const sbInsert = (table, data)    => sbFetch(table, 'POST', data);
 const sbUpdate = (table, id, obj) => sbFetch(`${table}?id=eq.${id}`, 'PATCH', obj);
 const sbDelete = (table, id)      => sbFetch(`${table}?id=eq.${id}`, 'DELETE');
 
-// ─── PASSWORD CONFIG ──────────────────────────────────────────────────────────
-const STAFF_PASSWORD   = 'ozsky2024';  // regular staff
-const MANAGER_PASSWORD = '731hay';     // managers only — unlocks Reports
+// ─── ALLOWED USERS & ROLES ────────────────────────────────────────────────────
+const ALLOWED_USERS = {
+  'l.jiang@ozs.com.au':         'manager',
+  'm.mao@ozs.com.au':           'manager',
+  'perthcq@ozs.com.au':         'staff',
+  'perth_assistant@ozs.com.au': 'staff',
+  'admin2.perth@ozs.com.au':    'staff',
+  'perthozsky@gmail.com':       'staff',
+  'ozskyperth@gmail.com':       'staff',
+  'perth@ozs.com.au':           'staff',
+};
+
+// Upsert helper for tables with non-id primary keys (e.g. user_roles.email)
+const sbUpsert = async (table, data) => {
+  const res = await fetch(`${SB_URL}/rest/v1/${table}`, {
+    method: 'POST',
+    headers: {
+      'apikey': SB_KEY,
+      'Authorization': `Bearer ${SB_KEY}`,
+      'Content-Type': 'application/json',
+      'Prefer': 'resolution=merge-duplicates',
+    },
+    body: JSON.stringify(data),
+  });
+  return res.ok ? res.json().catch(() => null) : null;
+};
 
 function LoginScreen({ errorMessage }) {
   const [loading, setLoading] = useState(false);
@@ -5418,9 +5432,9 @@ function App() {
   const [, setLoaded]               = useState(false);
   const [authed, setAuthed]             = useState(() => sessionStorage.getItem('ozsky_auth') === '1');
   const [isManager, setIsManager]       = useState(() => sessionStorage.getItem('ozsky_role') === 'manager');
+  const [authError, setAuthError]       = useState(null);
   const [sidebarOpen, setSidebarOpen]   = useState(false);
   const [toast, setToast]               = useState(null);
-  const [pendingClientId, setPendingClientId] = useState(null);
 
   // Listen for DB errors from sbFetch
   useEffect(() => {
@@ -5434,18 +5448,40 @@ function App() {
     const p = new URLSearchParams(window.location.hash.slice(1));
     const token = p.get('gmail_access_token');
     if (!token) return;
+
+    // Clear fragment immediately
+    window.history.replaceState(null, '', window.location.pathname);
+
+    const email = p.get('gmail_user_email') || '';
+    const hardcodedRole = ALLOWED_USERS[email];
+
+    if (!hardcodedRole) {
+      setAuthError('Your account is not authorised. Contact your manager.');
+      return;
+    }
+
+    // Store Gmail tokens so SmartAI works immediately after login
     writeGmailSession(
       token,
       p.get('gmail_refresh_token') || '',
       parseInt(p.get('gmail_expires_in') || '3600', 10),
-      p.get('gmail_user_email') || '',
+      email,
     );
-    window.history.replaceState(null, '', window.location.pathname + window.location.search);
-    const pendingId = sessionStorage.getItem('ozsky_pending_client_id');
-    if (pendingId) {
-      sessionStorage.removeItem('ozsky_pending_client_id');
-      setPendingClientId(pendingId);
-    }
+
+    // Resolve role: Supabase override takes priority over hardcoded default
+    (async () => {
+      let role = hardcodedRole;
+      try {
+        const rows = await sbFetch('user_roles?select=role&email=eq.' + encodeURIComponent(email));
+        role = rows?.[0]?.role || hardcodedRole;
+      } catch { /* use hardcoded default */ }
+
+      sessionStorage.setItem('ozsky_auth', '1');
+      sessionStorage.setItem('ozsky_role', role);
+      sessionStorage.setItem('ozsky_email', email);
+      setAuthed(true);
+      setIsManager(role === 'manager');
+    })();
   }, []);
 
   useEffect(() => {
@@ -5494,14 +5530,9 @@ function App() {
     })();
   }, []);
 
-  // Auth gate — uses both `authed` (read) and `LoginScreen` (rendered)
+  // Auth gate
   if (!authed) {
-    return <LoginScreen onLogin={(role) => {
-      sessionStorage.setItem('ozsky_auth', '1');
-      sessionStorage.setItem('ozsky_role', role);
-      setAuthed(true);
-      setIsManager(role === 'manager');
-    }} />;
+    return <LoginScreen errorMessage={authError} />;
   }
 
   const allNav = [
@@ -5614,7 +5645,7 @@ function App() {
                 <Dashboard clients={clients} jobs={jobs} team={team} onGoTo={setView} setJobsMemberFilter={setJobsMemberFilter} setJobsStatusFilter={setJobsStatusFilter} />
               </>
             )}
-            {view === 'clients'   && <Clients   clients={clients} jobs={jobs} setClients={setClients} setJobs={setJobs} team={team} pendingClientId={pendingClientId} onPendingClientHandled={() => setPendingClientId(null)} />}
+            {view === 'clients'   && <Clients   clients={clients} jobs={jobs} setClients={setClients} setJobs={setJobs} team={team} />}
             {view === 'jobs'      && <Jobs       jobs={jobs} clients={clients} team={team} setJobs={setJobs} openJobId={openJobId} setOpenJobId={setOpenJobId} jobsMemberFilter={jobsMemberFilter} setJobsMemberFilter={setJobsMemberFilter} jobsStatusFilter={jobsStatusFilter} setJobsStatusFilter={setJobsStatusFilter} />}
             {view === 'team'      && isManager && <Team       team={team} jobs={jobs} clients={clients} setTeam={setTeam} setJobs={setJobs} />}
             {view === 'leads'     && <Leads      leads={leads} setLeads={setLeads} clients={clients} setClients={setClients} jobs={jobs} setJobs={setJobs} team={team} agents={agents} />}
