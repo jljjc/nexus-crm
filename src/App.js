@@ -5310,76 +5310,70 @@ const sbDelete = (table, id)      => sbFetch(`${table}?id=eq.${id}`, 'DELETE');
 const STAFF_PASSWORD   = 'ozsky2024';  // regular staff
 const MANAGER_PASSWORD = '731hay';     // managers only — unlocks Reports
 
-function LoginScreen({ onLogin }) {
-  const [pw, setPw]       = useState('');
-  const [error, setError] = useState('');
-  const [shake, setShake] = useState(false);
-  const [show, setShow]   = useState(false);
-  const inputRef          = useRef(null);
-  useEffect(() => { inputRef.current?.focus(); }, []);
+function LoginScreen({ errorMessage }) {
+  const [loading, setLoading] = useState(false);
+  const [localError, setLocalError] = useState(() => {
+    const p = new URLSearchParams(window.location.search);
+    const e = p.get('gmail_error');
+    if (e) {
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+    return e ? decodeURIComponent(e) : null;
+  });
 
-  const attempt = () => {
-    if (pw === MANAGER_PASSWORD) {
-      onLogin('manager');
-    } else if (pw === STAFF_PASSWORD) {
-      onLogin('staff');
-    } else {
-      setError('Incorrect password. Please try again.');
-      setShake(true); setPw('');
-      setTimeout(() => setShake(false), 500);
-      setTimeout(() => inputRef.current?.focus(), 50);
+  const handleGmailAuth = async () => {
+    setLoading(true);
+    setLocalError(null);
+    try {
+      const res = await fetch('/api/gmail-auth?action=url');
+      const { url } = await res.json();
+      window.location.href = url;
+    } catch {
+      setLoading(false);
+      setLocalError('Failed to connect. Please try again.');
     }
   };
 
+  const displayError = errorMessage || localError;
+
   return (
-    <div style={{ minHeight:'100vh', background:'linear-gradient(135deg,#1c1f3a 0%,#2d3563 50%,#1c1f3a 100%)', display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}>
+    <div style={{ minHeight:'100vh', background:'linear-gradient(135deg,#1f1f3d 0%,#2d2d5e 50%,#1f1f3d 100%)', display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-        @keyframes shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-8px)} 40%{transform:translateX(8px)} 60%{transform:translateX(-4px)} 80%{transform:translateX(4px)} }
         @keyframes loginFade { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
         .login-card { animation: loginFade 0.4s cubic-bezier(.16,1,.3,1) both; }
+        .google-btn:hover:not(:disabled) { border-color: #c0c0c0 !important; box-shadow: 0 2px 8px rgba(0,0,0,0.12) !important; }
       `}</style>
-      <div className="login-card" style={{ width:'100%', maxWidth:400, background:'#fff', borderRadius:20, padding:'40px 36px', boxShadow:'0 32px 80px rgba(0,0,0,0.35)', fontFamily:"'Inter',sans-serif", animation: shake ? 'shake 0.4s ease' : undefined }}>
-        {/* Logo */}
+      <div className="login-card" style={{ width:'100%', maxWidth:400, background:'#fff', borderRadius:20, padding:'40px 36px', boxShadow:'0 32px 80px rgba(0,0,0,0.35)', fontFamily:"'Inter',sans-serif" }}>
         <div style={{ textAlign:'center', marginBottom:28 }}>
           <img src={LOGO_B64} alt="Ozsky International" style={{ width:140, height:'auto', borderRadius:8 }} />
         </div>
-        {/* Header */}
         <div style={{ textAlign:'center', marginBottom:28 }}>
-          <div style={{ fontSize:22, fontWeight:800, color:'#111827', marginBottom:5 }}>Welcome back</div>
-          <div style={{ fontSize:13.5, color:'#1f2937' }}>Sign in to Ozsky CRM</div>
+          <div style={{ fontSize:22, fontWeight:800, color:'#111827', marginBottom:5 }}>Welcome</div>
+          <div style={{ fontSize:13.5, color:'#6b7280' }}>Sign in with your Ozsky Google account</div>
         </div>
-        {/* Password */}
-        <div style={{ marginBottom:18 }}>
-          <label style={{ display:'block', fontSize:11, fontWeight:700, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:7 }}>Password</label>
-          <div style={{ position:'relative' }}>
-            <input
-              ref={inputRef}
-              type={show ? 'text' : 'password'}
-              value={pw}
-              onChange={e => { setPw(e.target.value); setError(''); }}
-              onKeyDown={e => e.key === 'Enter' && attempt()}
-              placeholder="Enter your password"
-              style={{ width:'100%', padding:'12px 44px 12px 14px', background: error?'#fef2f2':'#f9fafb', border:`1.5px solid ${error?'#fca5a5':'#e5e7eb'}`, borderRadius:10, color:'#111827', fontSize:15, outline:'none', boxSizing:'border-box', transition:'all 0.15s' }}
-              onFocus={e => { e.target.style.borderColor='#6366f1'; e.target.style.boxShadow='0 0 0 3px rgba(99,102,241,0.12)'; e.target.style.background='#fff'; }}
-              onBlur={e  => { e.target.style.borderColor=error?'#fca5a5':'#e5e7eb'; e.target.style.boxShadow='none'; }}
-            />
-            <button onClick={() => setShow(!show)} tabIndex={-1} style={{ position:'absolute', right:12, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', color:'#1f2937', fontSize:16, padding:2 }}>
-              {show ? '🙈' : '👁️'}
-            </button>
-          </div>
-          {error && <div style={{ fontSize:12, color:'#ef4444', marginTop:6, display:'flex', alignItems:'center', gap:4 }}>⚠ {error}</div>}
-        </div>
-        {/* Submit */}
         <button
-          onClick={attempt}
-          style={{ width:'100%', padding:'13px', background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:10, color:'#fff', fontSize:15, fontWeight:700, cursor:'pointer', transition:'all 0.15s', boxShadow:'0 4px 14px rgba(99,102,241,0.4)', marginTop:4 }}
-          onMouseEnter={e => { e.target.style.opacity='0.92'; e.target.style.transform='translateY(-1px)'; }}
-          onMouseLeave={e => { e.target.style.opacity='1'; e.target.style.transform='translateY(0)'; }}
+          className="google-btn"
+          onClick={handleGmailAuth}
+          disabled={loading}
+          style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'center', gap:10, padding:'12px 16px', background:'#fff', border:'1.5px solid #e5e7eb', borderRadius:10, cursor: loading ? 'wait' : 'pointer', fontSize:14, fontWeight:600, color:'#374151', transition:'all 0.15s', marginBottom:16, boxSizing:'border-box' }}
         >
-          Sign in →
+          {!loading && (
+            <svg width="18" height="18" viewBox="0 0 48 48" style={{ flexShrink:0 }}>
+              <path fill="#4285F4" d="M44.5 20H24v8.5h11.8C34.7 33.9 30.1 37 24 37c-7.2 0-13-5.8-13-13s5.8-13 13-13c3.1 0 5.9 1.1 8.1 2.9l6.4-6.4C34.6 4.1 29.6 2 24 2 11.8 2 2 11.8 2 24s9.8 22 22 22c11 0 21-8 21-22 0-1.3-.2-2.7-.5-4z"/>
+              <path fill="#34A853" d="M6.3 14.7l7 5.1C15.1 16.1 19.2 13 24 13c3.1 0 5.9 1.1 8.1 2.9l6.4-6.4C34.6 4.1 29.6 2 24 2 16.3 2 9.7 6.4 6.3 14.7z"/>
+              <path fill="#FBBC05" d="M24 46c5.9 0 10.9-2 14.5-5.4l-6.7-5.5C29.9 36.9 27.1 38 24 38c-6 0-11.1-4-12.9-9.5l-7 5.4C7.6 41.6 15.2 46 24 46z"/>
+              <path fill="#EA4335" d="M44.5 20H24v8.5h11.8c-.9 2.8-2.8 5.1-5.3 6.6l6.7 5.5C41.4 37.3 45 31.2 45 24c0-1.3-.2-2.7-.5-4z"/>
+            </svg>
+          )}
+          <span>{loading ? 'Redirecting…' : 'Continue with Google'}</span>
         </button>
-        <div style={{ textAlign:'center', marginTop:22, fontSize:11.5, color:'#d1d5db' }}>
+        {displayError && (
+          <div style={{ background:'#fef2f2', border:'1px solid #fecaca', borderRadius:8, padding:'9px 12px', fontSize:12, color:'#dc2626', display:'flex', alignItems:'flex-start', gap:6, marginBottom:8 }}>
+            <span style={{ flexShrink:0 }}>⛔</span> {displayError}
+          </div>
+        )}
+        <div style={{ textAlign:'center', marginTop:20, fontSize:11.5, color:'#d1d5db' }}>
           Ozsky International · Internal CRM
         </div>
       </div>
