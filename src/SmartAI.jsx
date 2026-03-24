@@ -167,14 +167,29 @@ function GmailSection({ gmail, onGmailUpdate, selectedClient, onAddNote, emails,
 
   const handleSaveNote = useCallback((email) => {
     setSavingId(email.messageId);
-    onAddNote?.(formatEmailNote(email));
+    onAddNote?.({
+      text: formatEmailNote(email),
+      type: 'gmail',
+      urgency: email.ai?.urgency,
+      subject: email.subject,
+      emailDate: email.date,
+    });
     setEmails(prev => prev.map(e => e.messageId === email.messageId ? { ...e, _saved: true } : e));
     setSavingId(null);
   }, [onAddNote, setEmails]);
 
   const handleSaveTimeline = () => {
     const relevant = emails.filter(e => e.ai?.isRelevant !== false);
-    onAddNote?.(formatTimelineNote(selectedClient?.name || '客户', relevant));
+    const sorted = [...relevant].sort((a, b) => new Date(a.date) - new Date(b.date));
+    sorted.forEach(email => {
+      onAddNote?.({
+        text: formatEmailNote(email),
+        type: 'gmail',
+        urgency: email.ai?.urgency,
+        subject: email.subject,
+        emailDate: email.date,
+      });
+    });
     setEmails(prev => prev.map(e => ({ ...e, _saved: true })));
   };
 
@@ -690,7 +705,7 @@ function SnapshotSection({
       const r = await fetch('/api/claude', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-6', max_tokens: 1500,
+          model: 'claude-sonnet-4-6', max_tokens: 3000,
           messages: [{ role: 'user', content: `从以下客户快照提取信息，返回纯JSON（无markdown，无注释），只填写找到的字段，找不到的字段省略不写：
 {
   "name": "",

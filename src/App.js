@@ -486,7 +486,10 @@ const INIT_TEAM = [
 ];
 
 /* Notes are stored as arrays: [{ id, text, createdAt }] newest-first */
-const makeNote = (text) => ({ id: 'n'+Math.random().toString(36).slice(2,8), text, createdAt: new Date().toISOString() });
+const makeNote = (textOrObj) => {
+  const { text, ...meta } = (typeof textOrObj === 'object' && textOrObj !== null) ? textOrObj : { text: textOrObj };
+  return { id: 'n'+Math.random().toString(36).slice(2,8), text, createdAt: new Date().toISOString(), ...meta };
+};
 const normalizeNotes = (notes) => {
   if (!notes) return [];
   if (Array.isArray(notes)) return notes;
@@ -2500,6 +2503,43 @@ ${rawText.slice(0,5000)}` }]
       {/* ── EMAIL TAB ───────────────────────────────────── */}
       {tab === 'email' && (
         <div style={{ maxHeight:'65vh', overflowY:'auto', paddingRight:4 }}>
+          {/* ── Gmail saved email notes ── */}
+          {(() => {
+            const gmailNotes = [...normalizeNotes(client.notes)]
+              .filter(n => n.type === 'gmail')
+              .sort((a, b) => new Date(a.emailDate || a.createdAt) - new Date(b.emailDate || b.createdAt));
+            if (gmailNotes.length === 0) return null;
+            const urgencyColorMap = { high:'#ef4444', medium:'#f59e0b', low:'#10b981', neutral:'#6366f1' };
+            return (
+              <div style={{ marginBottom:18 }}>
+                <div style={{ fontSize:11, fontWeight:700, color:'#374151', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:10 }}>
+                  📧 Gmail History ({gmailNotes.length})
+                </div>
+                <div style={{ display:'flex', flexDirection:'column', gap:6, maxHeight:300, overflowY:'auto' }}>
+                  {gmailNotes.map(n => (
+                    <div key={n.id} style={{
+                      border:'1px solid #e5e7eb',
+                      borderLeft:`3px solid ${urgencyColorMap[n.urgency] || '#6366f1'}`,
+                      borderRadius:8, padding:'9px 12px', background:'#fff', position:'relative',
+                    }}>
+                      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:4 }}>
+                        <div style={{ fontWeight:600, fontSize:13, color:'#1f2937', flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginRight:8 }}>
+                          {n.subject || '（无主题）'}
+                        </div>
+                        <div style={{ fontSize:11, color:'#6b7280', whiteSpace:'nowrap' }}>
+                          {n.emailDate ? fmtDate(n.emailDate) : fmtDateTime(n.createdAt)}
+                        </div>
+                      </div>
+                      <div style={{ fontSize:12, color:'#374151', whiteSpace:'pre-line', lineHeight:1.5 }}>{n.text}</div>
+                      <button onClick={() => onSaveProfile({ ...client, notes: normalizeNotes(client.notes).filter(note => note.id !== n.id) })}
+                        style={{ position:'absolute', top:8, right:8, background:'none', border:'none', color:'#9ca3af', fontSize:14, lineHeight:1, padding:2, cursor:'pointer' }} title="Delete">×</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+
           {/* Header */}
           <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:18, padding:'14px 16px', background:'linear-gradient(135deg,#eff6ff,#dbeafe)', borderRadius:12, border:'1px solid #93c5fd' }}>
             <div style={{ fontSize:28 }}>📧</div>
