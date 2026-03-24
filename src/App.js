@@ -5419,11 +5419,16 @@ function LoginScreen({ errorMessage }) {
     setLocalError(null);
     try {
       const res = await fetch('/api/gmail-auth?action=url');
-      const { url } = await res.json();
-      window.location.href = url;
-    } catch {
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new Error(`Server error ${res.status}${text ? ': ' + text.slice(0, 200) : ''}`);
+      }
+      const data = await res.json();
+      if (!data.url) throw new Error('No OAuth URL in response: ' + JSON.stringify(data));
+      window.location.href = data.url;
+    } catch (err) {
       setLoading(false);
-      setLocalError('Failed to connect. Please try again.');
+      setLocalError(err.message || 'Failed to connect. Please try again.');
     }
   };
 
