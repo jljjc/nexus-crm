@@ -168,7 +168,7 @@ const GLOBAL_CSS = `
 
   /* ── SIDEBAR ─────────────────────────────────── */
   .oz-sidebar {
-    width: 236px; min-height: 100vh; background: #1c1f3a;
+    width: 236px; min-height: 100vh; background: #1f1f3d;
     display: flex; flex-direction: column; flex-shrink: 0;
     position: sticky; top: 0; height: 100vh;
     box-shadow: 2px 0 20px rgba(0,0,0,0.15);
@@ -183,16 +183,16 @@ const GLOBAL_CSS = `
   }
   .oz-nav-item:hover { background: rgba(255,255,255,0.1); color: #e2e8f0; }
   .oz-nav-item.active {
-    background: linear-gradient(120deg, rgba(99,102,241,0.28), rgba(167,139,250,0.18));
-    color: #c4b5fd; font-weight: 600;
-    box-shadow: inset 3px 0 0 #818cf8;
+    background: rgba(255,21,138,0.15);
+    color: #ff8bc8; font-weight: 600;
+    box-shadow: inset 3px 0 0 #ff158a;
   }
   .oz-nav-badge {
     margin-left: auto; font-size: 10px; padding: 1px 7px; border-radius: 99px;
     font-family: 'JetBrains Mono', monospace; font-weight: 600;
     background: rgba(255,255,255,0.09); color: #9ba5c0;
   }
-  .oz-nav-item.active .oz-nav-badge { background: rgba(129,140,248,0.3); color: #c4b5fd; }
+  .oz-nav-item.active .oz-nav-badge { background: rgba(255,21,138,0.25); color: #ff8bc8; }
 
   /* ── TOPBAR ─────────────────────────────────── */
   .oz-topbar {
@@ -220,9 +220,9 @@ const GLOBAL_CSS = `
     transition: box-shadow 0.2s;
   }
   .oz-kpi:hover { box-shadow: 0 6px 20px rgba(0,0,0,0.09); transform: translateY(-1px); }
-  .oz-kpi-label { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #4b5563; margin-bottom: 8px; }
-  .oz-kpi-val   { font-size: 30px; font-weight: 800; color: #111827; line-height: 1; }
-  .oz-kpi-sub   { font-size: 12px; color: #4b5563; margin-top: 5px; }
+  .oz-kpi-label { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #676879; margin-bottom: 8px; }
+  .oz-kpi-val   { font-size: 30px; font-weight: 800; color: #323338; line-height: 1; }
+  .oz-kpi-sub   { font-size: 12px; color: #676879; margin-top: 5px; }
 
   /* ── TABLE ─────────────────────────────────── */
   .oz-table { width: 100%; border-collapse: collapse; }
@@ -242,10 +242,10 @@ const GLOBAL_CSS = `
     border: none; transition: all 0.15s; cursor: pointer;
   }
   .oz-btn-primary {
-    background: linear-gradient(135deg, #6366f1, #8b5cf6);
-    color: #fff; box-shadow: 0 2px 10px rgba(99,102,241,0.35);
+    background: linear-gradient(135deg, #ff158a, #ff5fae);
+    color: #fff; box-shadow: 0 2px 10px rgba(255,21,138,0.35);
   }
-  .oz-btn-primary:hover { opacity: 0.92; transform: translateY(-1px); box-shadow: 0 4px 16px rgba(99,102,241,0.45); }
+  .oz-btn-primary:hover { opacity: 0.92; transform: translateY(-1px); box-shadow: 0 4px 16px rgba(255,21,138,0.45); }
   .oz-btn-ghost {
     background: #f3f4f8; color: #374151;
     border: 1px solid #e5e7eb;
@@ -261,7 +261,7 @@ const GLOBAL_CSS = `
     font-size: 14px; outline: none;
     transition: border-color 0.18s, box-shadow 0.18s, background 0.18s;
   }
-  .oz-input:focus { border-color: #6366f1; background: #fff; box-shadow: 0 0 0 3px rgba(99,102,241,0.12); }
+  .oz-input:focus { border-color: #ff158a; background: #fff; box-shadow: 0 0 0 3px rgba(255,21,138,0.12); }
   .oz-input::placeholder { color: #b0b7c3; }
 
   /* ── MODAL ─────────────────────────────── */
@@ -313,8 +313,9 @@ const GLOBAL_CSS = `
 
   /* ── SECTION HEADER ─────────────────────── */
   .oz-page-hd { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
-  .oz-page-title { font-size: 22px; font-weight: 800; color: #111827; }
-  .oz-page-sub   { font-size: 13px; color: #4b5563; margin-top: 3px; }
+  .oz-page-title { font-size: 22px; font-weight: 800; color: #323338; }
+  .oz-page-sub   { font-size: 13px; color: #676879; margin-top: 3px; }
+  .oz-main-content { background: #f6f7fb; }
 
   /* ── MOBILE ─────────────────────────────── */
   .oz-hamburger {
@@ -327,7 +328,7 @@ const GLOBAL_CSS = `
   }
   .oz-mob-nav {
     display: none; position: fixed; bottom: 0; left: 0; right: 0; z-index: 60;
-    background: #1c1f3a; border-top: 1px solid #2d3157;
+    background: #1f1f3d; border-top: 1px solid #2d2d5e;
     padding: 4px 4px 8px; justify-content: space-around;
   }
   .oz-mob-btn {
@@ -336,7 +337,7 @@ const GLOBAL_CSS = `
     color: #9ba5c0; font-size: 9.5px; font-weight: 600; text-transform: uppercase;
     letter-spacing: 0.04em; min-width: 52px; transition: all 0.15s;
   }
-  .oz-mob-btn:hover, .oz-mob-btn.active { color: #c4b5fd; background: rgba(129,140,248,0.2); }
+  .oz-mob-btn:hover, .oz-mob-btn.active { color: #ff8bc8; background: rgba(255,21,138,0.2); }
   .oz-mob-btn .micon { font-size: 19px; }
 
   /* ── RESPONSIVE ─────────────────────────── */
@@ -414,18 +415,19 @@ const CLIENT_TYPES = ['Student', 'Visa', 'Migration', 'Multiple'];
 const CLIENT_STATUSES = ['Active', 'Pending', 'Completed', 'Inactive'];
 
 const STATUS_STYLES = {
-  'New':           { bg: '#0ea5e920', text: '#6366f1', dot: '#6366f1' },
-  'In Progress':   { bg: '#f59e0b20', text: '#fbbf24', dot: '#f59e0b' },
-  'Awaiting Docs': { bg: '#a78bfa20', text: '#c4b5fd', dot: '#a78bfa' },
-  'Under Review':  { bg: '#fb923c20', text: '#fdba74', dot: '#fb923c' },
-  'State Nomination': { bg: '#0891b220', text: '#06b6d4', dot: '#0891b2' },
-  'Completed':     { bg: '#10b98120', text: '#34d399', dot: '#10b981' },
-  'Awaiting Decision': { bg: '#64748b20', text: '#94a3b8', dot: '#64748b' },
-  'S56 Request (Further Information)': { bg: '#ef444420', text: '#f87171', dot: '#ef4444' },
-  'On Hold':       { bg: '#94a3b820', text: '#94a3b8', dot: '#64748b' },
-  'Active':        { bg: '#10b98120', text: '#34d399', dot: '#10b981' },
-  'Pending':       { bg: '#f59e0b20', text: '#fbbf24', dot: '#f59e0b' },
-  'Inactive':      { bg: '#94a3b820', text: '#94a3b8', dot: '#64748b' },
+  'New':           { bg: '#ffd6ee', text: '#c11569', dot: '#c11569' },
+  'In Progress':   { bg: '#ddf0ff', text: '#0073ea', dot: '#0073ea' },
+  'Awaiting Docs': { bg: '#fff3c9', text: '#7a5800', dot: '#7a5800' },
+  'Under Review':  { bg: '#fff3c9', text: '#7a5800', dot: '#7a5800' },
+  'State Nomination': { bg: '#ddf0ff', text: '#0073ea', dot: '#0073ea' },
+  'Completed':     { bg: '#c2f0db', text: '#0a6640', dot: '#0a6640' },
+  'Awaiting Decision': { bg: '#f3f4f6', text: '#676879', dot: '#676879' },
+  'S56 Request (Further Information)': { bg: '#ffd6d6', text: '#c11548', dot: '#c11548' },
+  'On Hold':       { bg: '#f3f4f6', text: '#676879', dot: '#676879' },
+  'Active':        { bg: '#c2f0db', text: '#0a6640', dot: '#0a6640' },
+  'Pending':       { bg: '#fff3c9', text: '#7a5800', dot: '#7a5800' },
+  'Inactive':      { bg: '#f3f4f6', text: '#676879', dot: '#676879' },
+  'Urgent':        { bg: '#ffd6d6', text: '#c11548', dot: '#c11548' },
 };
 
 const PRIORITY_STYLES = {
@@ -611,9 +613,9 @@ function ProgressBar({ value, status }) {
 
 function Card({ children, style, onClick }) {
   return (
-    <div onClick={onClick} style={{ background:'#ffffff', border:'1.5px solid #d1d5db', borderRadius:12, padding:20, ...style, cursor: onClick ? 'pointer' : 'default', transition:'border-color 0.2s, transform 0.15s' }}
-      onMouseEnter={e => onClick && (e.currentTarget.style.borderColor='#38bdf830', e.currentTarget.style.transform='translateY(-1px)')}
-      onMouseLeave={e => onClick && (e.currentTarget.style.borderColor='#e5e7eb', e.currentTarget.style.transform='translateY(0)')}>
+    <div onClick={onClick} style={{ background:'#ffffff', border:'1px solid #e9eaf3', borderRadius:12, padding:20, boxShadow:'0 2px 8px rgba(0,0,0,0.06)', ...style, cursor: onClick ? 'pointer' : 'default', transition:'all 0.2s' }}
+      onMouseEnter={e => onClick && (e.currentTarget.style.boxShadow='0 4px 16px rgba(0,0,0,0.10)', e.currentTarget.style.transform='translateY(-1px)')}
+      onMouseLeave={e => onClick && (e.currentTarget.style.boxShadow='0 2px 8px rgba(0,0,0,0.06)', e.currentTarget.style.transform='translateY(0)')}>
       {children}
     </div>
   );
@@ -709,7 +711,7 @@ function NotesPanel({ notes, onAddNote, onDeleteNote }) {
           placeholder="Add a note… (Ctrl+Enter to save)"
           style={{ ...textareaStyle, minHeight:60, flex:1, fontSize:13 }}
         />
-        <button onClick={handleAdd} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, padding:'0 14px', color:'#fff', fontWeight:700, fontSize:13, alignSelf:'stretch', minWidth:60 }}>Add</button>
+        <button onClick={handleAdd} style={{ background:'linear-gradient(135deg,#ff158a,#ff5fae)', border:'none', borderRadius:8, padding:'0 14px', color:'#fff', fontWeight:700, fontSize:13, alignSelf:'stretch', minWidth:60 }}>Add</button>
       </div>
       {/* Notes list */}
       <div style={{ display:'flex', flexDirection:'column', gap:8, maxHeight:260, overflowY:'auto' }}>
@@ -827,10 +829,10 @@ function Dashboard({ clients, jobs, team, onGoTo, setJobsMemberFilter, setJobsSt
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
   const statCards = [
-    { label:'Active Clients',   value:active,     icon:'👥', color:'#6366f1', sub:`of ${clients.length} total`,   onClick:()=>onGoTo('clients') },
-    { label:'Jobs In Progress', value:inProgress, icon:'⚡', color:'#f59e0b', sub:`${jobs.length} total cases`,     onClick:()=>{ setJobsStatusFilter('In Progress'); onGoTo('jobs'); } },
-    { label:'Urgent Cases',      value:urgent,     icon:'🔴', color:'#f87171', sub:'need immediate attention',       onClick:()=>{ setJobsStatusFilter('Urgent'); onGoTo('jobs'); } },
-    { label:'Awaiting Decision', value:awaitingDecision, icon:'⏳', color:'#94a3b8', sub:'lodged · pending outcome', onClick:()=>{ setJobsStatusFilter('Awaiting Decision'); onGoTo('jobs'); } },
+    { label:'Active Clients',    value:active,           icon:'👥', color:'#ff158a', sub:`of ${clients.length} total`,   onClick:()=>onGoTo('clients') },
+    { label:'Jobs In Progress',  value:inProgress,       icon:'⚡', color:'#579bfc', sub:`${jobs.length} total cases`,   onClick:()=>{ setJobsStatusFilter('In Progress'); onGoTo('jobs'); } },
+    { label:'Urgent Cases',      value:urgent,           icon:'🔴', color:'#e2445c', sub:'need immediate attention',     onClick:()=>{ setJobsStatusFilter('Urgent'); onGoTo('jobs'); } },
+    { label:'Awaiting Decision', value:awaitingDecision, icon:'⏳', color:'#676879', sub:'lodged · pending outcome',     onClick:()=>{ setJobsStatusFilter('Awaiting Decision'); onGoTo('jobs'); } },
   ];
 
   const selectedClient = selectedJob ? getClient(selectedJob.clientId) : null;
@@ -846,7 +848,7 @@ function Dashboard({ clients, jobs, team, onGoTo, setJobsMemberFilter, setJobsSt
       {/* Stat cards – all clickable */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))', gap:16, marginBottom:28 }}>
         {statCards.map(s => (
-          <Card key={s.label} onClick={s.onClick} style={{ position:'relative', overflow:'hidden' }}>
+          <Card key={s.label} onClick={s.onClick} style={{ position:'relative', overflow:'hidden', borderTop:`4px solid ${s.color}` }}>
             <div style={{ position:'absolute', top:-10, right:-10, fontSize:48, opacity:0.08 }}>{s.icon}</div>
             <div style={{ fontSize:13, color:'#1f2937', marginBottom:8 }}>{s.label}</div>
             <div style={{ fontSize:38, fontWeight:800, color:s.color, marginBottom:4, fontFamily:"'JetBrains Mono',monospace" }}>{s.value}</div>
@@ -867,7 +869,7 @@ function Dashboard({ clients, jobs, team, onGoTo, setJobsMemberFilter, setJobsSt
       <Card style={{ marginBottom:20, padding:'16px 20px' }}>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
           <h3 style={{ fontSize:15, fontWeight:600, color:'#0f172a' }}>Pipeline Overview</h3>
-          <button onClick={()=>onGoTo('jobs')} style={{ background:'none', border:'none', color:'#6366f1', fontSize:13, cursor:'pointer' }}>View all →</button>
+          <button onClick={()=>onGoTo('jobs')} style={{ background:'none', border:'none', color:'#ff158a', fontSize:13, cursor:'pointer' }}>View all →</button>
         </div>
         <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
           {pipeline.map(p => {
@@ -889,7 +891,7 @@ function Dashboard({ clients, jobs, team, onGoTo, setJobsMemberFilter, setJobsSt
         <Card>
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
             <h3 style={{ fontSize:15, fontWeight:600, color:'#0f172a' }}>Recent Cases</h3>
-            <button onClick={()=>onGoTo('jobs')} style={{ background:'none', border:'none', color:'#6366f1', fontSize:13, cursor:'pointer' }}>View all →</button>
+            <button onClick={()=>onGoTo('jobs')} style={{ background:'none', border:'none', color:'#ff158a', fontSize:13, cursor:'pointer' }}>View all →</button>
           </div>
           <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
             {recentJobs.map(j => {
@@ -920,7 +922,7 @@ function Dashboard({ clients, jobs, team, onGoTo, setJobsMemberFilter, setJobsSt
         <Card>
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
             <h3 style={{ fontSize:15, fontWeight:600, color:'#0f172a' }}>Team Workload</h3>
-            <button onClick={()=>onGoTo('team')} style={{ background:'none', border:'none', color:'#6366f1', fontSize:13, cursor:'pointer' }}>View team →</button>
+            <button onClick={()=>onGoTo('team')} style={{ background:'none', border:'none', color:'#ff158a', fontSize:13, cursor:'pointer' }}>View team →</button>
           </div>
           <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
             {memberLoad.map(m => {
@@ -951,7 +953,7 @@ function Dashboard({ clients, jobs, team, onGoTo, setJobsMemberFilter, setJobsSt
         <Card>
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
             <h3 style={{ fontSize:15, fontWeight:600, color:'#111827' }}>📅 Upcoming Deadlines <span style={{ fontSize:12, color:'#1f2937', fontWeight:400 }}>(next 14 days)</span></h3>
-            <button onClick={()=>onGoTo('jobs')} style={{ background:'none', border:'none', color:'#6366f1', fontSize:13, cursor:'pointer' }}>View all →</button>
+            <button onClick={()=>onGoTo('jobs')} style={{ background:'none', border:'none', color:'#ff158a', fontSize:13, cursor:'pointer' }}>View all →</button>
           </div>
           <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
             {upcoming.map(j => {
@@ -1023,7 +1025,7 @@ function Dashboard({ clients, jobs, team, onGoTo, setJobsMemberFilter, setJobsSt
           )}
           <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:4, borderTop:'1.5px solid #e2e8f0', paddingTop:16 }}>
             <button onClick={()=>setSelectedJob(null)} style={{ background:'#e5e7eb', border:'none', borderRadius:8, padding:'9px 18px', color:'#1f2937', fontWeight:500 }}>Close</button>
-            <button onClick={()=>{ setSelectedJob(null); onGoTo('jobs'); }} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, padding:'9px 20px', color:'#fff', fontWeight:700 }}>Open in Cases →</button>
+            <button onClick={()=>{ setSelectedJob(null); onGoTo('jobs'); }} style={{ background:'linear-gradient(135deg,#ff158a,#ff5fae)', border:'none', borderRadius:8, padding:'9px 20px', color:'#fff', fontWeight:700 }}>Open in Cases →</button>
           </div>
         </Modal>
       )}
@@ -1866,7 +1868,7 @@ CRITICAL RULES — YOU MUST FOLLOW THESE:
       {/* Tabs */}
       <div style={{ display:'flex', gap:4, marginBottom:20, borderBottom:'2px solid #e2e8f0', paddingBottom:0 }}>
         {tabs.map(t => (
-          <button key={t.id} onClick={()=>setTab(t.id)} style={{ padding:'8px 16px', background:'none', border:'none', color: tab===t.id ? '#6366f1' : '#6b7280', fontWeight: tab===t.id ? 700 : 400, fontSize:13, borderBottom: tab===t.id ? '2px solid #6366f1' : '2px solid transparent', cursor:'pointer', marginBottom:-1 }}>{t.label}</button>
+          <button key={t.id} onClick={()=>setTab(t.id)} style={{ padding:'8px 16px', background:'none', border:'none', color: tab===t.id ? '#ff158a' : '#6b7280', fontWeight: tab===t.id ? 700 : 400, fontSize:13, borderBottom: tab===t.id ? '2px solid #ff158a' : '2px solid transparent', cursor:'pointer', marginBottom:-1 }}>{t.label}</button>
         ))}
       </div>
 
@@ -1971,7 +1973,7 @@ CRITICAL RULES — YOU MUST FOLLOW THESE:
                 const isUnsuc = sa.outcome?.toLowerCase().includes('unsuccessful') || sa.outcome?.toLowerCase().includes('不通过');
                 const outColor = sa.outcome ? (isUnsuc ? '#ef4444' : '#16a34a') : '#6b7280';
                 return (
-                  <div key={idx} style={{ marginBottom:14, background:'#f9fafb', borderRadius:12, padding:'14px 16px', border:`1px solid ${isUnsuc?'#fecaca':'#e5e7eb'}`, borderLeft:`4px solid ${isUnsuc?'#ef4444':'#6366f1'}` }}>
+                  <div key={idx} style={{ marginBottom:14, background:'#f9fafb', borderRadius:12, padding:'14px 16px', border:`1px solid ${isUnsuc?'#fecaca':'#e5e7eb'}`, borderLeft:`4px solid ${isUnsuc?'#ef4444':'#ff158a'}` }}>
                     <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
                       <div style={{ fontSize:13, fontWeight:700, color:'#111827' }}>{t('Application ID')}: {sa.applicationId}</div>
                       {sa.outcome && <span style={{ fontSize:11, fontWeight:700, color:outColor, background:outColor+'15', padding:'3px 10px', borderRadius:20 }}>{isUnsuc?`❌ ${t('Unsuccessful')}`:`✅ ${t('Successful')}`}</span>}
@@ -2057,7 +2059,7 @@ CRITICAL RULES — YOU MUST FOLLOW THESE:
               <div style={{ fontSize:32, marginBottom:10 }}>📥</div>
               <div style={{ fontSize:14, fontWeight:600, color:'#1f2937', marginBottom:6 }}>No detailed profile yet</div>
               <div style={{ fontSize:12, marginBottom:14 }}>Import a document or fill in manually via Edit</div>
-              <button onClick={()=>setTab('import')} style={{ padding:'9px 18px', background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, color:'#fff', fontWeight:700, fontSize:13, cursor:'pointer' }}>📥 Import Document →</button>
+              <button onClick={()=>setTab('import')} style={{ padding:'9px 18px', background:'linear-gradient(135deg,#ff158a,#ff5fae)', border:'none', borderRadius:8, color:'#fff', fontWeight:700, fontSize:13, cursor:'pointer' }}>📥 Import Document →</button>
             </div>
           )}
         </div>
@@ -2328,7 +2330,7 @@ ${rawText.slice(0,5000)}` }]
             )}
             <div style={{ display:'flex', gap:8, marginTop:10, flexWrap:'wrap' }}>
               {noteImportText.trim() && !noteImportResult && (
-                <button onClick={parseNoteImport} disabled={noteImportParsing} style={{ padding:'7px 16px', background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, color:'#fff', fontWeight:700, fontSize:12, cursor:'pointer' }}>
+                <button onClick={parseNoteImport} disabled={noteImportParsing} style={{ padding:'7px 16px', background:'linear-gradient(135deg,#ff158a,#ff5fae)', border:'none', borderRadius:8, color:'#fff', fontWeight:700, fontSize:12, cursor:'pointer' }}>
                   {noteImportParsing ? '⏳ AI处理中…' : '🤖 AI摘要 Summarise'}
                 </button>
               )}
@@ -2805,7 +2807,7 @@ ${rawText.slice(0,5000)}` }]
 
               <div style={{ display:'flex', gap:10 }}>
                 <button onClick={()=>setImportPreview(null)} style={{ padding:'9px 18px', background:'#e5e7eb', border:'none', borderRadius:8, color:'#1f2937', fontWeight:500, cursor:'pointer' }}>← Re-upload</button>
-                <button onClick={applyImport} style={{ flex:1, padding:'10px 20px', background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, color:'#fff', fontWeight:700, fontSize:14, cursor:'pointer' }}>✅ Apply to Client Record</button>
+                <button onClick={applyImport} style={{ flex:1, padding:'10px 20px', background:'linear-gradient(135deg,#ff158a,#ff5fae)', border:'none', borderRadius:8, color:'#fff', fontWeight:700, fontSize:14, cursor:'pointer' }}>✅ Apply to Client Record</button>
               </div>
             </div>
           )}
@@ -2968,7 +2970,7 @@ function Clients({ clients, jobs, setClients, setJobs, team }) {
           <h1 style={{ fontSize:24, fontWeight:700, color:'#111827' }}>Clients</h1>
           <p style={{ color:'#1f2937', fontSize:14, marginTop:2 }}>{clients.length} total clients</p>
         </div>
-        <button onClick={openAdd} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:10, padding:'10px 18px', color:'#fff', fontWeight:700, fontSize:14, display:'flex', alignItems:'center', gap:7 }}>
+        <button onClick={openAdd} style={{ background:'linear-gradient(135deg,#ff158a,#ff5fae)', border:'none', borderRadius:10, padding:'10px 18px', color:'#fff', fontWeight:700, fontSize:14, display:'flex', alignItems:'center', gap:7 }}>
           <span style={{ fontSize:18, lineHeight:1 }}>+</span> Add Client
         </button>
       </div>
@@ -3015,7 +3017,7 @@ function Clients({ clients, jobs, setClients, setJobs, team }) {
                     <div style={{ display:'flex', alignItems:'center', gap:10 }}>
                       <div style={{ width:34, height:34, borderRadius:'50%', background:'#e5e7eb', display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, fontWeight:600, color:'#1f2937' }}>{initials(c.name)}</div>
                       <div>
-                        <div onClick={()=>setViewClient(c)} style={{ fontWeight:600, color:'#6366f1', fontSize:14, cursor:'pointer' }}>{c.name}</div>
+                        <div onClick={()=>setViewClient(c)} style={{ fontWeight:600, color:'#ff158a', fontSize:14, cursor:'pointer' }}>{c.name}</div>
                         <div style={{ fontSize:12, color:'#1f2937' }}>{c.email}</div>
                       </div>
                     </div>
@@ -3225,7 +3227,7 @@ function Jobs({ jobs, clients, team, setJobs, openJobId, setOpenJobId, jobsMembe
             <div style={{ display:'flex', background:'#ffffff', borderRadius:8, border:'1.5px solid #cbd5e1', overflow:'hidden' }}>
               {['list','board'].map(v=><button key={v} onClick={()=>setView(v)} style={{ padding:'7px 14px', background: view===v?'#e5e7eb':'transparent', border:'none', color: view===v?'#e2e8f0':'#475569', fontSize:13, fontWeight:500, textTransform:'capitalize' }}>{v}</button>)}
             </div>
-            <button onClick={openAdd} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:10, padding:'9px 16px', color:'#fff', fontWeight:700, fontSize:13 }}>+ New Case</button>
+            <button onClick={openAdd} style={{ background:'linear-gradient(135deg,#ff158a,#ff5fae)', border:'none', borderRadius:10, padding:'9px 16px', color:'#fff', fontWeight:700, fontSize:13 }}>+ New Case</button>
           </div>
         </div>
         <div style={{ display:'flex', gap:14, overflowX:'auto', paddingBottom:12 }}>
@@ -3360,7 +3362,7 @@ function Jobs({ jobs, clients, team, setJobs, openJobId, setOpenJobId, jobsMembe
   
             <div style={{display:'flex',justifyContent:'flex-end',gap:10,marginTop:18}}>
               <button onClick={closeModal} style={{background:'#e5e7eb',border:'none',borderRadius:8,padding:'9px 18px',color:'#1f2937',fontWeight:500}}>Cancel</button>
-              <button onClick={save} style={{background:'linear-gradient(135deg,#6366f1,#8b5cf6)',border:'none',borderRadius:8,padding:'9px 20px',color:'#ffffff',fontWeight:700}}>Save Case</button>
+              <button onClick={save} style={{background:'linear-gradient(135deg,#ff158a,#ff5fae)',border:'none',borderRadius:8,padding:'9px 20px',color:'#ffffff',fontWeight:700}}>Save Case</button>
             </div>
           </Modal>
         )}
@@ -3590,7 +3592,7 @@ ${rawText.slice(0,5000)}` }]
           <div style={{ display:'flex', background:'#ffffff', borderRadius:8, border:'1.5px solid #cbd5e1', overflow:'hidden' }}>
             {['list','board'].map(v=><button key={v} onClick={()=>setView(v)} style={{ padding:'7px 14px', background: view===v?'#e5e7eb':'transparent', border:'none', color: view===v?'#e2e8f0':'#475569', fontSize:13, fontWeight:500, textTransform:'capitalize' }}>{v}</button>)}
           </div>
-          <button onClick={openAdd} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:10, padding:'9px 16px', color:'#fff', fontWeight:700, fontSize:13 }}>+ New Case</button>
+          <button onClick={openAdd} style={{ background:'linear-gradient(135deg,#ff158a,#ff5fae)', border:'none', borderRadius:10, padding:'9px 16px', color:'#fff', fontWeight:700, fontSize:13 }}>+ New Case</button>
         </div>
       </div>
       <div style={{ display:'flex', gap:10, marginBottom:18, flexWrap:'wrap' }}>
@@ -3626,7 +3628,7 @@ ${rawText.slice(0,5000)}` }]
               <div style={{ display:'flex', alignItems:'center', gap:16, flexWrap:'wrap' }}>
                 <div style={{ flex:1, minWidth:200 }}>
                   <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
-                    <span onClick={()=>setViewJob(j)} style={{ fontSize:14, fontWeight:600, color:'#6366f1', cursor:'pointer', textDecoration:'underline', textDecorationStyle:'dotted', textDecorationColor:'#38bdf840' }}>{j.title}</span>
+                    <span onClick={()=>setViewJob(j)} style={{ fontSize:14, fontWeight:600, color:'#ff158a', cursor:'pointer', textDecoration:'underline', textDecorationStyle:'dotted', textDecorationColor:'#38bdf840' }}>{j.title}</span>
                     <PriorityBadge priority={j.priority} />
                     {overdue && <span style={{ fontSize:11, color:'#f87171', background:'#7f1d1d30', borderRadius:10, padding:'2px 8px' }}>Overdue</span>}
                   </div>
@@ -3749,7 +3751,7 @@ ${rawText.slice(0,5000)}` }]
   
           <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:18 }}>
             <button onClick={closeModal} style={{ background:'#e5e7eb', border:'none', borderRadius:8, padding:'9px 18px', color:'#1f2937', fontWeight:500 }}>Cancel</button>
-            <button onClick={save} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, padding:'9px 20px', color:'#fff', fontWeight:700 }}>Save Case</button>
+            <button onClick={save} style={{ background:'linear-gradient(135deg,#ff158a,#ff5fae)', border:'none', borderRadius:8, padding:'9px 20px', color:'#fff', fontWeight:700 }}>Save Case</button>
           </div>
         </Modal>
       )}
@@ -4606,7 +4608,7 @@ function Leads({ leads, setLeads, clients, setClients, jobs, setJobs, team, agen
         </div>
         <div style={{ display:'flex', gap:10 }}>
           <input value={filter} onChange={e=>setFilter(e.target.value)} placeholder="Search leads…" style={{ background:'#ffffff', border:'1.5px solid #d1d5db', borderRadius:8, padding:'8px 12px', color:'#111827', fontSize:13, width:200, outline:'none' }}/>
-          <button onClick={openAdd} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', color:'#ffffff', border:'none', borderRadius:8, padding:'9px 18px', fontWeight:700, fontSize:13 }}>+ Add Lead</button>
+          <button onClick={openAdd} style={{ background:'linear-gradient(135deg,#ff158a,#ff5fae)', color:'#ffffff', border:'none', borderRadius:8, padding:'9px 18px', fontWeight:700, fontSize:13 }}>+ Add Lead</button>
         </div>
       </div>
 
@@ -4687,7 +4689,7 @@ function Leads({ leads, setLeads, clients, setClients, jobs, setJobs, team, agen
           </FormField>
           <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:16 }}>
             <button onClick={()=>setShowForm(false)} style={{ background:'#e5e7eb', border:'none', borderRadius:8, padding:'9px 18px', color:'#1f2937', fontSize:13 }}>Cancel</button>
-            <button onClick={save} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, padding:'9px 18px', color:'#fff', fontWeight:700, fontSize:13 }}>Save Lead</button>
+            <button onClick={save} style={{ background:'linear-gradient(135deg,#ff158a,#ff5fae)', border:'none', borderRadius:8, padding:'9px 18px', color:'#fff', fontWeight:700, fontSize:13 }}>Save Lead</button>
           </div>
         </Modal>
       )}
@@ -4774,7 +4776,7 @@ function CalendarPage({ appointments, setAppointments, jobs, clients, team, onGo
           <button onClick={()=>setCurMonth(p=>{const d=new Date(p.y,p.m-1);return{y:d.getFullYear(),m:d.getMonth()};})} style={{ background:'#e5e7eb', border:'none', borderRadius:7, padding:'7px 12px', color:'#1f2937', fontSize:16 }}>‹</button>
           <span style={{ fontSize:15, fontWeight:600, color:'#111827', minWidth:140, textAlign:'center' }}>{monthNames[curMonth.m]} {curMonth.y}</span>
           <button onClick={()=>setCurMonth(p=>{const d=new Date(p.y,p.m+1);return{y:d.getFullYear(),m:d.getMonth()};})} style={{ background:'#e5e7eb', border:'none', borderRadius:7, padding:'7px 12px', color:'#1f2937', fontSize:16 }}>›</button>
-          <button onClick={()=>{setForm(emptyAppt);setEditAppt(null);setShowForm(true);}} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', color:'#ffffff', border:'none', borderRadius:8, padding:'9px 18px', fontWeight:700, fontSize:13 }}>+ Add Appointment</button>
+          <button onClick={()=>{setForm(emptyAppt);setEditAppt(null);setShowForm(true);}} style={{ background:'linear-gradient(135deg,#ff158a,#ff5fae)', color:'#ffffff', border:'none', borderRadius:8, padding:'9px 18px', fontWeight:700, fontSize:13 }}>+ Add Appointment</button>
         </div>
       </div>
 
@@ -4894,7 +4896,7 @@ function CalendarPage({ appointments, setAppointments, jobs, clients, team, onGo
             {editAppt && <button onClick={()=>{deleteAppt(editAppt);setShowForm(false);}} style={{ background:'#ef444420', border:'none', borderRadius:8, padding:'9px 16px', color:'#f87171', fontSize:13 }}>Delete</button>}
             <div style={{ display:'flex', gap:10, marginLeft:'auto' }}>
               <button onClick={()=>setShowForm(false)} style={{ background:'#e5e7eb', border:'none', borderRadius:8, padding:'9px 18px', color:'#1f2937', fontSize:13 }}>Cancel</button>
-              <button onClick={save} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, padding:'9px 18px', color:'#fff', fontWeight:700, fontSize:13 }}>Save</button>
+              <button onClick={save} style={{ background:'linear-gradient(135deg,#ff158a,#ff5fae)', border:'none', borderRadius:8, padding:'9px 18px', color:'#fff', fontWeight:700, fontSize:13 }}>Save</button>
             </div>
           </div>
         </Modal>
@@ -4951,7 +4953,7 @@ function Invoices({ invoices, setInvoices, clients, jobs }) {
           <h1 style={{ fontSize:22, fontWeight:700, color:'#111827' }}>Invoices</h1>
           <div style={{ fontSize:13, color:'#1f2937', marginTop:3 }}>{invoices.length} invoices total</div>
         </div>
-        <button onClick={()=>{setForm(emptyInv);setEditInv(null);setShowForm(true);}} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', color:'#ffffff', border:'none', borderRadius:8, padding:'9px 18px', fontWeight:700, fontSize:13 }}>+ New Invoice</button>
+        <button onClick={()=>{setForm(emptyInv);setEditInv(null);setShowForm(true);}} style={{ background:'linear-gradient(135deg,#ff158a,#ff5fae)', color:'#ffffff', border:'none', borderRadius:8, padding:'9px 18px', fontWeight:700, fontSize:13 }}>+ New Invoice</button>
       </div>
 
       {/* Summary cards */}
@@ -5055,7 +5057,7 @@ function Invoices({ invoices, setInvoices, clients, jobs }) {
             {editInv && <button onClick={()=>{deleteInv(editInv);setShowForm(false);}} style={{ background:'#ef444420', border:'none', borderRadius:8, padding:'9px 16px', color:'#f87171', fontSize:13 }}>Delete</button>}
             <div style={{ display:'flex', gap:10, marginLeft:'auto' }}>
               <button onClick={()=>setShowForm(false)} style={{ background:'#e5e7eb', border:'none', borderRadius:8, padding:'9px 18px', color:'#1f2937', fontSize:13 }}>Cancel</button>
-              <button onClick={save} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, padding:'9px 18px', color:'#fff', fontWeight:700, fontSize:13 }}>Save Invoice</button>
+              <button onClick={save} style={{ background:'linear-gradient(135deg,#ff158a,#ff5fae)', border:'none', borderRadius:8, padding:'9px 18px', color:'#fff', fontWeight:700, fontSize:13 }}>Save Invoice</button>
             </div>
           </div>
         </Modal>
@@ -5238,7 +5240,7 @@ function AgentsPage({ agents, setAgents, leads, jobs, invoices }) {
           <h1 style={{ fontSize:22, fontWeight:700, color:'#111827' }}>Referral Agents</h1>
           <div style={{ fontSize:13, color:'#1f2937', marginTop:3 }}>{agents.length} agents registered</div>
         </div>
-        <button onClick={()=>{setForm(empty);setEditAgent(null);setShowForm(true);}} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', color:'#ffffff', border:'none', borderRadius:8, padding:'9px 18px', fontWeight:700, fontSize:13 }}>+ Add Agent</button>
+        <button onClick={()=>{setForm(empty);setEditAgent(null);setShowForm(true);}} style={{ background:'linear-gradient(135deg,#ff158a,#ff5fae)', color:'#ffffff', border:'none', borderRadius:8, padding:'9px 18px', fontWeight:700, fontSize:13 }}>+ Add Agent</button>
       </div>
 
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))', gap:16 }}>
@@ -5310,7 +5312,7 @@ function AgentsPage({ agents, setAgents, leads, jobs, invoices }) {
           </FormField>
           <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:16 }}>
             <button onClick={()=>setShowForm(false)} style={{ background:'#e5e7eb', border:'none', borderRadius:8, padding:'9px 18px', color:'#1f2937', fontSize:13 }}>Cancel</button>
-            <button onClick={save} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:8, padding:'9px 18px', color:'#fff', fontWeight:700, fontSize:13 }}>Save Agent</button>
+            <button onClick={save} style={{ background:'linear-gradient(135deg,#ff158a,#ff5fae)', border:'none', borderRadius:8, padding:'9px 18px', color:'#fff', fontWeight:700, fontSize:13 }}>Save Agent</button>
           </div>
         </Modal>
       )}
