@@ -304,7 +304,7 @@ const errorStyle = {
   borderRadius: 6, padding: '8px 10px', fontSize: 12, marginTop: 8,
 };
 
-function buildSnapshotPrompt(client, caseObj, emailContext, sessionDocs) {
+function buildSnapshotPrompt(client, caseObj, emailContext, sessionDocs, driveContext) {
   const p = client?.profile || {};
   const s = caseObj || {};
 
@@ -347,8 +347,13 @@ function buildSnapshotPrompt(client, caseObj, emailContext, sessionDocs) {
 请根据以下所有资料，生成一份详细、专业的双语客户快照，供顾问接案前阅读。
 如某部分信息不足，写"资料待补充"——不要留空，不要虚构信息。
 
-═══════════════════════════════
-CRM 档案数据：
+${driveContext ? `╔═══════════════════════════════════════════════╗
+║  📁 Google Drive 客户文件夹文件（主要数据来源）  ║
+╚═══════════════════════════════════════════════╝
+${driveContext}
+
+` : ''}═══════════════════════════════
+CRM 档案数据（补充参考）：
 ═══════════════════════════════
 ${crmData || '（暂无 CRM 数据）'}
 
@@ -389,7 +394,8 @@ ${emailContext}` : ''}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 四、关键文件清单  KEY DOCUMENTS ON FILE
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-（清单：[✓] 已有 / [ ] 待收集）
+（列出 Drive 文件夹中已有文件，并标注缺少的必要文件）
+（格式：[✓] 已有 / [ ] 待收集）
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 五、案件备注  CASE NOTES
@@ -618,11 +624,61 @@ function SnapshotSection({
   const [applyPreview, setApplyPreview] = useState(null);
   const [overwrite, setOverwrite] = useState(true);
   const [applyMsg, setApplyMsg]   = useState('');
+  const [driveStatus, setDriveStatus] = useState(null); // {found, folderName, fileCount} | null
 
   const generate = useCallback(async () => {
     if (!selectedClient) { setError('请先选择客户'); return; }
-    setLoading(true); setError(''); setSnapshot('');
+    setLoading(true); setError(''); setSnapshot(''); setDriveStatus(null);
 
+    // ── Step 1: Fetch Drive files ──────────────────────────────────────────
+    let driveContext = '';
+    if (sessionIsValid(gmail)) {
+      setStep('📁 读取 Drive 文件夹...');
+      try {
+        const token = await getValidToken();
+        if (token) {
+          const r = await fetch('/api/drive-sync', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ accessToken: token, clientName: selectedClient.name }),
+          });
+          if (r.ok) {
+            const driveData = await r.json();
+            if (driveData.folderFound && driveData.processed?.length) {
+              const parts = [];
+              let binaryProcessed = 0;
+              for (const f of driveData.processed) {
+                if (f.textContent) {
+                  parts.push(`[文件: ${f.name}]\n${f.textContent}`);
+                } else if (f.base64Content && !f.skipped && binaryProcessed < 4) {
+                  binaryProcessed++;
+                  setStep(`📄 解析文件 ${f.name}...`);
+                  try {
+                    const pr = await fetch('/api/parse-document', {
+                      method: 'POST', headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ fileBase64: f.base64Content, mimeType: f.mimeType, fileName: f.name }),
+                    });
+                    if (pr.ok) {
+                      const pd = await pr.json();
+                      if (pd.extracted && Object.keys(pd.extracted).length > 1) {
+                        parts.push(`[文件: ${f.name}]\n${JSON.stringify(pd.extracted, null, 2)}`);
+                      }
+                    }
+                  } catch { /* skip this file */ }
+                }
+              }
+              if (parts.length) {
+                driveContext = `Google Drive 文件夹: ${driveData.folderName} (共${driveData.totalFiles}个文件，已读取${parts.length}个)\n\n` + parts.join('\n\n---\n\n');
+              }
+              setDriveStatus({ found: true, folderName: driveData.folderName, fileCount: driveData.totalFiles, readCount: parts.length });
+            } else {
+              setDriveStatus({ found: false, message: driveData.message });
+            }
+          }
+        }
+      } catch { /* non-blocking — continue without Drive data */ }
+    }
+
+    // ── Step 2: Fetch Gmail emails ─────────────────────────────────────────
     let emailContext = '';
     if (sessionIsValid(gmail) && selectedClient.email) {
       setStep('📧 读取相关邮件...');
@@ -654,7 +710,7 @@ function SnapshotSection({
 
     setStep('🤖 生成快照...');
     try {
-      const prompt = buildSnapshotPrompt(selectedClient, selectedCase, emailContext, sessionDocs);
+      const prompt = buildSnapshotPrompt(selectedClient, selectedCase, emailContext, sessionDocs, driveContext);
       const r = await fetch('/api/claude', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 4096,
@@ -781,6 +837,17 @@ function SnapshotSection({
       {error && <div style={errorStyle}>{error}</div>}
       {applyMsg && <div style={{ background:'#EBF9F1', border:`1px solid ${C.green}`, color:C.green, borderRadius:6, padding:'8px 10px', fontSize:12 }}>{applyMsg}</div>}
 
+      {driveStatus && (
+        <div style={{ borderRadius: 7, padding: '7px 12px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 8,
+          background: driveStatus.found ? '#EBF9F1' : '#FFF7ED',
+          border: `1px solid ${driveStatus.found ? C.green : '#f59e0b'}`,
+          color: driveStatus.found ? '#166534' : '#92400e' }}>
+          {driveStatus.found
+            ? `📁 Drive: ${driveStatus.folderName} — 已读取 ${driveStatus.readCount}/${driveStatus.fileCount} 个文件`
+            : `📁 Drive: ${driveStatus.message || 'ozsky-clients 文件夹中未找到该客户文件夹'}`}
+        </div>
+      )}
+
       {snapshot && (
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, flexWrap: 'wrap', gap: 6 }}>
@@ -865,7 +932,7 @@ export default function SmartAI({ selectedClient, selectedCase, onImportClient, 
   // NOTE: No hash-reading useEffect here — App.js (Task 5) owns the OAuth callback.
   // SmartAI always reads Gmail session from sessionStorage via readSession() above.
 
-  // Clear snapshot when the selected client changes (avoid showing stale data)
+  // Clear snapshot and Drive status when the selected client changes
   useEffect(() => { setSnapshot(''); }, [selectedClient?.id]);
 
   const updateGmail = useCallback((session) => {
