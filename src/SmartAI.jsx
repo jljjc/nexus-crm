@@ -660,12 +660,12 @@ function SnapshotSection({
             if (driveData.folderFound && driveData.processed?.length) {
               const textParts = [];
               const binaryNames = [];
+              let parseDocCount = 0; // limit parse-document calls to avoid slow UX
               for (const f of driveData.processed) {
                 if (f.textContent) {
-                  // Include text content directly (capped to avoid oversized prompts)
                   textParts.push(`[文件: ${f.name}]\n${f.textContent.slice(0, 4000)}`);
                 } else if (f.base64Content && f.mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
-                  // DOCX with base64 — extract text client-side with mammoth
+                  // DOCX — extract text client-side with mammoth
                   try {
                     const binary = atob(f.base64Content);
                     const bytes = new Uint8Array(binary.length);
@@ -679,8 +679,34 @@ function SnapshotSection({
                   } catch {
                     binaryNames.push(`  [✓] ${f.name}`);
                   }
-                } else if (f.base64Content || f.mimeType?.includes('pdf') || f.mimeType?.startsWith('image/')) {
-                  // Binary files (PDF/images): just note they exist
+                } else if (f.base64Content && (f.mimeType?.includes('pdf') || f.mimeType?.startsWith('image/')) && parseDocCount < 2) {
+                  // PDF/image — parse via AI (max 2 files to keep it fast)
+                  parseDocCount++;
+                  setStep(`📄 解析文件 ${parseDocCount}...`);
+                  try {
+                    const pr = await fetch('/api/parse-document', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ fileBase64: f.base64Content, mimeType: f.mimeType, fileName: f.name }),
+                    });
+                    if (pr.ok) {
+                      const pd = await pr.json();
+                      const ext = pd.extracted || {};
+                      const lines = Object.entries(ext)
+                        .filter(([, v]) => v && (typeof v !== 'object' || (Array.isArray(v) && v.length)))
+                        .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.map(x => typeof x === 'object' ? JSON.stringify(x) : x).join('; ') : v}`);
+                      if (lines.length) {
+                        textParts.push(`[文件: ${f.name} (${pd.documentType || 'document'})]\n${lines.join('\n')}`);
+                      } else {
+                        binaryNames.push(`  [✓] ${f.name}`);
+                      }
+                    } else {
+                      binaryNames.push(`  [✓] ${f.name}`);
+                    }
+                  } catch {
+                    binaryNames.push(`  [✓] ${f.name}`);
+                  }
+                } else if (f.mimeType?.includes('pdf') || f.mimeType?.startsWith('image/') || f.skipped) {
                   binaryNames.push(`  [✓] ${f.name}`);
                 } else if (!f.skipped) {
                   binaryNames.push(`  [✓] ${f.name}`);
