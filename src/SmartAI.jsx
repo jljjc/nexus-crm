@@ -169,18 +169,32 @@ function GmailSection({ gmail, onGmailUpdate, selectedClient, onAddNote, emails,
     setEmails(prev => prev.map(e => ({ ...e, _saved: true })));
   };
 
+  const handleReconnect = async () => {
+    try {
+      const res = await fetch('/api/gmail-auth?action=url');
+      const data = await res.json();
+      if (data.url) window.location.href = data.url;
+    } catch (e) { /* ignore */ }
+  };
+
   if (!sessionIsValid(gmail)) {
     return (
       <div style={sectionStyle}>
         <div style={sectionHeaderStyle(true)}>
           <span>📧</span>
-          <span style={{ fontWeight: 700, fontSize: 14, color: C.blue }}>Gmail 邮件</span>
+          <span style={{ fontWeight: 700, fontSize: 14, color: C.blue }}>Gmail + Drive</span>
         </div>
         <div style={{ padding: 16, textAlign: 'center' }}>
           <div style={{ fontSize: 36, marginBottom: 10 }}>📬</div>
-          <div style={{ color: C.muted, fontSize: 13, marginBottom: 6 }}>Gmail session expired.</div>
-          <div style={{ color: C.muted, fontSize: 12 }}>Please sign out and sign back in to reconnect.</div>
-          {error && <div style={errorStyle}>{error}</div>}
+          <div style={{ color: C.muted, fontSize: 13, marginBottom: 8 }}>
+            未连接 — 连接后可读取 Gmail 邮件和 Google Drive 客户文件
+          </div>
+          <button onClick={handleReconnect}
+            style={{ background:'linear-gradient(135deg,#4f46e5,#7c3aed)', border:'none', borderRadius:8,
+              padding:'9px 20px', color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer' }}>
+            🔗 连接 Gmail &amp; Drive
+          </button>
+          {error && <div style={{ ...errorStyle, marginTop: 10 }}>{error}</div>}
         </div>
       </div>
     );
@@ -829,10 +843,16 @@ function SnapshotSection({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <button onClick={generate} disabled={loading || !selectedClient}
-        style={{ ...btnStyle(C.blue, loading || !selectedClient), padding: '11px 20px', fontSize: 14 }}>
-        {loading ? `⏳ ${step}` : '✨ 生成客户快照'}
-      </button>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button onClick={generate} disabled={loading || !selectedClient}
+          style={{ ...btnStyle(C.blue, loading || !selectedClient), padding: '11px 20px', fontSize: 14, flex: 1 }}>
+          {loading ? `⏳ ${step}` : '✨ 生成客户快照'}
+        </button>
+        <button onClick={handleApply} disabled={!snapshot || applyBusy}
+          style={{ ...btnStyle(C.green, !snapshot || applyBusy), padding: '11px 16px', fontSize: 13, whiteSpace: 'nowrap' }}>
+          {applyBusy ? '⏳...' : '⬆️ 应用到档案'}
+        </button>
+      </div>
 
       {error && <div style={errorStyle}>{error}</div>}
       {applyMsg && <div style={{ background:'#EBF9F1', border:`1px solid ${C.green}`, color:C.green, borderRadius:6, padding:'8px 10px', fontSize:12 }}>{applyMsg}</div>}
@@ -858,10 +878,6 @@ function SnapshotSection({
                 {copied ? '✓ 已复制' : '📋 复制'}
               </button>
               <button onClick={handleSaveAsNote} style={{ ...btnStyle(C.orange), padding: '4px 10px', fontSize: 11 }}>💾 存为备注</button>
-              <button onClick={handleApply} disabled={applyBusy}
-                style={{ ...btnStyle(C.blue, applyBusy), padding: '4px 10px', fontSize: 11 }}>
-                {applyBusy ? '⏳...' : '⬆️ 应用到档案'}
-              </button>
             </div>
           </div>
           <div style={{ background: C.light, border: `1px solid ${C.border}`, borderRadius: 8,
