@@ -417,17 +417,18 @@ ${emailContext}` : ''}
 /* ════════════════════════════════════════════════════════════════════════════
    Document Section
 ════════════════════════════════════════════════════════════════════════════ */
-function DocumentSection({ selectedClient, sessionDocs, setSessionDocs, onImportClient }) {
+function DocumentSection({ selectedClient, sessionDocs, setSessionDocs, onImportClient, onLoadSnapshot }) {
   const [open, setOpen] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [docMsg, setDocMsg] = useState('');
   const [preview, setPreview] = useState(null);
   const fileRef = useRef();
 
   const handleFile = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setError(''); setPreview(null);
+    setError(''); setDocMsg(''); setPreview(null);
 
     if (file.type.startsWith('image/')) {
       const reader = new FileReader();
@@ -446,6 +447,16 @@ function DocumentSection({ selectedClient, sessionDocs, setSessionDocs, onImport
         body = { fileName: file.name, textContent, mimeType: 'text/plain' };
       } else if (file.name.toLowerCase().endsWith('.txt')) {
         const textContent = await file.text();
+        // If this looks like a client snapshot, load it directly into the Snapshot section
+        // so the user can use "⬆️ 应用到档案" with the full extraction schema
+        const isSnapshot = /CLIENT SNAPSHOT|客户快照|Client Snapshot/i.test(textContent.slice(0, 500));
+        if (isSnapshot && onLoadSnapshot) {
+          onLoadSnapshot(textContent);
+          setLoading(false);
+          e.target.value = '';
+          setDocMsg('✅ 快照文件已载入 — 请在下方「客户快照」区域点击「⬆️ 应用到档案」以更新客户资料');
+          return; // Skip parse-document; let SnapshotSection handle it
+        }
         body = { fileName: file.name, textContent, mimeType: 'text/plain' };
       } else {
         const base64 = await fileToBase64(file);
@@ -536,6 +547,7 @@ function DocumentSection({ selectedClient, sessionDocs, setSessionDocs, onImport
             </div>
           )}
           {error && <div style={errorStyle}>{error}</div>}
+          {docMsg && <div style={{ background:'#EBF9F1', border:`1px solid ${C.green}`, color:'#166534', borderRadius:6, padding:'8px 10px', fontSize:12 }}>{docMsg}</div>}
 
           {sessionDocs.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -899,6 +911,7 @@ export default function SmartAI({ selectedClient, selectedCase, onImportClient, 
               selectedClient={selectedClient}
               sessionDocs={sessionDocs} setSessionDocs={setSessionDocs}
               onImportClient={handleImportClient}
+              onLoadSnapshot={setSnapshot}
             />
             <SnapshotSection
               selectedClient={selectedClient} selectedCase={selectedCase}

@@ -3210,7 +3210,13 @@ function Clients({ clients, jobs, setClients, setJobs, team }) {
           onSaveProfile={async (merged) => {
             setClients(prev => prev.map(c => c.id === merged.id ? merged : c));
             setViewClient(merged);
-            try { await sbUpdate('clients', merged.id, { data: merged }); } catch(e) { console.warn('Profile save error:', e); }
+            try {
+              const result = await sbUpdate('clients', merged.id, { data: merged });
+              if (result === null) throw new Error('No rows updated — check client ID');
+            } catch(e) {
+              console.error('Profile save error:', e);
+              window.dispatchEvent(new CustomEvent('ozsky-db-error', { detail: `Profile save failed: ${e.message}` }));
+            }
           }}
         />
       )}
