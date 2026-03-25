@@ -679,24 +679,44 @@ function SnapshotSection({
                   } catch {
                     binaryNames.push(`  [✓] ${f.name}`);
                   }
-                } else if (f.base64Content && (f.mimeType?.includes('pdf') || f.mimeType?.startsWith('image/')) && parseDocCount < 2) {
-                  // PDF/image — parse via AI (max 2 files to keep it fast)
+                } else if ((f.mimeType?.includes('pdf') || f.mimeType?.startsWith('image/')) && parseDocCount < 2) {
+                  // PDF/image — parse via AI (max 2 files); download directly if drive-sync skipped it
                   parseDocCount++;
-                  setStep(`📄 解析文件 ${parseDocCount}...`);
+                  setStep(`📄 解析文件 ${parseDocCount}/${Math.min(driveData.processed.filter(x => x.mimeType?.includes('pdf') || x.mimeType?.startsWith('image/')).length, 2)}...`);
                   try {
-                    const pr = await fetch('/api/parse-document', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ fileBase64: f.base64Content, mimeType: f.mimeType, fileName: f.name }),
-                    });
-                    if (pr.ok) {
-                      const pd = await pr.json();
-                      const ext = pd.extracted || {};
-                      const lines = Object.entries(ext)
-                        .filter(([, v]) => v && (typeof v !== 'object' || (Array.isArray(v) && v.length)))
-                        .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.map(x => typeof x === 'object' ? JSON.stringify(x) : x).join('; ') : v}`);
-                      if (lines.length) {
-                        textParts.push(`[文件: ${f.name} (${pd.documentType || 'document'})]\n${lines.join('\n')}`);
+                    let fileBase64 = f.base64Content;
+                    if (!fileBase64) {
+                      // File was too large for drive-sync — download directly from Drive in browser
+                      const dlRes = await fetch(
+                        `https://www.googleapis.com/drive/v3/files/${f.id}?alt=media&supportsAllDrives=true`,
+                        { headers: { Authorization: `Bearer ${token}` } }
+                      );
+                      if (dlRes.ok) {
+                        const blob = await dlRes.blob();
+                        fileBase64 = await new Promise(resolve => {
+                          const reader = new FileReader();
+                          reader.onload = () => resolve(reader.result.split(',')[1]);
+                          reader.readAsDataURL(blob);
+                        });
+                      }
+                    }
+                    if (fileBase64) {
+                      const pr = await fetch('/api/parse-document', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ fileBase64, mimeType: f.mimeType, fileName: f.name }),
+                      });
+                      if (pr.ok) {
+                        const pd = await pr.json();
+                        const ext = pd.extracted || {};
+                        const lines = Object.entries(ext)
+                          .filter(([, v]) => v && (typeof v !== 'object' || (Array.isArray(v) && v.length)))
+                          .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.map(x => typeof x === 'object' ? JSON.stringify(x) : x).join('; ') : v}`);
+                        if (lines.length) {
+                          textParts.push(`[文件: ${f.name} (${pd.documentType || 'document'})]\n${lines.join('\n')}`);
+                        } else {
+                          binaryNames.push(`  [✓] ${f.name}`);
+                        }
                       } else {
                         binaryNames.push(`  [✓] ${f.name}`);
                       }
@@ -706,9 +726,7 @@ function SnapshotSection({
                   } catch {
                     binaryNames.push(`  [✓] ${f.name}`);
                   }
-                } else if (f.mimeType?.includes('pdf') || f.mimeType?.startsWith('image/') || f.skipped) {
-                  binaryNames.push(`  [✓] ${f.name}`);
-                } else if (!f.skipped) {
+                } else {
                   binaryNames.push(`  [✓] ${f.name}`);
                 }
               }
@@ -736,15 +754,18 @@ function SnapshotSection({
 
     // ── Step 2: Fetch Gmail emails ─────────────────────────────────────────
     let emailContext = '';
-    if (sessionIsValid(gmail) && selectedClient.email) {
+    if (sessionIsValid(gmail) && (selectedClient.email || selectedClient.name)) {
       setStep('📧 读取相关邮件...');
       try {
         const token = await getValidToken();
         if (token) {
+          // Search by email address if available, otherwise search by client name
+          const gmailQ = selectedClient.email
+            ? `from:${selectedClient.email} OR to:${selectedClient.email}`
+            : `"${selectedClient.name}"`;
           const r = await fetch('/api/gmail-sync', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ accessToken: token, maxResults: 20,
-              q: `from:${selectedClient.email} OR to:${selectedClient.email}` }),
+            body: JSON.stringify({ accessToken: token, maxResults: 20, q: gmailQ }),
           });
           if (r.ok) {
             const data = await r.json();
@@ -865,9 +886,24 @@ function SnapshotSection({
       const data = await r.json();
       if (!r.ok) throw new Error(typeof data.error === 'object' ? (data.error?.message || JSON.stringify(data.error)) : data.error || 'AI 提取失败');
       const text = data.content?.[0]?.text || '';
-      const match = text.match(/\{[\s\S]*/);
-      if (!match) throw new Error('无法解析 AI 返回的 JSON');
-      setApplyPreview(repairAndParseJSON(match[0]));
+      // Extract outermost {...} using bracket counting — stops at matching }, ignores trailing text
+      const jsonStr = (() => {
+        const start = text.indexOf('{');
+        if (start === -1) return null;
+        let depth = 0, inStr = false, esc = false;
+        for (let i = start; i < text.length; i++) {
+          const ch = text[i];
+          if (esc) { esc = false; continue; }
+          if (ch === '\\' && inStr) { esc = true; continue; }
+          if (ch === '"') { inStr = !inStr; continue; }
+          if (inStr) continue;
+          if (ch === '{') depth++;
+          else if (ch === '}') { depth--; if (depth === 0) return text.slice(start, i + 1); }
+        }
+        return null;
+      })();
+      if (!jsonStr) throw new Error('无法解析 AI 返回的 JSON');
+      setApplyPreview(repairAndParseJSON(jsonStr));
     } catch (e) {
       setError(e.message);
     } finally {
