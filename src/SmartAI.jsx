@@ -658,38 +658,39 @@ function SnapshotSection({
           if (r.ok) {
             const driveData = await r.json();
             if (driveData.folderFound && driveData.processed?.length) {
-              const parts = [];
-              let binaryProcessed = 0;
+              const textParts = [];
+              const binaryNames = [];
               for (const f of driveData.processed) {
                 if (f.textContent) {
-                  parts.push(`[文件: ${f.name}]\n${f.textContent}`);
-                } else if (f.base64Content && !f.skipped && binaryProcessed < 4) {
-                  binaryProcessed++;
-                  setStep(`📄 解析文件 ${f.name}...`);
-                  try {
-                    const pr = await fetch('/api/parse-document', {
-                      method: 'POST', headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ fileBase64: f.base64Content, mimeType: f.mimeType, fileName: f.name }),
-                    });
-                    if (pr.ok) {
-                      const pd = await pr.json();
-                      if (pd.extracted && Object.keys(pd.extracted).length > 1) {
-                        parts.push(`[文件: ${f.name}]\n${JSON.stringify(pd.extracted, null, 2)}`);
-                      }
-                    }
-                  } catch { /* skip this file */ }
+                  // Include text content directly (capped to avoid oversized prompts)
+                  textParts.push(`[文件: ${f.name}]\n${f.textContent.slice(0, 4000)}`);
+                } else if (f.base64Content || f.mimeType?.includes('pdf') || f.mimeType?.startsWith('image/')) {
+                  // Binary files: just note they exist — don't call parse-document (too slow)
+                  binaryNames.push(`  [✓] ${f.name}`);
+                } else if (!f.skipped) {
+                  binaryNames.push(`  [✓] ${f.name}`);
                 }
               }
-              if (parts.length) {
-                driveContext = `Google Drive 文件夹: ${driveData.folderName} (共${driveData.totalFiles}个文件，已读取${parts.length}个)\n\n` + parts.join('\n\n---\n\n');
+              // Build drive context: text content + file list
+              const parts = [...textParts];
+              if (binaryNames.length) {
+                parts.push(`已上传文件（PDF/图片，内容由顾问核实）：\n${binaryNames.join('\n')}`);
               }
-              setDriveStatus({ found: true, folderName: driveData.folderName, fileCount: driveData.totalFiles, readCount: parts.length });
+              if (parts.length) {
+                driveContext = `Google Drive 文件夹: ${driveData.folderName} (共${driveData.totalFiles}个文件)\n\n` + parts.join('\n\n---\n\n');
+              }
+              setDriveStatus({ found: true, folderName: driveData.folderName, fileCount: driveData.totalFiles, readCount: driveData.processed.filter(f => !f.skipped && !f.error).length });
             } else {
               setDriveStatus({ found: false, message: driveData.message });
             }
+          } else {
+            const errData = await r.json().catch(() => ({}));
+            setDriveStatus({ found: false, message: `Drive 读取失败: ${errData.error || r.status}` });
           }
         }
-      } catch { /* non-blocking — continue without Drive data */ }
+      } catch (driveErr) {
+        setDriveStatus({ found: false, message: `Drive 连接失败: ${driveErr.message}` });
+      }
     }
 
     // ── Step 2: Fetch Gmail emails ─────────────────────────────────────────
