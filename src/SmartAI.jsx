@@ -129,7 +129,7 @@ function GmailSection({ gmail, onGmailUpdate, selectedClient, onAddNote, emails,
         body: JSON.stringify({ accessToken: token, maxResults, q: query || 'in:all' }),
       });
       const data = await r.json();
-      if (!r.ok) throw new Error(data.error || '同步失败');
+      if (!r.ok) throw new Error(typeof data.error === 'object' ? (data.error?.message || JSON.stringify(data.error)) : data.error || '同步失败');
       setEmails(data.emails || []);
       // Update session in state (token may have been refreshed)
       const sess = readSession();
@@ -458,7 +458,7 @@ function DocumentSection({ selectedClient, sessionDocs, setSessionDocs, onImport
         body: JSON.stringify(body),
       });
       const data = await r.json();
-      if (!r.ok) throw new Error(data.error || '识别失败');
+      if (!r.ok) throw new Error(typeof data.error === 'object' ? (data.error?.message || JSON.stringify(data.error)) : data.error || '识别失败');
 
       const docEntry = {
         id: Date.now(),
@@ -649,7 +649,7 @@ function SnapshotSection({
           messages: [{ role: 'user', content: prompt }] }),
       });
       const data = await r.json();
-      if (!r.ok) throw new Error(data.error || '生成失败');
+      if (!r.ok) throw new Error(typeof data.error === 'object' ? (data.error?.message || JSON.stringify(data.error)) : data.error || '生成失败');
       setSnapshot(data.content?.[0]?.text || '');
     } catch (e) {
       setError(e.message);
@@ -719,7 +719,7 @@ function SnapshotSection({
 快照文本：\n${snapshot.slice(0, 4000)}` }] }),
       });
       const data = await r.json();
-      if (!r.ok) throw new Error(data.error || 'AI 提取失败');
+      if (!r.ok) throw new Error(typeof data.error === 'object' ? (data.error?.message || JSON.stringify(data.error)) : data.error || 'AI 提取失败');
       const text = data.content?.[0]?.text || '';
       const match = text.match(/\{[\s\S]*/);
       if (!match) throw new Error('无法解析 AI 返回的 JSON');
