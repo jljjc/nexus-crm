@@ -40,7 +40,11 @@ export function mergeClientData(client = {}, importData = {}, overwrite = false)
   // When overwriting, only replace with a non-empty incoming value to avoid
   // clearing fields that the AI extraction left blank.
   const s = (ex, inc) => overwrite ? (inc != null && inc !== '' ? inc : ex) : mergeScalar(ex, inc);
-  const a = (ex, inc, kf) => overwrite ? (inc ?? []) : mergeArrayField(ex, inc, kf);
+  // In overwrite mode, only replace array if incoming has at least one real item.
+  // An empty [] from AI extraction should not clear existing data.
+  const a = (ex, inc, kf) => overwrite
+    ? (Array.isArray(inc) && inc.some(item => !!kf(item)) ? inc : ex ?? [])
+    : mergeArrayField(ex, inc, kf);
   const o = (ex, inc) => overwrite ? mergeObjectOverwrite(ex, inc) : mergeObjectField(ex, inc);
 
   return {

@@ -3128,6 +3128,65 @@ function Clients({ clients, jobs, setClients, setJobs, team }) {
             </div>
           </div>
 
+          {/* ── Sponsor Details ── */}
+          <div style={{ borderTop:'1.5px solid #e2e8f0', marginTop:16, paddingTop:16 }}>
+            <div style={{ fontSize:11, fontWeight:700, color:'#6b7280', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:12 }}>担保人 Sponsor Details</div>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+              <FormField label="Sponsor Name"><input style={inputStyle} value={form.profile?.sponsor?.name||''} onChange={e=>setForm(f=>({...f,profile:{...(f.profile||{}),sponsor:{...(f.profile?.sponsor||{}),name:e.target.value}}}))} placeholder="Sponsor full name" /></FormField>
+              <FormField label="Relationship"><input style={inputStyle} value={form.profile?.sponsor?.relationship||''} onChange={e=>setForm(f=>({...f,profile:{...(f.profile||{}),sponsor:{...(f.profile?.sponsor||{}),relationship:e.target.value}}}))} placeholder="Spouse / De Facto" /></FormField>
+              <FormField label="Sponsor DOB"><input style={inputStyle} value={form.profile?.sponsor?.dob||''} onChange={e=>setForm(f=>({...f,profile:{...(f.profile||{}),sponsor:{...(f.profile?.sponsor||{}),dob:e.target.value}}}))} placeholder="YYYY-MM-DD" /></FormField>
+              <FormField label="Sponsor Nationality"><input style={inputStyle} value={form.profile?.sponsor?.nationality||''} onChange={e=>setForm(f=>({...f,profile:{...(f.profile||{}),sponsor:{...(f.profile?.sponsor||{}),nationality:e.target.value}}}))} placeholder="Australian" /></FormField>
+              <FormField label="Sponsor Passport No"><input style={inputStyle} value={form.profile?.sponsor?.passportNo||''} onChange={e=>setForm(f=>({...f,profile:{...(f.profile||{}),sponsor:{...(f.profile?.sponsor||{}),passportNo:e.target.value}}}))} placeholder="Passport number" /></FormField>
+              <FormField label="Sponsor Address"><input style={inputStyle} value={form.profile?.sponsor?.address||''} onChange={e=>setForm(f=>({...f,profile:{...(f.profile||{}),sponsor:{...(f.profile?.sponsor||{}),address:e.target.value}}}))} placeholder="Residential address" /></FormField>
+            </div>
+          </div>
+
+          {/* ── Visa History ── */}
+          <div style={{ borderTop:'1.5px solid #e2e8f0', marginTop:16, paddingTop:16 }}>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
+              <div style={{ fontSize:11, fontWeight:700, color:'#6b7280', textTransform:'uppercase', letterSpacing:'0.07em' }}>签证历史 Visa History</div>
+              <button onClick={()=>setForm(f=>({...f,profile:{...(f.profile||{}),visaHistory:[...(f.profile?.visaHistory||[]),{type:'',applicationNo:'',lodgeDate:'',grantDate:'',status:''}]}}))} style={{ background:'#e0e7ff', border:'none', borderRadius:6, padding:'4px 10px', color:'#4f46e5', fontSize:12, cursor:'pointer' }}>+ Add Row</button>
+            </div>
+            {(form.profile?.visaHistory||[]).length === 0
+              ? <div style={{ fontSize:12, color:'#9ca3af', padding:'6px 0' }}>No visa history records</div>
+              : <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+                  {(form.profile?.visaHistory||[]).map((v,idx) => (
+                    <div key={idx} style={{ display:'grid', gridTemplateColumns:'2fr 1fr 1fr 1fr 1fr auto', gap:5, alignItems:'center' }}>
+                      <input style={{...inputStyle,fontSize:11,padding:'5px 8px'}} value={v.type||''} onChange={e=>setForm(f=>{const a=[...(f.profile?.visaHistory||[])];a[idx]={...a[idx],type:e.target.value};return{...f,profile:{...(f.profile||{}),visaHistory:a}}})} placeholder="Visa Type" />
+                      <input style={{...inputStyle,fontSize:11,padding:'5px 8px'}} value={v.applicationNo||v.appNo||''} onChange={e=>setForm(f=>{const a=[...(f.profile?.visaHistory||[])];a[idx]={...a[idx],applicationNo:e.target.value};return{...f,profile:{...(f.profile||{}),visaHistory:a}}})} placeholder="App No" />
+                      <input style={{...inputStyle,fontSize:11,padding:'5px 8px'}} value={v.lodgeDate||v.lodged||''} onChange={e=>setForm(f=>{const a=[...(f.profile?.visaHistory||[])];a[idx]={...a[idx],lodgeDate:e.target.value};return{...f,profile:{...(f.profile||{}),visaHistory:a}}})} placeholder="Lodged" />
+                      <input style={{...inputStyle,fontSize:11,padding:'5px 8px'}} value={v.grantDate||v.granted||''} onChange={e=>setForm(f=>{const a=[...(f.profile?.visaHistory||[])];a[idx]={...a[idx],grantDate:e.target.value};return{...f,profile:{...(f.profile||{}),visaHistory:a}}})} placeholder="Granted" />
+                      <input style={{...inputStyle,fontSize:11,padding:'5px 8px'}} value={v.status||''} onChange={e=>setForm(f=>{const a=[...(f.profile?.visaHistory||[])];a[idx]={...a[idx],status:e.target.value};return{...f,profile:{...(f.profile||{}),visaHistory:a}}})} placeholder="Status" />
+                      <button onClick={()=>setForm(f=>({...f,profile:{...(f.profile||{}),visaHistory:(f.profile?.visaHistory||[]).filter((_,i)=>i!==idx)}}))} style={{ background:'none', border:'none', color:'#f87171', fontSize:15, cursor:'pointer', padding:'0 4px' }}>✕</button>
+                    </div>
+                  ))}
+                </div>
+            }
+          </div>
+
+          {/* ── Case Timeline ── */}
+          <div style={{ borderTop:'1.5px solid #e2e8f0', marginTop:16, paddingTop:16 }}>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
+              <div style={{ fontSize:11, fontWeight:700, color:'#6b7280', textTransform:'uppercase', letterSpacing:'0.07em' }}>案件时间线 Case Timeline</div>
+              <button onClick={()=>setForm(f=>({...f,profile:{...(f.profile||{}),caseTimeline:[...(f.profile?.caseTimeline||[]),{date:'',event:'',status:'Completed'}]}}))} style={{ background:'#e0e7ff', border:'none', borderRadius:6, padding:'4px 10px', color:'#4f46e5', fontSize:12, cursor:'pointer' }}>+ Add Row</button>
+            </div>
+            {(form.profile?.caseTimeline||[]).length === 0
+              ? <div style={{ fontSize:12, color:'#9ca3af', padding:'6px 0' }}>No timeline records</div>
+              : <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+                  {(form.profile?.caseTimeline||[]).map((ev,idx) => (
+                    <div key={idx} style={{ display:'grid', gridTemplateColumns:'1fr 3fr 1fr auto', gap:5, alignItems:'center' }}>
+                      <input style={{...inputStyle,fontSize:11,padding:'5px 8px'}} value={ev.date||''} onChange={e=>setForm(f=>{const a=[...(f.profile?.caseTimeline||[])];a[idx]={...a[idx],date:e.target.value};return{...f,profile:{...(f.profile||{}),caseTimeline:a}}})} placeholder="YYYY-MM-DD" />
+                      <input style={{...inputStyle,fontSize:11,padding:'5px 8px'}} value={ev.event||''} onChange={e=>setForm(f=>{const a=[...(f.profile?.caseTimeline||[])];a[idx]={...a[idx],event:e.target.value};return{...f,profile:{...(f.profile||{}),caseTimeline:a}}})} placeholder="Event description" />
+                      <select style={{...selectStyle,fontSize:11,padding:'5px 6px'}} value={ev.status||'Completed'} onChange={e=>setForm(f=>{const a=[...(f.profile?.caseTimeline||[])];a[idx]={...a[idx],status:e.target.value};return{...f,profile:{...(f.profile||{}),caseTimeline:a}}})}>
+                        <option>Completed</option><option>In Progress</option><option>Pending</option><option>Urgent</option>
+                      </select>
+                      <button onClick={()=>setForm(f=>({...f,profile:{...(f.profile||{}),caseTimeline:(f.profile?.caseTimeline||[]).filter((_,i)=>i!==idx)}}))} style={{ background:'none', border:'none', color:'#f87171', fontSize:15, cursor:'pointer', padding:'0 4px' }}>✕</button>
+                    </div>
+                  ))}
+                </div>
+            }
+          </div>
+
           <div style={{ borderTop:'1.5px solid #e2e8f0', marginTop:8, paddingTop:18 }}>
             <NotesPanel notes={normalizeNotes(form.notes).filter(n => n.type !== 'gmail')} onAddNote={addNote} onDeleteNote={deleteNote} />
           </div>

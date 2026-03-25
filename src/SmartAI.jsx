@@ -681,8 +681,9 @@ function SnapshotSection({
       const r = await fetch('/api/claude', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-6', max_tokens: 3000,
-          messages: [{ role: 'user', content: `从以下客户快照提取信息，返回纯JSON（无markdown，无注释），只填写找到的字段，找不到的字段省略不写：
+          model: 'claude-sonnet-4-6', max_tokens: 4000,
+          messages: [{ role: 'user', content: `从以下客户快照提取信息，返回纯JSON（无markdown，无注释）。只填写找到的字段，找不到的字段用空字符串或空数组。数组字段如果没有数据则返回[]。
+
 {
   "name": "",
   "email": "",
@@ -692,6 +693,7 @@ function SnapshotSection({
   "profile": {
     "sex": "",
     "dob": "",
+    "birthplace": "",
     "passportNo": "",
     "passportExpiry": "",
     "auAddress": "",
@@ -700,6 +702,7 @@ function SnapshotSection({
     "nameZh": "",
     "visaTarget": "",
     "consultant": "",
+    "currentStatus": "",
     "serviceAgreement": {
       "totalFee": "",
       "contractDate": ""
@@ -712,11 +715,28 @@ function SnapshotSection({
       "relationship": "",
       "address": "",
       "occupation": ""
-    }
+    },
+    "visaHistory": [
+      {"type": "", "applicationNo": "", "lodgeDate": "", "grantDate": "", "status": "", "notes": ""}
+    ],
+    "caseTimeline": [
+      {"date": "", "event": "", "status": "Completed"}
+    ],
+    "keyIssues": [
+      {"item": "", "priority": "High"}
+    ],
+    "nextSteps": [""]
   }
 }
 
-快照文本：\n${snapshot.slice(0, 4000)}` }] }),
+提取规则：
+1. visaHistory: 提取所有签证申请历史，每条一个对象，status用英文（Approved/In Progress/Refused/Not Yet Lodged）
+2. caseTimeline: 提取所有时间线事件，按日期排序，status用Completed/In Progress/Pending/Urgent
+3. keyIssues: 提取关键问题/风险，每条一个对象，priority用High/Medium/Low
+4. nextSteps: 提取下步行动计划，每条一个字符串
+5. serviceAgreement.totalFee: 提取服务费金额（如 "AUD 3,080"）
+
+快照文本：\n${snapshot}` }] }),
       });
       const data = await r.json();
       if (!r.ok) throw new Error(typeof data.error === 'object' ? (data.error?.message || JSON.stringify(data.error)) : data.error || 'AI 提取失败');
@@ -781,14 +801,24 @@ function SnapshotSection({
                   {[
                     ['姓名', applyPreview.name],
                     ['国籍', applyPreview.nationality],
+                    ['中文姓名', applyPreview.nameChinese || applyPreview.profile?.nameZh],
                     ['出生日期', applyPreview.profile?.dob],
                     ['护照号', applyPreview.profile?.passportNo],
                     ['护照有效期', applyPreview.profile?.passportExpiry],
                     ['澳洲地址', applyPreview.profile?.auAddress],
                     ['目标签证', applyPreview.profile?.visaTarget],
+                    ['顾问', applyPreview.profile?.consultant],
                     ['服务费', applyPreview.profile?.serviceAgreement?.totalFee],
                     ['合同日期', applyPreview.profile?.serviceAgreement?.contractDate],
                     ['担保人', applyPreview.profile?.sponsor?.name],
+                    ['签证历史', (applyPreview.profile?.visaHistory||[]).filter(v=>v.type).length > 0
+                      ? `${(applyPreview.profile.visaHistory).filter(v=>v.type).length} 条记录` : null],
+                    ['案件时间线', (applyPreview.profile?.caseTimeline||[]).filter(e=>e.event).length > 0
+                      ? `${(applyPreview.profile.caseTimeline).filter(e=>e.event).length} 条记录` : null],
+                    ['关键问题', (applyPreview.profile?.keyIssues||[]).filter(i=>i.item).length > 0
+                      ? `${(applyPreview.profile.keyIssues).filter(i=>i.item).length} 条` : null],
+                    ['下步计划', (applyPreview.profile?.nextSteps||[]).filter(Boolean).length > 0
+                      ? `${(applyPreview.profile.nextSteps).filter(Boolean).length} 条` : null],
                   ].filter(([, v]) => v).map(([k, v]) => (
                     <div key={k} style={{ background: '#f9fafb', borderRadius: 7, padding: '7px 10px', border: `1px solid ${C.border}` }}>
                       <div style={{ fontSize: 10, color: C.muted, textTransform: 'uppercase' }}>{k}</div>
