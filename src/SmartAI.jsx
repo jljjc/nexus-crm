@@ -664,8 +664,23 @@ function SnapshotSection({
                 if (f.textContent) {
                   // Include text content directly (capped to avoid oversized prompts)
                   textParts.push(`[文件: ${f.name}]\n${f.textContent.slice(0, 4000)}`);
+                } else if (f.base64Content && f.mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+                  // DOCX with base64 — extract text client-side with mammoth
+                  try {
+                    const binary = atob(f.base64Content);
+                    const bytes = new Uint8Array(binary.length);
+                    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+                    const { value: docxText } = await mammoth.extractRawText({ arrayBuffer: bytes.buffer });
+                    if (docxText?.trim()) {
+                      textParts.push(`[文件: ${f.name}]\n${docxText.slice(0, 4000)}`);
+                    } else {
+                      binaryNames.push(`  [✓] ${f.name}`);
+                    }
+                  } catch {
+                    binaryNames.push(`  [✓] ${f.name}`);
+                  }
                 } else if (f.base64Content || f.mimeType?.includes('pdf') || f.mimeType?.startsWith('image/')) {
-                  // Binary files: just note they exist — don't call parse-document (too slow)
+                  // Binary files (PDF/images): just note they exist
                   binaryNames.push(`  [✓] ${f.name}`);
                 } else if (!f.skipped) {
                   binaryNames.push(`  [✓] ${f.name}`);
@@ -679,7 +694,7 @@ function SnapshotSection({
               if (parts.length) {
                 driveContext = `Google Drive 文件夹: ${driveData.folderName} (共${driveData.totalFiles}个文件)\n\n` + parts.join('\n\n---\n\n');
               }
-              setDriveStatus({ found: true, folderName: driveData.folderName, fileCount: driveData.totalFiles, readCount: driveData.processed.filter(f => !f.skipped && !f.error).length });
+              setDriveStatus({ found: true, folderName: driveData.folderName, fileCount: driveData.totalFiles, readCount: textParts.length });
             } else {
               setDriveStatus({ found: false, message: driveData.message });
             }
