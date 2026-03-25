@@ -646,6 +646,7 @@ function SnapshotSection({
 
     // ── Step 1: Fetch Drive files ──────────────────────────────────────────
     let driveContext = '';
+    let pdfBlocks = []; // PDF/image blocks to attach to Claude snapshot call
     if (sessionIsValid(gmail)) {
       setStep('📁 读取 Drive 文件夹...');
       try {
@@ -660,7 +661,6 @@ function SnapshotSection({
             if (driveData.folderFound && driveData.processed?.length) {
               const textParts = [];
               const binaryNames = [];
-              let parseDocCount = 0; // limit parse-document calls to avoid slow UX
               for (const f of driveData.processed) {
                 if (f.textContent) {
                   textParts.push(`[文件: ${f.name}]\n${f.textContent.slice(0, 4000)}`);
@@ -679,14 +679,13 @@ function SnapshotSection({
                   } catch {
                     binaryNames.push(`  [✓] ${f.name}`);
                   }
-                } else if ((f.mimeType?.includes('pdf') || f.mimeType?.startsWith('image/')) && parseDocCount < 2) {
-                  // PDF/image — parse via AI (max 2 files); download directly if drive-sync skipped it
-                  parseDocCount++;
-                  setStep(`📄 解析文件 ${parseDocCount}/${Math.min(driveData.processed.filter(x => x.mimeType?.includes('pdf') || x.mimeType?.startsWith('image/')).length, 2)}...`);
+                } else if ((f.mimeType?.includes('pdf') || f.mimeType?.startsWith('image/')) && pdfBlocks.length < 3) {
+                  // PDF/image — attach directly to Claude call (avoids Vercel body-size limits of parse-document)
+                  setStep(`📄 下载文件: ${f.name}...`);
                   try {
                     let fileBase64 = f.base64Content;
                     if (!fileBase64) {
-                      // File was too large for drive-sync — download directly from Drive in browser
+                      // Skipped by drive-sync (too large) — download directly from Drive in browser
                       const dlRes = await fetch(
                         `https://www.googleapis.com/drive/v3/files/${f.id}?alt=media&supportsAllDrives=true`,
                         { headers: { Authorization: `Bearer ${token}` } }
@@ -701,25 +700,8 @@ function SnapshotSection({
                       }
                     }
                     if (fileBase64) {
-                      const pr = await fetch('/api/parse-document', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ fileBase64, mimeType: f.mimeType, fileName: f.name }),
-                      });
-                      if (pr.ok) {
-                        const pd = await pr.json();
-                        const ext = pd.extracted || {};
-                        const lines = Object.entries(ext)
-                          .filter(([, v]) => v && (typeof v !== 'object' || (Array.isArray(v) && v.length)))
-                          .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.map(x => typeof x === 'object' ? JSON.stringify(x) : x).join('; ') : v}`);
-                        if (lines.length) {
-                          textParts.push(`[文件: ${f.name} (${pd.documentType || 'document'})]\n${lines.join('\n')}`);
-                        } else {
-                          binaryNames.push(`  [✓] ${f.name}`);
-                        }
-                      } else {
-                        binaryNames.push(`  [✓] ${f.name}`);
-                      }
+                      const blockType = f.mimeType === 'application/pdf' ? 'document' : 'image';
+                      pdfBlocks.push({ type: blockType, source: { type: 'base64', media_type: f.mimeType, data: fileBase64 }, _name: f.name });
                     } else {
                       binaryNames.push(`  [✓] ${f.name}`);
                     }
@@ -730,15 +712,18 @@ function SnapshotSection({
                   binaryNames.push(`  [✓] ${f.name}`);
                 }
               }
-              // Build drive context: text content + file list
+              // Build drive context: text content + PDF note + binary file list
               const parts = [...textParts];
+              if (pdfBlocks.length) {
+                parts.push(`以下 PDF/图片文件已附加至消息供 AI 直接阅读：\n${pdfBlocks.map(b => `  [📄] ${b._name}`).join('\n')}`);
+              }
               if (binaryNames.length) {
-                parts.push(`已上传文件（PDF/图片，内容由顾问核实）：\n${binaryNames.join('\n')}`);
+                parts.push(`已存档（未读取）：\n${binaryNames.join('\n')}`);
               }
               if (parts.length) {
                 driveContext = `Google Drive 文件夹: ${driveData.folderName} (共${driveData.totalFiles}个文件)\n\n` + parts.join('\n\n---\n\n');
               }
-              setDriveStatus({ found: true, folderName: driveData.folderName, fileCount: driveData.totalFiles, readCount: textParts.length });
+              setDriveStatus({ found: true, folderName: driveData.folderName, fileCount: driveData.totalFiles, readCount: textParts.length + pdfBlocks.length });
             } else {
               setDriveStatus({ found: false, message: driveData.message });
             }
@@ -788,10 +773,18 @@ function SnapshotSection({
     setStep('🤖 生成快照...');
     try {
       const prompt = buildSnapshotPrompt(selectedClient, selectedCase, emailContext, sessionDocs, driveContext);
+      // Build content: text prompt + any PDF/image blocks from Drive
+      const hasPdfs = pdfBlocks.length > 0;
+      const messageContent = hasPdfs
+        ? [{ type: 'text', text: prompt }, ...pdfBlocks.map(({ type, source }) => ({ type, source }))]
+        : prompt;
       const r = await fetch('/api/claude', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 4096,
-          messages: [{ role: 'user', content: prompt }] }),
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-6', max_tokens: 4096,
+          messages: [{ role: 'user', content: messageContent }],
+          ...(hasPdfs ? { _beta: 'pdfs-2024-09-25' } : {}),
+        }),
       });
       const data = await r.json();
       if (!r.ok) throw new Error(typeof data.error === 'object' ? (data.error?.message || JSON.stringify(data.error)) : data.error || '生成失败');
