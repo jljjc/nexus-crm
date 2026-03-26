@@ -800,11 +800,27 @@ function SnapshotSection({
     setStep('🤖 生成快照...');
     try {
       const prompt = buildSnapshotPrompt(selectedClient, selectedCase, emailContext, sessionDocs, driveContext);
-      // Build content: text prompt + any PDF/image blocks from Drive
-      const hasPdfs = pdfBlocks.length > 0;
-      const messageContent = hasPdfs
-        ? [{ type: 'text', text: prompt }, ...pdfBlocks.map(({ type, source }) => ({ type, source }))]
+      // Vercel body limit ~4.5MB — cap total base64 PDF payload to ~3MB to stay safe
+      const MAX_PDF_BYTES = 3 * 1024 * 1024;
+      let totalPdfBytes = 0;
+      const safePdfBlocks = [];
+      const skippedPdfNames = [];
+      for (const block of pdfBlocks) {
+        const sz = (block.source?.data?.length || 0) * 0.75; // base64 → approx bytes
+        if (totalPdfBytes + sz <= MAX_PDF_BYTES) {
+          safePdfBlocks.push(block);
+          totalPdfBytes += sz;
+        } else {
+          skippedPdfNames.push(block._name);
+        }
+      }
+      const hasPdfs = safePdfBlocks.length > 0;
+      const finalPrompt = skippedPdfNames.length
+        ? prompt + `\n\n（以下文件因超过大小限制未能附加，请人工查阅：${skippedPdfNames.join('、')}）`
         : prompt;
+      const messageContent = hasPdfs
+        ? [{ type: 'text', text: finalPrompt }, ...safePdfBlocks.map(({ type, source }) => ({ type, source }))]
+        : finalPrompt;
       const r = await fetch('/api/claude', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -813,7 +829,10 @@ function SnapshotSection({
           ...(hasPdfs ? { _beta: 'pdfs-2024-09-25' } : {}),
         }),
       });
-      const data = await r.json();
+      const rawText = await r.text();
+      let data;
+      try { data = JSON.parse(rawText); }
+      catch { throw new Error(r.status === 413 ? 'PDF 文件太大，请减小文件大小后重试（Vercel 请求体限制 4.5MB）' : `服务器返回非 JSON 响应 (${r.status}): ${rawText.slice(0, 120)}`); }
       if (!r.ok) throw new Error(typeof data.error === 'object' ? (data.error?.message || JSON.stringify(data.error)) : data.error || '生成失败');
       setSnapshot(data.content?.[0]?.text || '');
     } catch (e) {
