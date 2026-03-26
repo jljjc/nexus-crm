@@ -661,9 +661,12 @@ function SnapshotSection({
             if (driveData.folderFound && driveData.processed?.length) {
               const textParts = [];
               const binaryNames = [];
+              const fileDebug = []; // diagnostic: track what happened to each file
               for (const f of driveData.processed) {
+                const dbg = { name: f.name, mime: f.mimeType || 'null', hasB64: !!f.base64Content, hasTxt: !!f.textContent, skipped: !!f.skipped, err: f.error || null, outcome: '' };
                 if (f.textContent) {
                   textParts.push(`[文件: ${f.name}]\n${f.textContent.slice(0, 4000)}`);
+                  dbg.outcome = 'text';
                 } else if (f.base64Content && f.mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
                   // DOCX — extract text client-side with mammoth
                   try {
@@ -673,23 +676,26 @@ function SnapshotSection({
                     const { value: docxText } = await mammoth.extractRawText({ arrayBuffer: bytes.buffer });
                     if (docxText?.trim()) {
                       textParts.push(`[文件: ${f.name}]\n${docxText.slice(0, 4000)}`);
+                      dbg.outcome = 'docx-text';
                     } else {
                       binaryNames.push(`  [✓] ${f.name}`);
+                      dbg.outcome = 'docx-empty';
                     }
-                  } catch {
+                  } catch (e) {
                     binaryNames.push(`  [✓] ${f.name}`);
+                    dbg.outcome = `docx-err:${e.message}`;
                   }
                 } else if ((f.mimeType?.includes('pdf') || f.mimeType?.startsWith('image/')) && pdfBlocks.length < 3) {
-                  // PDF/image — attach directly to Claude call (avoids Vercel body-size limits of parse-document)
+                  // PDF/image — attach directly to Claude call
                   setStep(`📄 下载文件: ${f.name}...`);
                   try {
                     let fileBase64 = f.base64Content;
                     if (!fileBase64) {
-                      // Skipped by drive-sync (too large) — download directly from Drive in browser
                       const dlRes = await fetch(
                         `https://www.googleapis.com/drive/v3/files/${f.id}?alt=media&supportsAllDrives=true`,
                         { headers: { Authorization: `Bearer ${token}` } }
                       );
+                      dbg.dlStatus = dlRes.status;
                       if (dlRes.ok) {
                         const blob = await dlRes.blob();
                         fileBase64 = await new Promise(resolve => {
@@ -702,15 +708,20 @@ function SnapshotSection({
                     if (fileBase64) {
                       const blockType = f.mimeType === 'application/pdf' ? 'document' : 'image';
                       pdfBlocks.push({ type: blockType, source: { type: 'base64', media_type: f.mimeType, data: fileBase64 }, _name: f.name });
+                      dbg.outcome = `pdf-block(${blockType})`;
                     } else {
                       binaryNames.push(`  [✓] ${f.name}`);
+                      dbg.outcome = 'pdf-dl-failed';
                     }
-                  } catch {
+                  } catch (e) {
                     binaryNames.push(`  [✓] ${f.name}`);
+                    dbg.outcome = `pdf-err:${e.message}`;
                   }
                 } else {
                   binaryNames.push(`  [✓] ${f.name}`);
+                  dbg.outcome = 'unhandled-mime';
                 }
+                fileDebug.push(dbg);
               }
               // Build drive context: text content + PDF note + binary file list
               const parts = [...textParts];
@@ -723,7 +734,7 @@ function SnapshotSection({
               if (parts.length) {
                 driveContext = `Google Drive 文件夹: ${driveData.folderName} (共${driveData.totalFiles}个文件)\n\n` + parts.join('\n\n---\n\n');
               }
-              setDriveStatus({ found: true, folderName: driveData.folderName, fileCount: driveData.totalFiles, readCount: textParts.length + pdfBlocks.length });
+              setDriveStatus({ found: true, folderName: driveData.folderName, fileCount: driveData.totalFiles, readCount: textParts.length + pdfBlocks.length, fileDebug });
             } else {
               setDriveStatus({ found: false, message: driveData.message });
             }
@@ -929,13 +940,19 @@ function SnapshotSection({
       {applyMsg && <div style={{ background:'#EBF9F1', border:`1px solid ${C.green}`, color:C.green, borderRadius:6, padding:'8px 10px', fontSize:12 }}>{applyMsg}</div>}
 
       {driveStatus && (
-        <div style={{ borderRadius: 7, padding: '7px 12px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 8,
+        <div style={{ borderRadius: 7, padding: '7px 12px', fontSize: 12,
           background: driveStatus.found ? '#EBF9F1' : '#FFF7ED',
           border: `1px solid ${driveStatus.found ? C.green : '#f59e0b'}`,
           color: driveStatus.found ? '#166534' : '#92400e' }}>
-          {driveStatus.found
+          <div>{driveStatus.found
             ? `📁 Drive: ${driveStatus.folderName} — 已读取 ${driveStatus.readCount}/${driveStatus.fileCount} 个文件`
             : `📁 Drive: ${driveStatus.message || 'ozsky-clients 文件夹中未找到该客户文件夹'}`}
+          </div>
+          {driveStatus.fileDebug?.map((d, i) => (
+            <div key={i} style={{ marginTop: 2, fontSize: 11, opacity: 0.85, fontFamily: 'monospace' }}>
+              [{d.outcome}] {d.name} | mime={d.mime} | b64={String(d.hasB64)} txt={String(d.hasTxt)} skip={String(d.skipped)}{d.err ? ` err=${d.err}` : ''}{d.dlStatus ? ` dl=${d.dlStatus}` : ''}
+            </div>
+          ))}
         </div>
       )}
 
