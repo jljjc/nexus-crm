@@ -635,8 +635,7 @@ function SnapshotSection({
   const [error, setError]         = useState('');
   const [copied, setCopied]       = useState(false);
   const [applyBusy, setApplyBusy] = useState(false);
-  const [applyPreview, setApplyPreview] = useState(null);
-  const [overwrite, setOverwrite] = useState(true);
+  const [overwrite] = useState(true); // always overwrite when applying snapshot
   const [applyMsg, setApplyMsg]   = useState('');
   const [driveStatus, setDriveStatus] = useState(null); // {found, folderName, fileCount} | null
 
@@ -907,20 +906,16 @@ function SnapshotSection({
         return null;
       })();
       if (!jsonStr) throw new Error('无法解析 AI 返回的 JSON');
-      setApplyPreview(repairAndParseJSON(jsonStr));
+      const extracted = repairAndParseJSON(jsonStr);
+      // Apply directly — no confirm step needed
+      onImportClient?.(extracted, overwrite);
+      setApplyMsg('✅ 已应用到客户档案');
+      setTimeout(() => setApplyMsg(''), 4000);
     } catch (e) {
       setError(e.message);
     } finally {
       setApplyBusy(false);
     }
-  };
-
-  const handleConfirmApply = () => {
-    if (!applyPreview) return;
-    onImportClient?.(applyPreview, overwrite);
-    setApplyPreview(null);
-    setApplyMsg('✅ 已应用到客户档案');
-    setTimeout(() => setApplyMsg(''), 4000);
   };
 
   return (
@@ -974,53 +969,6 @@ function SnapshotSection({
             {snapshot}
           </div>
 
-          {applyPreview && (
-            <div style={{ marginTop: 12, border: `1px solid ${C.border}`, borderRadius: 10, overflow: 'hidden' }}>
-              <div style={{ background: C.light, padding: '10px 14px', fontWeight: 700, fontSize: 13, color: C.blue }}>
-                ✅ 信息提取完成 — 确认后将应用到客户档案
-              </div>
-              <div style={{ padding: 14 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 8, marginBottom: 12 }}>
-                  {[
-                    ['姓名', applyPreview.name],
-                    ['国籍', applyPreview.nationality],
-                    ['中文姓名', applyPreview.nameChinese || applyPreview.profile?.nameZh],
-                    ['出生日期', applyPreview.profile?.dob],
-                    ['护照号', applyPreview.profile?.passportNo],
-                    ['护照有效期', applyPreview.profile?.passportExpiry],
-                    ['澳洲地址', applyPreview.profile?.auAddress],
-                    ['目标签证', applyPreview.profile?.visaTarget],
-                    ['顾问', applyPreview.profile?.consultant],
-                    ['服务费', applyPreview.profile?.serviceAgreement?.totalFee],
-                    ['合同日期', applyPreview.profile?.serviceAgreement?.contractDate],
-                    ['担保人', applyPreview.profile?.sponsor?.name],
-                    ['签证历史', (applyPreview.profile?.visaHistory||[]).filter(v=>v.type).length > 0
-                      ? `${(applyPreview.profile.visaHistory).filter(v=>v.type).length} 条记录` : null],
-                    ['案件时间线', (applyPreview.profile?.caseTimeline||[]).filter(e=>e.event).length > 0
-                      ? `${(applyPreview.profile.caseTimeline).filter(e=>e.event).length} 条记录` : null],
-                    ['关键问题', (applyPreview.profile?.keyIssues||[]).filter(i=>i.item).length > 0
-                      ? `${(applyPreview.profile.keyIssues).filter(i=>i.item).length} 条` : null],
-                    ['下步计划', (applyPreview.profile?.nextSteps||[]).filter(Boolean).length > 0
-                      ? `${(applyPreview.profile.nextSteps).filter(Boolean).length} 条` : null],
-                  ].filter(([, v]) => v).map(([k, v]) => (
-                    <div key={k} style={{ background: '#f9fafb', borderRadius: 7, padding: '7px 10px', border: `1px solid ${C.border}` }}>
-                      <div style={{ fontSize: 10, color: C.muted, textTransform: 'uppercase' }}>{k}</div>
-                      <div style={{ fontSize: 12, color: C.text, fontWeight: 500 }}>{v}</div>
-                    </div>
-                  ))}
-                </div>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, fontSize: 13, cursor: 'pointer' }}>
-                  <input type="checkbox" checked={overwrite} onChange={e => setOverwrite(e.target.checked)} />
-                  覆盖已有字段（已勾选）
-                </label>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button onClick={handleConfirmApply} style={btnStyle(C.blue)}>✅ 确认应用</button>
-                  <button onClick={() => setApplyPreview(null)}
-                    style={{ ...btnStyle(C.muted), background: '#f1f5f9', color: C.text }}>取消</button>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       )}
     </div>

@@ -79,19 +79,38 @@ export default async function handler(req, res) {
       });
     }
 
-    // ── 3. List all files in the client folder ──────────────────────────────
+    // ── 3. List all files in the client folder (recurse into subfolders) ───────
     const listing = await driveApi('files', {
       q: `'${clientFolder.id}' in parents and trashed = false`,
       fields: 'files(id,name,mimeType,size,modifiedTime)',
       orderBy: 'modifiedTime desc',
-      pageSize: '30',
+      pageSize: '50',
     });
 
-    const allFiles = listing.files || [];
+    const topLevel = listing.files || [];
+    const subfolders = topLevel.filter(f => f.mimeType === 'application/vnd.google-apps.folder');
+    const directFiles = topLevel.filter(f => f.mimeType !== 'application/vnd.google-apps.folder');
+
+    // Recurse one level into each subfolder (limit 6 subfolders)
+    const subFiles = [];
+    for (const folder of subfolders.slice(0, 6)) {
+      try {
+        const sub = await driveApi('files', {
+          q: `'${folder.id}' in parents and trashed = false and mimeType != 'application/vnd.google-apps.folder'`,
+          fields: 'files(id,name,mimeType,size,modifiedTime)',
+          orderBy: 'modifiedTime desc',
+          pageSize: '20',
+        });
+        // Prefix name with folder so context is clear
+        (sub.files || []).forEach(f => subFiles.push({ ...f, name: `${folder.name}/${f.name}` }));
+      } catch { /* skip inaccessible subfolder */ }
+    }
+
+    const allFiles = [...directFiles, ...subFiles];
     const processed = [];
 
-    // ── 4. Download & read files (max 8) ────────────────────────────────────
-    for (const file of allFiles.slice(0, 8)) {
+    // ── 4. Download & read files (max 10) ───────────────────────────────────
+    for (const file of allFiles.slice(0, 10)) {
       const entry = {
         id: file.id,
         name: file.name,
