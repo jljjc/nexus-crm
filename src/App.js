@@ -1053,6 +1053,18 @@ function ClientDetailModal({ client, jobs, setJobs, team, onClose, onEdit, onSav
   const [qform, setQform]               = useState({});
   const [viewJob, setViewJob]           = useState(null); // case detail from client tab
 
+  const handleSaveCaseClient = async (updatedCase) => {
+    setJobs(prev => prev.map(j => j.id === updatedCase.id ? updatedCase : j));
+    setViewJob(updatedCase);
+    try {
+      await sbUpdate('jobs', updatedCase.id, { data: updatedCase });
+    } catch (e) {
+      window.dispatchEvent(new CustomEvent('ozsky-db-error', {
+        detail: `Case save failed: ${e.message}`,
+      }));
+    }
+  };
+
   const handleGenerateContract = async () => {
     try {
       setContractBusy(true);
@@ -2257,7 +2269,40 @@ ${rawText.slice(0,5000)}` }]
                 </div>
               </div>
             )}
-            <div style={{ borderTop:'1.5px solid #e2e8f0', paddingTop:12 }}>
+            {(viewJob.keyIssues||[]).length > 0 && (
+            <div style={{ borderTop:'1.5px solid #e2e8f0', paddingTop:14, marginBottom:14 }}>
+              <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:8 }}>关键问题 <span style={{ color:'#9ca3af', fontWeight:400, textTransform:'none', fontSize:11 }}>Key Issues</span></div>
+              <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+              {(viewJob.keyIssues||[]).map((issue,i) => {
+                const col2=issue.priority==='High'?'#dc2626':issue.priority==='Low'?'#16a34a':'#d97706';
+                const bg2=issue.priority==='High'?'#fef2f2':issue.priority==='Low'?'#f0fdf4':'#fffbeb';
+                return (<div key={i} style={{ display:'flex', alignItems:'flex-start', gap:8, background:'#f8fafc', borderRadius:7, padding:'7px 11px', border:'1.5px solid #e2e8f0' }}>
+                  <span style={{ fontSize:10, fontWeight:700, color:col2, background:bg2, padding:'2px 6px', borderRadius:8, flexShrink:0, marginTop:1 }}>{issue.priority||'Med'}</span>
+                  <span style={{ fontSize:12, color:'#111827' }}>{issue.item}</span>
+                </div>);
+              })}
+              </div>
+            </div>
+            )}
+            {(viewJob.nextSteps||[]).length > 0 && (
+            <div style={{ borderTop:'1.5px solid #e2e8f0', paddingTop:14, marginBottom:14 }}>
+              <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:8 }}>下步行动 <span style={{ color:'#9ca3af', fontWeight:400, textTransform:'none', fontSize:11 }}>Next Steps</span></div>
+              <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
+              {(viewJob.nextSteps||[]).map((ns,i) => (
+                <div key={i} style={{ display:'flex', alignItems:'flex-start', gap:10, padding:'5px 0' }}>
+                  <span style={{ fontSize:11, fontWeight:700, color:'#6366f1', background:'#ede9fe', borderRadius:6, padding:'1px 7px', flexShrink:0, marginTop:1 }}>{i+1}</span>
+                  <span style={{ fontSize:12, color:'#374151' }}>{ns}</span>
+                </div>
+              ))}
+              </div>
+            </div>
+            )}
+            <CaseAI
+              selectedClient={client}
+              selectedCase={viewJob}
+              onSaveCase={handleSaveCaseClient}
+            />
+            <div style={{ borderTop:'1.5px solid #e2e8f0', paddingTop:12, marginTop:16 }}>
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
                 <div style={{ display:'flex', gap:8 }}><StatusBadge status={viewJob.status} /><PriorityBadge priority={viewJob.priority} /></div>
                 <button onClick={()=>setViewJob(null)} style={{ padding:'8px 16px', background:'#f1f5f9', border:'1.5px solid #cbd5e1', borderRadius:8, color:'#374151', fontSize:13 }}>关闭</button>
@@ -3666,6 +3711,38 @@ ${rawText.slice(0,5000)}` }]
         </div>
         );
         })}
+        </div>
+        </div>
+        )}
+
+        {/* ── KEY ISSUES ──────────────────────────── */}
+        {(viewJob.keyIssues||[]).length > 0 && (
+        <div style={{ borderTop:'1.5px solid #e2e8f0', paddingTop:14, marginBottom:14 }}>
+        <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:8 }}>关键问题 <span style={{ color:'#9ca3af', fontWeight:400, textTransform:'none', fontSize:11 }}>Key Issues</span></div>
+        <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+        {(viewJob.keyIssues||[]).map((issue,i) => {
+        const kiCol=issue.priority==='High'?'#dc2626':issue.priority==='Low'?'#16a34a':'#d97706';
+        const kiBg=issue.priority==='High'?'#fef2f2':issue.priority==='Low'?'#f0fdf4':'#fffbeb';
+        return (<div key={i} style={{ display:'flex', alignItems:'flex-start', gap:8, background:'#f8fafc', borderRadius:7, padding:'7px 11px', border:'1.5px solid #e2e8f0' }}>
+          <span style={{ fontSize:10, fontWeight:700, color:kiCol, background:kiBg, padding:'2px 6px', borderRadius:8, flexShrink:0, marginTop:1 }}>{issue.priority||'Med'}</span>
+          <span style={{ fontSize:12, color:'#111827' }}>{issue.item}</span>
+        </div>);
+        })}
+        </div>
+        </div>
+        )}
+
+        {/* ── NEXT STEPS ──────────────────────────── */}
+        {(viewJob.nextSteps||[]).length > 0 && (
+        <div style={{ borderTop:'1.5px solid #e2e8f0', paddingTop:14, marginBottom:14 }}>
+        <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:8 }}>下步行动 <span style={{ color:'#9ca3af', fontWeight:400, textTransform:'none', fontSize:11 }}>Next Steps</span></div>
+        <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
+        {(viewJob.nextSteps||[]).map((ns,i) => (
+        <div key={i} style={{ display:'flex', alignItems:'flex-start', gap:10, padding:'5px 0' }}>
+          <span style={{ fontSize:11, fontWeight:700, color:'#6366f1', background:'#ede9fe', borderRadius:6, padding:'1px 7px', flexShrink:0, marginTop:1 }}>{i+1}</span>
+          <span style={{ fontSize:12, color:'#374151' }}>{ns}</span>
+        </div>
+        ))}
         </div>
         </div>
         )}

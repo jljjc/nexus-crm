@@ -106,7 +106,20 @@ export default async function handler(req, res) {
       } catch { /* skip inaccessible subfolder */ }
     }
 
-    const allFiles = [...directFiles, ...subFiles];
+    // Sort files so readable types come first, maximising useful content within the 10-file budget.
+    // Priority: 1) Google Docs / plain text (always readable, no size limit)
+    //           2) DOCX < 5 MB (client-side mammoth extraction)
+    //           3) PDF / image < 4 MB (binary block)
+    //           4) everything else (will be skipped anyway)
+    const readabilityRank = (f) => {
+      const mime = f.mimeType || '';
+      const sizeMB = parseInt(f.size || '0') / (1024 * 1024);
+      if (mime === 'application/vnd.google-apps.document' || mime === 'text/plain') return 0;
+      if (mime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' && sizeMB < 5) return 1;
+      if ((mime === 'application/pdf' || mime.startsWith('image/')) && sizeMB < 4) return 2;
+      return 3;
+    };
+    const allFiles = [...directFiles, ...subFiles].sort((a, b) => readabilityRank(a) - readabilityRank(b));
     const processed = [];
 
     // ── 4. Download & read files (max 10) ───────────────────────────────────
