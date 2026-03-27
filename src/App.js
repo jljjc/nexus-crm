@@ -1877,10 +1877,7 @@ CRITICAL RULES — YOU MUST FOLLOW THESE:
     { id:'profile',  label:'👤 Profile' },
     { id:'jobs',     label:`📋 Cases (${clientJobs.length})` },
     { id:'notes',    label:`📝 ${t('Notes')||'Notes'} (${regularNoteCount})` },
-    { id:'wechat',   label:`💬 ${t('WeChat')||'聊天导入'}` },
-    { id:'email',    label:`📧 Email${gmailNoteCount ? ` (${gmailNoteCount})` : ''}` },
-    { id:'import',   label:`📥 ${t('Import Doc')||'Import Doc'}` },
-    { id:'ai',       label:`🤖 AI 助手` },
+    { id:'ai',       label:`🤖 AI & Email${gmailNoteCount ? ` (${gmailNoteCount})` : ''}` },
   ];
 
   return (
