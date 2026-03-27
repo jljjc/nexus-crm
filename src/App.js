@@ -1042,10 +1042,6 @@ function Dashboard({ clients, jobs, team, onGoTo, setJobsMemberFilter, setJobsSt
 function ClientDetailModal({ client, jobs, setJobs, team, onClose, onEdit, onSaveProfile }) {
   const { t } = useLang();
   const [tab, setTab]               = useState('profile');
-  const [importing, setImporting]   = useState(false);
-  const [importPreview, setImportPreview] = useState(null);
-  const [applyMsg, setApplyMsg]     = useState('');
-  const fileRef                     = useRef(null);
   const [contractBusy, setContractBusy] = useState(false);
   const [quickJob, setQuickJob]         = useState(false);
   const [editingJob, setEditingJob]     = useState(null);
@@ -1076,11 +1072,6 @@ function ClientDetailModal({ client, jobs, setJobs, team, onClose, onEdit, onSav
     }
   };
 
-  // WeChat import state
-  const [wchat, setWchat]           = useState('');
-  const [wchatParsing, setWchatParsing] = useState(false);
-  const [wchatResult, setWchatResult]   = useState(null);
-  const [wchatSaved, setWchatSaved]     = useState(false);
 
   // Email import state
   const [email, setEmail]           = useState('');
@@ -1088,13 +1079,6 @@ function ClientDetailModal({ client, jobs, setJobs, team, onClose, onEdit, onSav
   const [emailResult, setEmailResult]   = useState(null);
   const [emailSaved, setEmailSaved]     = useState(false);
 
-  // Openclaw snapshot state
-  const [ocName, setOcName]         = useState('');
-  const [ocFetching, setOcFetching] = useState(false);
-
-  // Paste-text import state (Import Tab)
-  const [pasteText, setPasteText]         = useState('');
-  const [pasteImporting, setPasteImporting] = useState(false);
 
   // Generate snapshot state (Profile Tab)
   const [generatingSnapshot, setGeneratingSnapshot] = useState(false);
@@ -1106,261 +1090,6 @@ function ClientDetailModal({ client, jobs, setJobs, team, onClose, onEdit, onSav
   const [noteImportSaved, setNoteImportSaved] = useState(false);
   const clientJobs                  = jobs.filter(j => j.clientId === client.id);
 
-
-  const extractAndParseJson = (raw) => {
-    if (!raw || typeof raw !== 'string') throw new Error('Empty AI response');
-
-    // Strip markdown fences
-    let text = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
-
-    // Extract outermost { ... }
-    const start = text.indexOf('{');
-    const end   = text.lastIndexOf('}');
-    if (start === -1 || end === -1 || end <= start)
-      throw new Error('No JSON object found in AI response');
-
-    text = text.slice(start, end + 1)
-      .replace(/[\u201c\u201d]/g, '"')
-      .replace(/[\u2018\u2019]/g, "'")
-      .replace(/^\uFEFF/, '');
-
-    // Strip non-printable control chars but KEEP \n \r
-    text = Array.from(text, ch => {
-      const c = ch.charCodeAt(0);
-      return (c < 32 && c !== 10 && c !== 13) ? ' ' : ch;
-    }).join('');
-
-    // ── Pass 1: Convert Chinese COLON only (outside strings) ─────────────────
-    // Also fixes unescaped quotes inside string values: when a "closing" quote is
-    // followed by something other than a JSON structural char, treat it as escaped.
-    {
-      let out = ''; let inStr = false;
-      for (let i = 0; i < text.length; i++) {
-        const ch = text[i];
-        if (inStr) {
-          if (ch === '\\') { out += ch + (text[++i] || ''); }
-          else if (ch === '"') {
-            // Peek ahead: is the next non-whitespace char a JSON structural element?
-            let j = i + 1;
-            while (j < text.length && (text[j] === ' ' || text[j] === '\t')) j++;
-            const next = text[j] || '';
-            if (next === ',' || next === ':' || next === '}' || next === ']' ||
-                next === '\n' || next === '\r' || next === '' ) {
-              // Looks like a real end-quote
-              out += ch; inStr = false;
-            } else {
-              // Unescaped quote inside string — escape it
-              out += '\\"';
-            }
-          } else {
-            out += ch;
-          }
-        } else {
-          if      (ch === '"') { inStr = true; out += ch; }
-          else if (ch === '：') out += ':';
-          else                  out += ch;
-        }
-      }
-      text = out;
-    }
-
-    // ── Pass 2: Full character-level state machine ────────────────────────────
-    // Tracks JSON structure depth so it knows exactly when a value is expected.
-    // Any unquoted token that doesn't start with a valid JSON value character
-    // is collected and wrapped in double-quotes.
-    {
-      let out = ''; let i = 0; const n = text.length;
-      let inStr = false;
-      let expectVal = false;
-      const ctxStack = []; // 'obj' | 'arr'
-
-      while (i < n) {
-        const ch = text[i];
-
-        // ── Inside a string ──────────────────────────────────────────────────
-        if (inStr) {
-          if (ch === '\\') { out += ch + (text[++i] || ''); i++; continue; }
-          if (ch === '"') {
-            // Peek ahead: real end-quote or unescaped quote inside string?
-            let j = i + 1;
-            while (j < n && (text[j] === ' ' || text[j] === '\t')) j++;
-            const next = text[j] || '';
-            if (next === ',' || next === ':' || next === '}' || next === ']' ||
-                next === '\n' || next === '\r' || j >= n) {
-              out += ch; inStr = false; // real end quote
-            } else {
-              out += '\\"'; // unescaped quote inside string — escape it
-            }
-            i++; continue;
-          }
-          out += ch; i++; continue;
-        }
-
-        // ── Whitespace (preserve, keep expectVal state) ──────────────────────
-        if (ch === ' ' || ch === '\t' || ch === '\r' || ch === '\n') {
-          out += ch; i++; continue;
-        }
-
-        // ── Expecting a value ────────────────────────────────────────────────
-        if (expectVal) {
-          expectVal = false;
-
-          if (ch === '"') { inStr = true; out += ch; i++; continue; }
-          if (ch === '{') { ctxStack.push('obj'); out += ch; i++; continue; }
-          if (ch === '[') { ctxStack.push('arr'); expectVal = true; out += ch; i++; continue; }
-          if (ch === ']') { if (ctxStack.length) ctxStack.pop(); out += ch; i++; continue; }
-          if (ch === '}') { if (ctxStack.length) ctxStack.pop(); out += ch; i++; continue; }
-
-          // null / true / false / number
-          const rem = text.slice(i);
-          const kw = rem.match(/^(null|true|false|-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?)/);
-          if (kw) { out += kw[0]; i += kw[0].length; continue; }
-
-          // ── Unquoted bare value ──────────────────────────────────────────
-          // Collect to next structural delimiter.
-          // In ARRAY context : any comma (ASCII or Chinese) stops the element.
-          // In OBJECT context: ASCII comma stops only if lookahead shows a key/closer;
-          //                    Chinese comma '，' is part of the value text.
-          // Newline: only stop if next non-blank line starts with a key/closer.
-          // This handles multi-line bare values that AI splits across lines.
-          const inArr = ctxStack[ctxStack.length - 1] === 'arr';
-          let raw2 = '';
-          let terminatedByChinComma = false;
-          while (i < n) {
-            const c = text[i];
-            if (c === '}' || c === ']') break;
-            if (c === '\n' || c === '\r') {
-              // Peek ahead past whitespace — stop if next visible char is key/closer
-              let j = i + 1;
-              while (j < n && (text[j] === ' ' || text[j] === '\t' || text[j] === '\n' || text[j] === '\r')) j++;
-              if (j >= n || text[j] === '"' || text[j] === '}' || text[j] === ']') break;
-              // Otherwise: multi-line bare value — merge with a space
-              raw2 += ' '; i++; continue;
-            }
-            if (c === '，') {
-              if (inArr) { terminatedByChinComma = true; i++; break; }
-              raw2 += c; i++; continue;
-            }
-            if (c === ',') {
-              if (inArr) break;
-              let j = i + 1;
-              while (j < n && (text[j] === ' ' || text[j] === '\t')) j++;
-              if (j >= n || text[j] === '"' || text[j] === '}' || text[j] === ']' || text[j] === '\n') break;
-            }
-            raw2 += c; i++;
-          }
-          const val = raw2.trim();
-          if (!val) {
-            out += 'null';
-          } else if (val === 'null' || val === 'true' || val === 'false') {
-            out += val;
-          } else if (/^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?$/.test(val)) {
-            out += val;
-          } else {
-            out += '"' + val.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
-          }
-          if (terminatedByChinComma) { out += ','; expectVal = true; }
-          continue;
-        }
-
-        // ── Normal structural characters ─────────────────────────────────────
-        if (ch === '"') { inStr = true; out += ch; i++; continue; }
-        if (ch === ':') { expectVal = true; out += ch; i++; continue; }
-        if (ch === '{') { ctxStack.push('obj'); out += ch; i++; continue; }
-        if (ch === '[') { ctxStack.push('arr'); expectVal = true; out += ch; i++; continue; }
-        if (ch === '}' || ch === ']') { if (ctxStack.length) ctxStack.pop(); out += ch; i++; continue; }
-        if (ch === ',') {
-          if (ctxStack[ctxStack.length - 1] === 'arr') expectVal = true;
-          out += ch; i++; continue;
-        }
-        if (ch === '，') {
-          // Chinese comma as structural separator
-          if (ctxStack[ctxStack.length - 1] === 'arr') expectVal = true;
-          out += ','; i++; continue;
-        }
-        out += ch; i++;
-      }
-      text = out;
-    }
-
-    // ── Pass 3: Remove trailing commas before } or ] ─────────────────────────
-    text = text.replace(/,(\s*[}\]])/g, '$1');
-
-    // ── Pass 4: Nullify "JSON-injection" contaminated strings ─────────────────
-    text = text.replace(/"((?:[^"\\]|\\.)*)"/g, (match, inner) => {
-      if (/",\s*"[a-zA-Z_]/.test(inner) ||
-          /[a-zA-Z_]"\s*:\s*(?:null|true|false|\d|")/.test(inner)) {
-        return 'null';
-      }
-      return match;
-    });
-
-    // ── Parse ────────────────────────────────────────────────────────────────
-    try {
-      const result = JSON.parse(text);
-      // ── Post-process: fix array fields that AI returned as strings/null ───
-      if (result && result.profile) {
-        const arrFields = ['skillsAssessments','visaHistory','addressHistory',
-                           'employmentHistory','keyIssues','documents','caseTimeline','nextSteps'];
-        for (const f of arrFields) {
-          if (result.profile[f] !== undefined && !Array.isArray(result.profile[f])) {
-            result.profile[f] = [];
-          }
-        }
-      }
-      return result;
-    } catch (err) {
-      const posMatch = /position\s+(\d+)/i.exec(err?.message || '');
-      if (posMatch) {
-        const pos = Number(posMatch[1]);
-        const snippet = text.slice(Math.max(0, pos - 80), Math.min(text.length, pos + 80));
-        throw new Error(`JSON parse failed near: ${snippet}`);
-      }
-      throw err;
-    }
-  };
-
-  /* ── WeChat chat import ─────────────────────────────── */
-  const parseWeChat = async () => {
-    if (!wchat.trim()) return;
-    setWchatParsing(true); setWchatResult(null); setWchatSaved(false);
-    try {
-      const res = await fetch('/api/claude', {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({
-          model:'claude-sonnet-4-20250514', max_tokens:3000,
-          messages:[{ role:'user', content:
-`You are an immigration CRM assistant. Analyse this client communication for "${client.name}".
-
-LANGUAGE RULE: Detect the primary language of the chat content. If primarily Chinese → write all JSON string values in Chinese. If primarily English → write in English. Mixed → use dominant language.
-
-Chat Content:
-${wchat.slice(0,6000)}
-
-Return ONLY valid JSON (no markdown, no explanation):
-{
-  "summary": "2-3 sentence overview of what was discussed",
-  "keyTopics": ["topic1","topic2"],
-  "clientRequests": ["what the client asked for or needed"],
-  "actionItems": ["things the agent/team needs to do"],
-  "importantDates": ["any dates mentioned e.g. visa expiry, appointment dates"],
-  "sentiment": "positive|neutral|concerned|urgent",
-  "language": "English|Mandarin|Mixed",
-  "messageCount": <number>,
-  "dateRange": "earliest to latest date found or null",
-  "tags": ["visa type mentioned","document mentioned","etc"]
-}`
-          }]
-        })
-      });
-      const data = await res.json();
-      const raw = (data.content || []).map(c => c?.text || '').join('');
-      setWchatResult(extractAndParseJson(raw));
-    } catch(e) {
-      setWchatResult({ summary:'Parse error: '+e.message, keyTopics:[], clientRequests:[], actionItems:[], importantDates:[], sentiment:'neutral', language:'Unknown', messageCount:0, dateRange:null, tags:[] });
-    }
-    setWchatParsing(false);
-  };
 
   /* ── Email import ─────────────────────────────── */
   const parseEmail = async () => {
@@ -1590,42 +1319,10 @@ Output ONLY the document text, no preamble, no markdown fences.` }]
     }
   };
 
-  /* ── Section helpers ─────────────────────────────────── */
-  const S = ({ icon, title, children }) => (
-    <div style={{ marginBottom:20 }}>
-      <div style={{ fontSize:12, color:'#6366f1', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:10, display:'flex', alignItems:'center', gap:6 }}>
-        <span>{icon}</span>{title}
-      </div>
-      {children}
-    </div>
-  );
-
   const Field = ({ label, value, warn }) => (
     <div style={{ background:'#f9fafb', borderRadius:8, padding:'9px 13px', border: warn ? '1px solid #f59e0b60' : '1px solid #e5e7eb' }}>
       <div style={{ fontSize:10, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:3 }}>{label}</div>
       <div style={{ fontSize:13, color: warn ? '#d97706' : '#111827', fontWeight:500, wordBreak:'break-word' }}>{value || '—'}</div>
-    </div>
-  );
-
-  const Table = ({ heads, rows }) => (
-    <div style={{ overflowX:'auto', borderRadius:8, border:'1px solid #e5e7eb' }}>
-      <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
-        <thead>
-          <tr style={{ background:'#f8fafc' }}>
-            {heads.map(h => <th key={h} style={{ padding:'7px 12px', color:'#1f2937', fontWeight:600, textAlign:'left', whiteSpace:'nowrap', textTransform:'uppercase', fontSize:10, letterSpacing:'0.05em' }}>{h}</th>)}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.length === 0
-            ? <tr><td colSpan={heads.length} style={{ padding:'10px 12px', color:'#1f2937', textAlign:'center', fontSize:12 }}>No records</td></tr>
-            : rows.map((r, i) => (
-              <tr key={i} style={{ borderTop:'1px solid #e9eaf3', background: i%2===0 ? '#fff' : '#f9fafb' }}>
-                {r.map((cell, j) => <td key={j} style={{ padding:'7px 12px', color: cell?.startsWith?.('⚠️') || cell?.startsWith?.('❌') ? '#d97706' : '#374151' }}>{cell || '—'}</td>)}
-              </tr>
-            ))
-          }
-        </tbody>
-      </table>
     </div>
   );
 
