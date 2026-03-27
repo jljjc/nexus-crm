@@ -674,7 +674,14 @@ function SnapshotSection({
           });
           if (r.ok) {
             const driveData = await r.json();
-            if (driveData.folderFound && driveData.processed?.length) {
+            if (!driveData.folderFound) {
+              // Case 1: folder genuinely missing
+              setDriveStatus({ found: false, message: driveData.message });
+            } else if (!driveData.processed?.length) {
+              // Case 2: folder found but empty (new client, no files yet)
+              setDriveStatus({ found: true, folderName: driveData.folderName, fileCount: driveData.totalFiles || 0, readCount: 0, fileDebug: [] });
+            } else {
+              // Case 3: folder found with files
               const textParts = [];
               const binaryNames = [];
               const fileDebug = []; // diagnostic: track what happened to each file
@@ -766,8 +773,6 @@ function SnapshotSection({
                 driveContext = `Google Drive 文件夹: ${driveData.folderName} (共${driveData.totalFiles}个文件)\n\n` + parts.join('\n\n---\n\n');
               }
               setDriveStatus({ found: true, folderName: driveData.folderName, fileCount: driveData.totalFiles, readCount: textParts.length + pdfBlocks.length, fileDebug });
-            } else {
-              setDriveStatus({ found: false, message: driveData.message });
             }
           } else {
             const errData = await r.json().catch(() => ({}));
