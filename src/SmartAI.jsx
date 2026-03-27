@@ -862,7 +862,7 @@ function SnapshotSection({
     } finally {
       setLoading(false); setStep('');
     }
-  }, [selectedClient, selectedCase, gmail, sessionDocs, setSnapshot]);
+  }, [selectedClient, selectedCase, gmail, sessionDocs, setSnapshot, onSaveSnapshot]);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(snapshot).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
