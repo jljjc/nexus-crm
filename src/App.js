@@ -1302,9 +1302,12 @@ Output ONLY the document text, no preamble, no markdown fences.` }]
       const snapshotText = (d.content || []).map(c => c?.text || '').join('').trim();
       if (!snapshotText) throw new Error('AI 返回内容为空');
 
+      // Save snapshot to client profile
+      const dateStr = new Date().toISOString().slice(0, 10);
+      await onSaveProfile({ ...client, profile: { ...(client.profile || {}), snapshot: snapshotText, snapshotDate: dateStr } });
+
       // Download as .txt
       const safeName = (client.name || 'client').replace(/[^a-zA-Z0-9\u4e00-\u9fa5_\- ]/g, '').trim();
-      const dateStr  = new Date().toISOString().slice(0, 10);
       const blob = new Blob([snapshotText], { type: 'text/plain;charset=utf-8' });
       const url  = URL.createObjectURL(blob);
       const a    = document.createElement('a');
