@@ -215,6 +215,19 @@ export default function CaseAI({ selectedClient, selectedCase, onSaveCase }) {
                     }
                     if (fileBase64) {
                       const blockType = f.mimeType === 'application/pdf' ? 'document' : 'image';
+                      // Validate PDF magic bytes before sending — invalid PDFs cause Claude API errors
+                      if (blockType === 'document') {
+                        try {
+                          const header = atob(fileBase64.slice(0, 8));
+                          if (!header.startsWith('%PDF')) {
+                            binaryNames.push(`  [✓] ${f.name}`);
+                            continue; // skip invalid PDF
+                          }
+                        } catch {
+                          binaryNames.push(`  [✓] ${f.name}`);
+                          continue;
+                        }
+                      }
                       pdfBlocks.push({
                         type: blockType,
                         source: { type: 'base64', media_type: f.mimeType, data: fileBase64 },
