@@ -1919,12 +1919,12 @@ CRITICAL RULES — YOU MUST FOLLOW THESE:
 
           {/* ── 6-field summary grid ── */}
           <div style={{ display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:12, marginTop:16 }}>
-            <Field label="Full Name"     value={client.name} />
-            <Field label="Sex"           value={p.sex} />
-            <Field label="Date of Birth" value={p.dob} />
-            <Field label="Nationality"   value={client.nationality} />
-            <Field label="Mobile"        value={client.phone} />
-            <Field label="Email"         value={client.email} />
+            <Field label={t('Full Name')||'Full Name'}         value={client.name} />
+            <Field label={t('Gender')||'Sex'}               value={p.sex} />
+            <Field label={t('Date of Birth')||'Date of Birth'} value={p.dob} />
+            <Field label={t('Nationality')||'Nationality'}  value={client.nationality} />
+            <Field label={t('Mobile')||'Mobile'}            value={client.phone} />
+            <Field label={t('Email')||'Email'}              value={client.email} />
           </div>
         </div>
       )}
