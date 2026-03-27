@@ -645,7 +645,7 @@ function guessMime(fileName) {
 ════════════════════════════════════════════════════════════════════════════ */
 function SnapshotSection({
   selectedClient, selectedCase, gmail, emails, sessionDocs,
-  snapshot, setSnapshot, onAddNote, onImportClient,
+  snapshot, setSnapshot, onAddNote, onImportClient, onSaveSnapshot,
 }) {
   const [loading, setLoading]     = useState(false);
   const [step, setStep]           = useState('');
@@ -854,7 +854,9 @@ function SnapshotSection({
       try { data = JSON.parse(rawText); }
       catch { throw new Error(r.status === 413 ? 'PDF 文件太大，请减小文件大小后重试（Vercel 请求体限制 4.5MB）' : `服务器返回非 JSON 响应 (${r.status}): ${rawText.slice(0, 120)}`); }
       if (!r.ok) throw new Error(typeof data.error === 'object' ? (data.error?.message || JSON.stringify(data.error)) : data.error || '生成失败');
-      setSnapshot(data.content?.[0]?.text || '');
+      const snapshotResult = data.content?.[0]?.text || '';
+      setSnapshot(snapshotResult);
+      onSaveSnapshot?.(snapshotResult);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -1031,7 +1033,7 @@ function SnapshotSection({
   );
 }
 
-export default function SmartAI({ selectedClient, selectedCase, onImportClient, onImportCase, onAddNote }) {
+export default function SmartAI({ selectedClient, selectedCase, onImportClient, onImportCase, onAddNote, onSaveSnapshot }) {
   const [gmail, setGmail] = useState(readSession);
   const [emails, setEmails] = useState([]);
   const [sessionDocs, setSessionDocs] = useState([]);
@@ -1094,6 +1096,7 @@ export default function SmartAI({ selectedClient, selectedCase, onImportClient, 
               snapshot={snapshot} setSnapshot={setSnapshot}
               onAddNote={onAddNote}
               onImportClient={handleImportClient}
+              onSaveSnapshot={onSaveSnapshot}
             />
           </>
         )}
