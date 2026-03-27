@@ -109,7 +109,7 @@ ${emailContext}` : ''}
 ================================================================================
   案件进度简报  |  CASE PROGRESS BRIEF
   ${client?.name || '[客户姓名]'} — ${c.type || '[案件类型]'}
-  生成日期：${today} | 经办顾问：Liang Jiang | Ozsky Migration
+  生成日期：${today} | 经办顾问：${caseObj?.assignedTo || 'Liang Jiang'} | Ozsky Migration
 ================================================================================
 
 ━━━ 一、案件概况  CASE OVERVIEW ━━━
@@ -272,7 +272,7 @@ export default function CaseAI({ selectedClient, selectedCase, onSaveCase }) {
             : `"${selectedClient.name}"`;
           const r = await fetch('/api/gmail-sync', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ accessToken: token, maxResults: 20, q: gmailQ }),
+            body: JSON.stringify({ accessToken: token, maxResults: 10, q: gmailQ }),
           });
           if (r.ok) {
             const data = await r.json();
@@ -415,7 +415,7 @@ export default function CaseAI({ selectedClient, selectedCase, onSaveCase }) {
       const dateStr = new Date().toISOString().slice(0, 10);
       const briefNote = {
         id: 'n' + Math.random().toString(36).slice(2, 9),
-        text: `[AI 案件简报 ${dateStr}]\n${brief.slice(0, 1500)}`,
+        text: `[AI 案件简报 ${dateStr}]\n${brief.slice(0, 1500)}`, // truncate to keep note size reasonable
         createdAt: new Date().toISOString(),
         type: 'note',
       };
@@ -467,7 +467,7 @@ export default function CaseAI({ selectedClient, selectedCase, onSaveCase }) {
       {open && (
         <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button onClick={generate} disabled={loading || !selectedCase}
+            <button onClick={generate} disabled={loading || applyBusy || !selectedCase}
               style={btnStyle(C.blue, loading || !selectedCase)}>
               {loading ? `⏳ ${step}` : '✨ 生成案件简报'}
             </button>
