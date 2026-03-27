@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import * as mammoth from 'mammoth';
 import SmartAI from './SmartAI';
+import CaseAI from './CaseAI';
 import { writeSession as writeGmailSession } from './utils/gmailSession';
 import { mergeClientData } from './utils/mergeProfile';
 
@@ -3238,6 +3239,19 @@ function Jobs({ jobs, clients, team, setJobs, openJobId, setOpenJobId, jobsMembe
   const [viewJob, setViewJob] = useState(null);
   const [clientSearch, setClientSearch] = useState('');
 
+  // CaseAI callback — single write, replaces matching job by id
+  const handleSaveCase = async (updatedCase) => {
+    setJobs(prev => prev.map(j => j.id === updatedCase.id ? updatedCase : j));
+    setViewJob(updatedCase);
+    try {
+      await sbUpdate('jobs', updatedCase.id, { data: updatedCase });
+    } catch (e) {
+      window.dispatchEvent(new CustomEvent('ozsky-db-error', {
+        detail: `Case save failed: ${e.message}`,
+      }));
+    }
+  };
+
   // Open specific job from calendar or other navigation
   useEffect(() => {
     if (openJobId) {
@@ -4078,6 +4092,12 @@ ${rawText.slice(0,5000)}` }]
       }
       </div>
       </div>
+
+      <CaseAI
+        selectedClient={clients.find(c => c.id === viewJob.clientId) || null}
+        selectedCase={viewJob}
+        onSaveCase={handleSaveCase}
+      />
 
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:18, paddingTop:14, borderTop:'1.5px solid #e2e8f0' }}>
       <div style={{ display:'flex', gap:8 }}>
