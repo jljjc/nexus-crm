@@ -1920,6 +1920,10 @@ ${rawText.slice(0,5000)}` }]
             onAddNote={(text) => {
               onSaveProfile({ ...client, notes: [makeNote(text), ...normalizeNotes(client.notes)] });
             }}
+            onSaveSnapshot={(text) => {
+              const date = new Date().toISOString().slice(0, 10);
+              onSaveProfile({ ...client, profile: { ...(client.profile || {}), snapshot: text, snapshotDate: date } });
+            }}
           />
         </div>
       )}
