@@ -1386,6 +1386,26 @@ Output ONLY the document text, no preamble, no markdown fences.` }]
             <Field label={t('Mobile')||'Mobile'}            value={client.phone} />
             <Field label={t('Email')||'Email'}              value={client.email} />
           </div>
+
+          {/* ── Saved snapshot ── */}
+          {p.snapshot && (
+            <div style={{ marginTop:20, borderTop:'1.5px solid #e2e8f0', paddingTop:16 }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
+                <span style={{ fontSize:11, fontWeight:700, color:'#6366f1', textTransform:'uppercase', letterSpacing:'0.07em' }}>
+                  客户快照
+                </span>
+                {p.snapshotDate && (
+                  <span style={{ fontSize:11, color:'#9ca3af' }}>更新于 {p.snapshotDate}</span>
+                )}
+              </div>
+              <div style={{ background:'#f8fafc', border:'1px solid #e2e8f0', borderRadius:8, padding:12,
+                fontSize:12, color:'#374151', lineHeight:1.75, whiteSpace:'pre-wrap',
+                maxHeight:400, overflowY:'auto',
+                fontFamily:"'JetBrains Mono','Courier New',monospace" }}>
+                {p.snapshot}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
