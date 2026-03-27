@@ -2424,11 +2424,34 @@ function Clients({ clients, jobs, setClients, setJobs, team }) {
 
       {modal && (
         <Modal title={modal === 'add' ? 'Add New Client' : `Edit Client – ${form.name}`} onClose={closeModal} wide>
+          {/* ── Personal Info ── */}
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
-            <FormField label="Full Name" required><input style={inputStyle} value={form.name||''} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="John Smith" /></FormField>
-            <FormField label="Email"><input style={inputStyle} value={form.email||''} onChange={e=>setForm(f=>({...f,email:e.target.value}))} placeholder="john@email.com" /></FormField>
-            <FormField label="Phone"><input style={inputStyle} value={form.phone||''} onChange={e=>setForm(f=>({...f,phone:e.target.value}))} placeholder="04xx xxx xxx" /></FormField>
-            <FormField label="Nationality"><input style={inputStyle} value={form.nationality||''} onChange={e=>setForm(f=>({...f,nationality:e.target.value}))} placeholder="e.g. Chinese" /></FormField>
+            <FormField label="Full Name" required>
+              <input style={inputStyle} value={form.name||''} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="John Smith" />
+            </FormField>
+            <FormField label="Sex">
+              <select style={selectStyle} value={form.profile?.sex||''} onChange={e=>setForm(f=>({...f,profile:{...(f.profile||{}),sex:e.target.value}}))}>
+                <option value="">—</option>
+                <option>Male</option>
+                <option>Female</option>
+                <option>Other</option>
+              </select>
+            </FormField>
+            <FormField label="Date of Birth">
+              <input style={inputStyle} value={form.profile?.dob||''} onChange={e=>setForm(f=>({...f,profile:{...(f.profile||{}),dob:e.target.value}}))} placeholder="YYYY-MM-DD" />
+            </FormField>
+            <FormField label="Nationality">
+              <input style={inputStyle} value={form.nationality||''} onChange={e=>setForm(f=>({...f,nationality:e.target.value}))} placeholder="e.g. Chinese" />
+            </FormField>
+            <FormField label="Mobile">
+              <input style={inputStyle} value={form.phone||''} onChange={e=>setForm(f=>({...f,phone:e.target.value}))} placeholder="04xx xxx xxx" />
+            </FormField>
+            <FormField label="Email">
+              <input style={inputStyle} value={form.email||''} onChange={e=>setForm(f=>({...f,email:e.target.value}))} placeholder="john@email.com" />
+            </FormField>
+          </div>
+          {/* ── Operational ── */}
+          <div style={{ borderTop:'1.5px solid #e2e8f0', marginTop:16, paddingTop:16, display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
             <FormField label="Client Type">
               <select style={selectStyle} value={form.type||'Student'} onChange={e=>setForm(f=>({...f,type:e.target.value}))}>
                 {CLIENT_TYPES.map(t=><option key={t}>{t}</option>)}
@@ -2439,83 +2462,6 @@ function Clients({ clients, jobs, setClients, setJobs, team }) {
                 {CLIENT_STATUSES.map(s=><option key={s}>{s}</option>)}
               </select>
             </FormField>
-          </div>
-          {/* ── Profile Details ── */}
-          <div style={{ borderTop:'1.5px solid #e2e8f0', marginTop:16, paddingTop:16 }}>
-            <div style={{ fontSize:11, fontWeight:700, color:'#6b7280', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:12 }}>Profile Details</div>
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-              <FormField label="Date of Birth"><input style={inputStyle} value={form.profile?.dob||''} onChange={e=>setForm(f=>({...f,profile:{...(f.profile||{}),dob:e.target.value}}))} placeholder="YYYY-MM-DD" /></FormField>
-              <FormField label="Chinese Name (中文姓名)"><input style={inputStyle} value={form.profile?.nameZh||''} onChange={e=>setForm(f=>({...f,profile:{...(f.profile||{}),nameZh:e.target.value}}))} placeholder="乔帅帅" /></FormField>
-              <FormField label="Passport No"><input style={inputStyle} value={form.profile?.passportNo||''} onChange={e=>setForm(f=>({...f,profile:{...(f.profile||{}),passportNo:e.target.value}}))} placeholder="E12345678" /></FormField>
-              <FormField label="Passport Expiry"><input style={inputStyle} value={form.profile?.passportExpiry||''} onChange={e=>setForm(f=>({...f,profile:{...(f.profile||{}),passportExpiry:e.target.value}}))} placeholder="YYYY-MM-DD" /></FormField>
-              <FormField label="AU Address"><input style={inputStyle} value={form.profile?.auAddress||''} onChange={e=>setForm(f=>({...f,profile:{...(f.profile||{}),auAddress:e.target.value}}))} placeholder="Perth, WA, Australia" /></FormField>
-              <FormField label="Marital Status"><input style={inputStyle} value={form.profile?.maritalStatus||''} onChange={e=>setForm(f=>({...f,profile:{...(f.profile||{}),maritalStatus:e.target.value}}))} placeholder="Single / Married" /></FormField>
-              <FormField label="Visa Target"><input style={inputStyle} value={form.profile?.visaTarget||''} onChange={e=>setForm(f=>({...f,profile:{...(f.profile||{}),visaTarget:e.target.value}}))} placeholder="e.g. Subclass 820 Partner Visa" /></FormField>
-              <FormField label="Consultant"><input style={inputStyle} value={form.profile?.consultant||''} onChange={e=>setForm(f=>({...f,profile:{...(f.profile||{}),consultant:e.target.value}}))} placeholder="Liang Jiang" /></FormField>
-              <FormField label="China ID (身份证)"><input style={inputStyle} value={form.profile?.chinaId||''} onChange={e=>setForm(f=>({...f,profile:{...(f.profile||{}),chinaId:e.target.value}}))} placeholder="身份证号码" /></FormField>
-              <FormField label="EA File No"><input style={inputStyle} value={form.profile?.eaFileNo||''} onChange={e=>setForm(f=>({...f,profile:{...(f.profile||{}),eaFileNo:e.target.value}}))} placeholder="EA File Number" /></FormField>
-              <FormField label="Service Fee (Total)"><input style={inputStyle} value={form.profile?.serviceAgreement?.totalFee||''} onChange={e=>setForm(f=>({...f,profile:{...(f.profile||{}),serviceAgreement:{...(f.profile?.serviceAgreement||{}),totalFee:e.target.value}}}))} placeholder="AUD 3,080" /></FormField>
-              <FormField label="Contract Date"><input style={inputStyle} value={form.profile?.serviceAgreement?.contractDate||''} onChange={e=>setForm(f=>({...f,profile:{...(f.profile||{}),serviceAgreement:{...(f.profile?.serviceAgreement||{}),contractDate:e.target.value}}}))} placeholder="YYYY-MM-DD" /></FormField>
-            </div>
-          </div>
-
-          {/* ── Sponsor Details ── */}
-          <div style={{ borderTop:'1.5px solid #e2e8f0', marginTop:16, paddingTop:16 }}>
-            <div style={{ fontSize:11, fontWeight:700, color:'#6b7280', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:12 }}>担保人 Sponsor Details</div>
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-              <FormField label="Sponsor Name"><input style={inputStyle} value={form.profile?.sponsor?.name||''} onChange={e=>setForm(f=>({...f,profile:{...(f.profile||{}),sponsor:{...(f.profile?.sponsor||{}),name:e.target.value}}}))} placeholder="Sponsor full name" /></FormField>
-              <FormField label="Relationship"><input style={inputStyle} value={form.profile?.sponsor?.relationship||''} onChange={e=>setForm(f=>({...f,profile:{...(f.profile||{}),sponsor:{...(f.profile?.sponsor||{}),relationship:e.target.value}}}))} placeholder="Spouse / De Facto" /></FormField>
-              <FormField label="Sponsor DOB"><input style={inputStyle} value={form.profile?.sponsor?.dob||''} onChange={e=>setForm(f=>({...f,profile:{...(f.profile||{}),sponsor:{...(f.profile?.sponsor||{}),dob:e.target.value}}}))} placeholder="YYYY-MM-DD" /></FormField>
-              <FormField label="Sponsor Nationality"><input style={inputStyle} value={form.profile?.sponsor?.nationality||''} onChange={e=>setForm(f=>({...f,profile:{...(f.profile||{}),sponsor:{...(f.profile?.sponsor||{}),nationality:e.target.value}}}))} placeholder="Australian" /></FormField>
-              <FormField label="Sponsor Passport No"><input style={inputStyle} value={form.profile?.sponsor?.passportNo||''} onChange={e=>setForm(f=>({...f,profile:{...(f.profile||{}),sponsor:{...(f.profile?.sponsor||{}),passportNo:e.target.value}}}))} placeholder="Passport number" /></FormField>
-              <FormField label="Sponsor Address"><input style={inputStyle} value={form.profile?.sponsor?.address||''} onChange={e=>setForm(f=>({...f,profile:{...(f.profile||{}),sponsor:{...(f.profile?.sponsor||{}),address:e.target.value}}}))} placeholder="Residential address" /></FormField>
-            </div>
-          </div>
-
-          {/* ── Visa History ── */}
-          <div style={{ borderTop:'1.5px solid #e2e8f0', marginTop:16, paddingTop:16 }}>
-            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
-              <div style={{ fontSize:11, fontWeight:700, color:'#6b7280', textTransform:'uppercase', letterSpacing:'0.07em' }}>签证历史 Visa History</div>
-              <button onClick={()=>setForm(f=>({...f,profile:{...(f.profile||{}),visaHistory:[...(f.profile?.visaHistory||[]),{type:'',applicationNo:'',lodgeDate:'',grantDate:'',status:''}]}}))} style={{ background:'#e0e7ff', border:'none', borderRadius:6, padding:'4px 10px', color:'#4f46e5', fontSize:12, cursor:'pointer' }}>+ Add Row</button>
-            </div>
-            {(form.profile?.visaHistory||[]).length === 0
-              ? <div style={{ fontSize:12, color:'#9ca3af', padding:'6px 0' }}>No visa history records</div>
-              : <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
-                  {(form.profile?.visaHistory||[]).map((v,idx) => (
-                    <div key={idx} style={{ display:'grid', gridTemplateColumns:'2fr 1fr 1fr 1fr 1fr auto', gap:5, alignItems:'center' }}>
-                      <input style={{...inputStyle,fontSize:11,padding:'5px 8px'}} value={v.type||''} onChange={e=>setForm(f=>{const a=[...(f.profile?.visaHistory||[])];a[idx]={...a[idx],type:e.target.value};return{...f,profile:{...(f.profile||{}),visaHistory:a}}})} placeholder="Visa Type" />
-                      <input style={{...inputStyle,fontSize:11,padding:'5px 8px'}} value={v.applicationNo||v.appNo||''} onChange={e=>setForm(f=>{const a=[...(f.profile?.visaHistory||[])];a[idx]={...a[idx],applicationNo:e.target.value};return{...f,profile:{...(f.profile||{}),visaHistory:a}}})} placeholder="App No" />
-                      <input style={{...inputStyle,fontSize:11,padding:'5px 8px'}} value={v.lodgeDate||v.lodged||''} onChange={e=>setForm(f=>{const a=[...(f.profile?.visaHistory||[])];a[idx]={...a[idx],lodgeDate:e.target.value};return{...f,profile:{...(f.profile||{}),visaHistory:a}}})} placeholder="Lodged" />
-                      <input style={{...inputStyle,fontSize:11,padding:'5px 8px'}} value={v.grantDate||v.granted||''} onChange={e=>setForm(f=>{const a=[...(f.profile?.visaHistory||[])];a[idx]={...a[idx],grantDate:e.target.value};return{...f,profile:{...(f.profile||{}),visaHistory:a}}})} placeholder="Granted" />
-                      <input style={{...inputStyle,fontSize:11,padding:'5px 8px'}} value={v.status||''} onChange={e=>setForm(f=>{const a=[...(f.profile?.visaHistory||[])];a[idx]={...a[idx],status:e.target.value};return{...f,profile:{...(f.profile||{}),visaHistory:a}}})} placeholder="Status" />
-                      <button onClick={()=>setForm(f=>({...f,profile:{...(f.profile||{}),visaHistory:(f.profile?.visaHistory||[]).filter((_,i)=>i!==idx)}}))} style={{ background:'none', border:'none', color:'#f87171', fontSize:15, cursor:'pointer', padding:'0 4px' }}>✕</button>
-                    </div>
-                  ))}
-                </div>
-            }
-          </div>
-
-          {/* ── Case Timeline ── */}
-          <div style={{ borderTop:'1.5px solid #e2e8f0', marginTop:16, paddingTop:16 }}>
-            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
-              <div style={{ fontSize:11, fontWeight:700, color:'#6b7280', textTransform:'uppercase', letterSpacing:'0.07em' }}>案件时间线 Case Timeline</div>
-              <button onClick={()=>setForm(f=>({...f,profile:{...(f.profile||{}),caseTimeline:[...(f.profile?.caseTimeline||[]),{date:'',event:'',status:'Completed'}]}}))} style={{ background:'#e0e7ff', border:'none', borderRadius:6, padding:'4px 10px', color:'#4f46e5', fontSize:12, cursor:'pointer' }}>+ Add Row</button>
-            </div>
-            {(form.profile?.caseTimeline||[]).length === 0
-              ? <div style={{ fontSize:12, color:'#9ca3af', padding:'6px 0' }}>No timeline records</div>
-              : <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
-                  {(form.profile?.caseTimeline||[]).map((ev,idx) => (
-                    <div key={idx} style={{ display:'grid', gridTemplateColumns:'1fr 3fr 1fr auto', gap:5, alignItems:'center' }}>
-                      <input style={{...inputStyle,fontSize:11,padding:'5px 8px'}} value={ev.date||''} onChange={e=>setForm(f=>{const a=[...(f.profile?.caseTimeline||[])];a[idx]={...a[idx],date:e.target.value};return{...f,profile:{...(f.profile||{}),caseTimeline:a}}})} placeholder="YYYY-MM-DD" />
-                      <input style={{...inputStyle,fontSize:11,padding:'5px 8px'}} value={ev.event||''} onChange={e=>setForm(f=>{const a=[...(f.profile?.caseTimeline||[])];a[idx]={...a[idx],event:e.target.value};return{...f,profile:{...(f.profile||{}),caseTimeline:a}}})} placeholder="Event description" />
-                      <select style={{...selectStyle,fontSize:11,padding:'5px 6px'}} value={ev.status||'Completed'} onChange={e=>setForm(f=>{const a=[...(f.profile?.caseTimeline||[])];a[idx]={...a[idx],status:e.target.value};return{...f,profile:{...(f.profile||{}),caseTimeline:a}}})}>
-                        <option>Completed</option><option>In Progress</option><option>Pending</option><option>Urgent</option>
-                      </select>
-                      <button onClick={()=>setForm(f=>({...f,profile:{...(f.profile||{}),caseTimeline:(f.profile?.caseTimeline||[]).filter((_,i)=>i!==idx)}}))} style={{ background:'none', border:'none', color:'#f87171', fontSize:15, cursor:'pointer', padding:'0 4px' }}>✕</button>
-                    </div>
-                  ))}
-                </div>
-            }
           </div>
 
           <div style={{ borderTop:'1.5px solid #e2e8f0', marginTop:8, paddingTop:18 }}>
