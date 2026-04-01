@@ -149,10 +149,27 @@ export default function CaseAI({ selectedClient, selectedCase, onSaveCase }) {
   const [applyBusy, setApplyBusy] = useState(false);
   const [applyMsg, setApplyMsg]   = useState('');
   const [previousCase, setPreviousCase] = useState(null);
+  // Folder confirmation state: set when server finds multiple matching folders
+  const [folderCandidates, setFolderCandidates] = useState(null); // [{id, name}]
 
-  const generate = useCallback(async () => {
+  // Core drive-fetch logic, extracted so it can be called both on first attempt
+  // and after the user confirms a specific folder.
+  const fetchDriveContext = useCallback(async (token, confirmedFolderId = null, confirmedFolderName = null) => {
+    const r = await fetch('/api/drive-sync', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        accessToken: token,
+        clientName: selectedClient.name,
+        ...(confirmedFolderId ? { confirmedFolderId, confirmedFolderName } : {}),
+      }),
+    });
+    if (!r.ok) throw new Error(`Drive sync failed: ${r.status}`);
+    return r.json();
+  }, [selectedClient]);
+
+  const generate = useCallback(async (confirmedFolderId = null, confirmedFolderName = null) => {
     if (!selectedCase) return;
-    setLoading(true); setError(''); setBrief(''); setDriveStatus(null);
+    setLoading(true); setError(''); setBrief(''); setDriveStatus(null); setFolderCandidates(null);
 
     const gmail = readSession();
     let driveContext = '';
@@ -164,13 +181,17 @@ export default function CaseAI({ selectedClient, selectedCase, onSaveCase }) {
       try {
         const token = await getValidToken();
         if (token) {
-          const r = await fetch('/api/drive-sync', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ accessToken: token, clientName: selectedClient.name }),
-          });
-          if (r.ok) {
-            const driveData = await r.json();
-            if (driveData.folderFound && driveData.processed?.length) {
+          const driveData = await fetchDriveContext(token, confirmedFolderId, confirmedFolderName);
+
+          // Server found multiple possible folders — pause and ask user to confirm.
+          if (driveData.needsConfirmation) {
+            setFolderCandidates(driveData.candidates);
+            setDriveStatus({ found: false, message: driveData.message });
+            setLoading(false); setStep('');
+            return; // halt until user picks a folder
+          }
+
+          if (driveData.folderFound && driveData.processed?.length) {
               const textParts = [];
               const binaryNames = [];
               for (const f of driveData.processed) {
@@ -264,10 +285,6 @@ export default function CaseAI({ selectedClient, selectedCase, onSaveCase }) {
             } else {
               setDriveStatus({ found: false, message: driveData.message || '未找到客户文件夹' });
             }
-          } else {
-            const errData = await r.json().catch(() => ({}));
-            setDriveStatus({ found: false, message: `Drive 读取失败: ${errData.error || r.status}` });
-          }
         }
       } catch (driveErr) {
         setDriveStatus({ found: false, message: `Drive 连接失败: ${driveErr.message}` });
@@ -347,7 +364,7 @@ export default function CaseAI({ selectedClient, selectedCase, onSaveCase }) {
     } finally {
       setLoading(false); setStep('');
     }
-  }, [selectedClient, selectedCase]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedClient, selectedCase, fetchDriveContext]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleRevert = async () => {
     if (!previousCase) return;
@@ -503,7 +520,7 @@ export default function CaseAI({ selectedClient, selectedCase, onSaveCase }) {
       {open && (
         <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button onClick={generate} disabled={loading || applyBusy || !selectedCase}
+            <button onClick={() => generate()} disabled={loading || applyBusy || !selectedCase}
               style={btnStyle(C.blue, loading || applyBusy || !selectedCase)}>
               {loading ? `⏳ ${step}` : applyBusy ? '⏳ 应用中...' : '✨ 生成并应用简报'}
             </button>
@@ -514,6 +531,27 @@ export default function CaseAI({ selectedClient, selectedCase, onSaveCase }) {
               </button>
             )}
           </div>
+
+          {/* Folder confirmation picker — shown when multiple Drive folders match */}
+          {folderCandidates && (
+            <div style={{ background: '#fffbeb', border: '1.5px solid #f59e0b', borderRadius: 8, padding: '12px 14px' }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#92400e', marginBottom: 8 }}>
+                ⚠️ 找到多个可能匹配的文件夹，请确认使用哪一个：
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {folderCandidates.map(f => (
+                  <button key={f.id} onClick={() => { setFolderCandidates(null); generate(f.id, f.name); }}
+                    style={{ textAlign: 'left', padding: '7px 12px', background: '#fff', border: '1.5px solid #d97706', borderRadius: 6, fontSize: 13, color: '#1c1917', cursor: 'pointer', fontWeight: 500 }}>
+                    📁 {f.name}
+                  </button>
+                ))}
+                <button onClick={() => { setFolderCandidates(null); setDriveStatus(null); }}
+                  style={{ textAlign: 'left', padding: '6px 12px', background: 'none', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 12, color: '#6b7280', cursor: 'pointer' }}>
+                  跳过 Drive 文件夹，仅使用 CRM 数据生成
+                </button>
+              </div>
+            </div>
+          )}
 
           {driveStatus && (
             <div style={{ fontSize: 11, color: driveStatus.found ? C.mid : C.orange }}>

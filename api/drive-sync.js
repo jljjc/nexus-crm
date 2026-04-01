@@ -8,7 +8,7 @@
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { accessToken, clientName } = req.body || {};
+  const { accessToken, clientName, confirmedFolderId, confirmedFolderName } = req.body || {};
   if (!accessToken) return res.status(400).json({ error: 'Missing accessToken' });
   if (!clientName)  return res.status(400).json({ error: 'Missing clientName' });
 
@@ -53,45 +53,81 @@ export default async function handler(req, res) {
     const rootId = rootSearch.files[0].id;
 
     // ── 2. Find the client subfolder ────────────────────────────────────────
-    // Safety: only use exact name match OR full-name-contains match.
-    // NEVER fall back to individual word parts — e.g. searching for "chen"
-    // could match an unrelated client folder like "Chencho Pem".
-    const escape = (s) => s.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-    const normalize = (s) => s.trim().toLowerCase().replace(/\s+/g, ' ');
+    const escape  = (s) => s.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    const normalize = (s) => s.trim().toLowerCase();
 
-    // Helper: check that a candidate folder name is actually this client.
-    // Both names must share at least one full word (case-insensitive).
+    // Splits a name into tokens, stripping punctuation/separators.
+    // E.g. "CHEN, Fengmei" → ["chen", "fengmei"]
+    const tokens = (s) => normalize(s).split(/[\s,.\-_]+/).filter(w => w.length > 0);
+
+    // A folder name is a VALID match for a client when:
+    //   • The folder contains the client's FIRST word (first name) as a whole token, AND
+    //   • The folder contains the client's LAST word (last name / surname) as a whole token.
+    // Middle names in either direction are ignored.
+    // This prevents "chen" from matching "Chencho" because token equality is used, not substring.
+    const clientParts = tokens(clientName);
+    const firstName   = clientParts[0];
+    const lastName    = clientParts[clientParts.length - 1];
+
     const isValidMatch = (folderName) => {
-      const clientWords = normalize(clientName).split(' ').filter(w => w.length > 1);
-      const folderWords = normalize(folderName).split(/[\s_\-,]+/).filter(w => w.length > 1);
-      // Require at least one full word to match exactly (not just substring)
-      return clientWords.some(cw => folderWords.some(fw => fw === cw));
+      const ft = tokens(folderName);
+      const hasFirst = ft.includes(firstName);
+      const hasLast  = clientParts.length === 1
+        ? hasFirst
+        : ft.includes(lastName);
+      return hasFirst && hasLast;
     };
 
-    const queries = [
-      `name = '${escape(clientName)}'`,
-      `name contains '${escape(clientName)}'`,
-    ];
-
     let clientFolder = null;
-    for (const q of queries) {
-      const r = await driveApi('files', {
-        q: `'${rootId}' in parents and mimeType = 'application/vnd.google-apps.folder' and ${q} and trashed = false`,
-        fields: 'files(id,name)',
-        pageSize: '10',
-      });
-      if (r.files?.length) {
-        // Pick the first candidate that passes the safety check
-        const safe = r.files.find(f => isValidMatch(f.name));
-        if (safe) { clientFolder = safe; break; }
-      }
-    }
 
-    if (!clientFolder) {
-      return res.json({
-        folderFound: false, files: [],
-        message: `未找到客户文件夹 "${clientName}"。请检查 ozsky-clients 下是否存在对应文件夹。`,
-      });
+    // If user already confirmed a specific folder, skip searching.
+    if (confirmedFolderId) {
+      clientFolder = { id: confirmedFolderId, name: confirmedFolderName || clientName };
+    } else {
+      // Search: exact match first, then first-name-contains (broader net),
+      // then last-name-contains — collect ALL results and validate strictly.
+      const seen   = new Set();
+      const candidates = [];
+
+      const searchAndCollect = async (q) => {
+        const r = await driveApi('files', {
+          q: `'${rootId}' in parents and mimeType = 'application/vnd.google-apps.folder' and ${q} and trashed = false`,
+          fields: 'files(id,name)',
+          pageSize: '20',
+        });
+        for (const f of (r.files || [])) {
+          if (!seen.has(f.id) && isValidMatch(f.name)) {
+            seen.add(f.id);
+            candidates.push(f);
+          }
+        }
+      };
+
+      await searchAndCollect(`name = '${escape(clientName)}'`);
+      if (candidates.length === 0)
+        await searchAndCollect(`name contains '${escape(firstName)}'`);
+      if (candidates.length === 0 && clientParts.length > 1)
+        await searchAndCollect(`name contains '${escape(lastName)}'`);
+
+      if (candidates.length === 0) {
+        return res.json({
+          folderFound: false, files: [],
+          message: `未找到客户文件夹 "${clientName}"。请检查 ozsky-clients 下是否存在对应文件夹。`,
+        });
+      }
+
+      if (candidates.length === 1) {
+        // Exactly one match — use it directly.
+        clientFolder = candidates[0];
+      } else {
+        // Multiple matches — ask the user to confirm before reading any files.
+        return res.json({
+          folderFound: false,
+          needsConfirmation: true,
+          candidates: candidates.map(f => ({ id: f.id, name: f.name })),
+          message: `找到多个可能匹配的文件夹，请确认使用哪一个。`,
+        });
+      }
     }
 
     // ── 3. List all files in the client folder (recurse into subfolders) ───────
