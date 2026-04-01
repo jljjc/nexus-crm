@@ -378,6 +378,7 @@ const JOB_TYPES = [
   'Skills Assessment – CPA / CA (Accounting)',
   'Skills Assessment – NAATI (Translation)',
   'Skills Assessment – TRA (Trades)',
+  'Skills Assessment – AITSL (Teaching)',
   // Student & Graduate
   'Subclass 500 – Student Visa',
   'Subclass 485 – Graduate Temp',
@@ -449,6 +450,7 @@ const DOC_CHECKLISTS = {
   'Skills Assessment – CPA / CA (Accounting)': ['Passport', 'Academic Transcripts', 'Employment References', 'Membership Certificate', 'English Evidence'],
   'Skills Assessment – NAATI (Translation)':   ['Passport', 'Language Qualification Proof', 'Interpreter Experience Evidence', 'Application Form'],
   'Skills Assessment – TRA (Trades)':          ['Passport', 'Trade Qualification Cert', 'Employment References', 'English Evidence', 'RPL if no cert'],
+  'Skills Assessment – AITSL (Teaching)':      ['Passport', 'Academic Transcripts', 'Teaching Registration Certificate', 'Employment References', 'English Evidence (IELTS/OET)', 'Curriculum Vitae'],
   'Subclass 500 – Student Visa':               ['CoE (Confirmation of Enrolment)', 'Valid Passport (6+ months)', 'English Test Results (IELTS/PTE)', 'Financial Evidence (AUD 21,041+)', 'OSHC (Health Cover)', 'GTE Statement', 'Academic Transcripts', 'Health & Character Checks'],
   'Subclass 485 – Graduate Temp':              ['CoE or Completion Letter', 'Passport', 'AQF Qualification Certificate', 'English Evidence', 'Health Insurance', 'Health & Character Checks'],
   'Subclass 189 – Skilled Independent':        ['Skills Assessment', 'English Test Results', 'EOI via SkillSelect', 'Passport', 'Health Examination', 'Police Clearance', 'Employment References'],
@@ -1519,8 +1521,9 @@ ${rawText.slice(0,5000)}` }]
                         })
                       });
                       const d = await res.json();
-                      const txt = (d.content?.[0]?.text||'').replace(/```json|```/g,'').trim();
-                      const parsed = JSON.parse(txt);
+                      const raw = (d.content?.[0]?.text||'').replace(/```json|```/g,'').trim();
+                      const _js = raw.indexOf('{'), _je = raw.lastIndexOf('}');
+                      const parsed = JSON.parse(_js !== -1 && _je !== -1 ? raw.slice(_js, _je + 1) : raw);
                       const updated = { ...viewJob, ...(parsed.snapshot?{snapshot:parsed.snapshot}:{}), ...(parsed.caseTimeline?.length?{caseTimeline:parsed.caseTimeline}:{}) };
                       setViewJob(updated); setJobs(prev=>prev.map(j=>j.id===viewJob.id?updated:j));
                       try { await sbUpdate('jobs', updated.id, {data:updated}); } catch(er){ console.warn(er); }
@@ -4718,7 +4721,11 @@ function App() {
 
   // Listen for DB errors from sbFetch
   useEffect(() => {
-    const handler = (e) => setToast({ message: e.detail, type:'error' });
+    const handler = (e) => {
+      // user_roles table is optional — suppress its 404 toast
+      if (typeof e.detail === 'string' && e.detail.includes('user_roles')) return;
+      setToast({ message: e.detail, type:'error' });
+    };
     window.addEventListener('ozsky-db-error', handler);
     return () => window.removeEventListener('ozsky-db-error', handler);
   }, []);
