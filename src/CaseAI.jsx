@@ -386,7 +386,7 @@ export default function CaseAI({ selectedClient, selectedCase, onSaveCase }) {
       setPreviousCase({ ...selectedCase });
 
       const data = await callClaude({
-        model: 'claude-sonnet-4-6', max_tokens: 2000,
+        model: 'claude-sonnet-4-6', max_tokens: 4096,
         messages: [{
           role: 'user',
           content: `从以下案件简报提取信息，仅返回一个纯 JSON 对象（不含 markdown 代码块、注释或其他文字）。只填写找到的字段，找不到的用空字符串或空数组。
@@ -402,24 +402,26 @@ export default function CaseAI({ selectedClient, selectedCase, onSaveCase }) {
 
 规则：
 1. status: 英文，如 "In Progress" / "Awaiting Decision"
-2. snapshot: 一句话案件摘要（中文）
-3. caseTimeline: status 用 Completed/In Progress/Pending/Urgent
+2. snapshot: 一句话案件摘要（中文，不超过50字）
+3. caseTimeline: status 用 Completed/In Progress/Pending/Urgent；最多保留10条最近的事件
 4. docs: true = 已收到，false = 待收集
-5. keyIssues: priority 用 High/Medium/Low
-6. nextSteps: 每条一个字符串
+5. keyIssues: priority 用 High/Medium/Low；最多5条
+6. nextSteps: 每条一个字符串；最多5条
+重要：必须输出完整的合法 JSON，确保所有括号闭合。
 
-简报文本：\n${briefText}`,
+简报文本：\n${briefText.slice(0, 6000)}`,
         }],
       });
 
       const text = data.content?.[0]?.text || '';
 
-      // Extract JSON — first try markdown code block, then balanced-bracket scan
+      // Extract JSON:
+      // 1. Try markdown code block  ```json ... ```
+      // 2. Balanced-bracket scan for complete object
+      // 3. Fallback: pass partial content to repairAndParseJSON (handles truncation)
       const jsonStr = (() => {
-        // Try ```json ... ``` or ``` ... ```
         const mdMatch = text.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
         if (mdMatch) return mdMatch[1];
-        // Balanced-bracket scan
         const start = text.indexOf('{');
         if (start === -1) return null;
         let depth = 0, inStr = false, esc = false;
@@ -432,7 +434,8 @@ export default function CaseAI({ selectedClient, selectedCase, onSaveCase }) {
           if (ch === '{') depth++;
           else if (ch === '}') { depth--; if (depth === 0) return text.slice(start, i + 1); }
         }
-        return null;
+        // JSON was truncated — return partial content from '{' so repairAndParseJSON can close it
+        return start !== -1 ? text.slice(start) : null;
       })();
       if (!jsonStr) throw new Error(`无法从 AI 响应中提取 JSON。原始响应：${text.slice(0, 200)}`);
       const ex = repairAndParseJSON(jsonStr);
