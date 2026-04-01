@@ -84,6 +84,7 @@ module.exports = async function handler(req, res) {
     payment2Amount, payment2Desc,
     contractDate, consultant, marn,
     disbursements = [], // [{item, estimatedCost}]
+    bankAccountName, bankBSB, bankAccountNumber,
   } = req.body;
 
   const date = contractDate || new Date().toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -425,6 +426,21 @@ module.exports = async function handler(req, res) {
             ])
           ]
         }),
+
+        // Bank Account Details
+        p('5.  BANK ACCOUNT FOR PAYMENT', { bold: true, size: 20 }),
+        p('Please transfer funds directly to our business account:', { size: 19, before: 40 }),
+        ...spacer(1),
+        new Table({
+          width: { size: W, type: WidthType.DXA }, columnWidths: [3000, 6360],
+          rows: [
+            twoColRow('Account Name', bankAccountName || 'Ozsky Perth Pty Ltd'),
+            twoColRow('BSB', bankBSB || '066166'),
+            twoColRow('Account Number', bankAccountNumber || '10895257'),
+            twoColRow('Reference', `${clientName || 'Client'} – Service Fee`),
+          ]
+        }),
+        p('Please use your name as the payment reference. Send remittance to l.jiang@ozs.com.au.', { size: 18, italic: true, color: '777777', before: 60, after: 120 }),
 
         // Page break before signatures
         new Paragraph({ children: [new PageBreak()] }),

@@ -148,6 +148,7 @@ export default function CaseAI({ selectedClient, selectedCase, onSaveCase }) {
   const [driveStatus, setDriveStatus] = useState(null);
   const [applyBusy, setApplyBusy] = useState(false);
   const [applyMsg, setApplyMsg]   = useState('');
+  const [previousCase, setPreviousCase] = useState(null);
 
   const generate = useCallback(async () => {
     if (!selectedCase) return;
@@ -337,23 +338,41 @@ export default function CaseAI({ selectedClient, selectedCase, onSaveCase }) {
         messages: [{ role: 'user', content: messageContent }],
         ...(hasPdfs ? { _beta: 'pdfs-2024-09-25' } : {}),
       });
-      setBrief(data.content?.[0]?.text || '');
+      const briefText = data.content?.[0]?.text || '';
+      setBrief(briefText);
+      // Auto-apply to case immediately after generating
+      await applyBriefText(briefText);
     } catch (e) {
       setError(e.message);
     } finally {
       setLoading(false); setStep('');
     }
-  }, [selectedClient, selectedCase]);
+  }, [selectedClient, selectedCase]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleApply = async () => {
-    if (!brief) return;
-    setApplyBusy(true); setError('');
+  const handleRevert = async () => {
+    if (!previousCase) return;
     try {
+      await onSaveCase(previousCase);
+      setPreviousCase(null);
+      setApplyMsg('⏮ 已还原到上一版本');
+      setTimeout(() => setApplyMsg(''), 3000);
+    } catch (e) {
+      setError(e.message);
+    }
+  };
+
+  const applyBriefText = async (briefText) => {
+    if (!briefText) return;
+    setApplyBusy(true); setApplyMsg(''); setError('');
+    try {
+      // Snapshot the current case before modifying (enables revert)
+      setPreviousCase({ ...selectedCase });
+
       const data = await callClaude({
         model: 'claude-sonnet-4-6', max_tokens: 2000,
         messages: [{
           role: 'user',
-          content: `从以下案件简报提取信息，返回纯 JSON（无 markdown，无注释）。只填写找到的字段，找不到的用空字符串或空数组。
+          content: `从以下案件简报提取信息，仅返回一个纯 JSON 对象（不含 markdown 代码块、注释或其他文字）。只填写找到的字段，找不到的用空字符串或空数组。
 
 {
   "status": "",
@@ -372,14 +391,18 @@ export default function CaseAI({ selectedClient, selectedCase, onSaveCase }) {
 5. keyIssues: priority 用 High/Medium/Low
 6. nextSteps: 每条一个字符串
 
-简报文本：\n${brief}`,
+简报文本：\n${briefText}`,
         }],
       });
 
       const text = data.content?.[0]?.text || '';
 
-      // Balanced-bracket JSON extractor
+      // Extract JSON — first try markdown code block, then balanced-bracket scan
       const jsonStr = (() => {
+        // Try ```json ... ``` or ``` ... ```
+        const mdMatch = text.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+        if (mdMatch) return mdMatch[1];
+        // Balanced-bracket scan
         const start = text.indexOf('{');
         if (start === -1) return null;
         let depth = 0, inStr = false, esc = false;
@@ -394,7 +417,7 @@ export default function CaseAI({ selectedClient, selectedCase, onSaveCase }) {
         }
         return null;
       })();
-      if (!jsonStr) throw new Error('无法解析 AI 返回的 JSON');
+      if (!jsonStr) throw new Error(`无法从 AI 响应中提取 JSON。原始响应：${text.slice(0, 200)}`);
       const ex = repairAndParseJSON(jsonStr);
 
       // Merge caseTimeline — append only, dedup by trim+lowercase date AND event
@@ -428,7 +451,7 @@ export default function CaseAI({ selectedClient, selectedCase, onSaveCase }) {
       const dateStr = new Date().toISOString().slice(0, 10);
       const briefNote = {
         id: 'n' + Math.random().toString(36).slice(2, 9),
-        text: `[AI 案件简报 ${dateStr}]\n${brief.slice(0, 1500)}`, // truncate to keep note size reasonable
+        text: `[AI 案件简报 ${dateStr}]\n${briefText.slice(0, 1500)}`,
         createdAt: new Date().toISOString(),
         type: 'note',
       };
@@ -481,13 +504,13 @@ export default function CaseAI({ selectedClient, selectedCase, onSaveCase }) {
         <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <button onClick={generate} disabled={loading || applyBusy || !selectedCase}
-              style={btnStyle(C.blue, loading || !selectedCase)}>
-              {loading ? `⏳ ${step}` : '✨ 生成案件简报'}
+              style={btnStyle(C.blue, loading || applyBusy || !selectedCase)}>
+              {loading ? `⏳ ${step}` : applyBusy ? '⏳ 应用中...' : '✨ 生成并应用简报'}
             </button>
-            {brief && (
-              <button onClick={handleApply} disabled={applyBusy}
-                style={btnStyle(C.green, applyBusy)}>
-                {applyBusy ? '⏳...' : '⬆️ 应用到案件'}
+            {previousCase && (
+              <button onClick={handleRevert} disabled={loading || applyBusy}
+                style={btnStyle('#6b7280', loading || applyBusy)}>
+                ↩️ 恢复上一版本
               </button>
             )}
           </div>

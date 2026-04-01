@@ -1542,12 +1542,16 @@ ${rawText.slice(0,5000)}` }]
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:14 }}>
               <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
                 <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:2 }}>案件信息</div>
-                {[['类型', viewJob.type], ['截止日期', fmtDate(viewJob.dueDate)], ['创建', fmtDate(viewJob.createdAt)]].map(([l,v]) => (
+                {[['类型', viewJob.type], ['创建', fmtDate(viewJob.createdAt)]].map(([l,v]) => (
                   <div key={l} style={{ display:'flex', justifyContent:'space-between', background:'#f8fafc', borderRadius:8, padding:'7px 11px', border:'1.5px solid #e2e8f0' }}>
                     <span style={{ fontSize:11, color:'#374151', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.05em' }}>{l}</span>
                     <span style={{ fontSize:13, color:'#111827', fontWeight:500 }}>{v}</span>
                   </div>
                 ))}
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', background:'#f8fafc', borderRadius:8, padding:'7px 11px', border:'1.5px solid #e2e8f0' }}>
+                  <span style={{ fontSize:11, color:'#374151', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.05em' }}>截止日期</span>
+                  <input type="date" value={(viewJob.dueDate||'').slice(0,10)} onChange={async e=>{const updated={...viewJob,dueDate:e.target.value};setViewJob(updated);setJobs(prev=>prev.map(j=>j.id===viewJob.id?updated:j));try{await sbUpdate('jobs',updated.id,{data:updated});}catch(er){console.warn(er);}}} style={{fontSize:13,color:'#111827',fontWeight:500,border:'none',background:'transparent',outline:'none',cursor:'pointer',textAlign:'right'}} />
+                </div>
                 {(() => { const vm = getMember3(viewJob.assignedTo); return vm ? (
                   <div style={{ display:'flex', alignItems:'center', gap:8, background:'#f8fafc', borderRadius:8, padding:'7px 11px', border:'1.5px solid #e2e8f0' }}>
                     <span style={{ fontSize:11, color:'#374151', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.05em', flex:1 }}>负责人</span>
@@ -2611,12 +2615,16 @@ ${rawText.slice(0,5000)}` }]
         {/* Case info */}
         <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
         <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:2 }}>案件信息</div>
-        {[['客户', vc2?.name||'—'], ['类型', viewJob.type], ['截止日期', fmtDate(viewJob.dueDate)], ['创建', fmtDate(viewJob.createdAt)]].map(([l,v]) => (
+        {[['客户', vc2?.name||'—'], ['类型', viewJob.type], ['创建', fmtDate(viewJob.createdAt)]].map(([l,v]) => (
         <div key={l} style={{ display:'flex', justifyContent:'space-between', background:'#f8fafc', borderRadius:8, padding:'7px 11px', border:'1.5px solid #e2e8f0' }}>
         <span style={{ fontSize:11, color:'#374151', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.05em' }}>{l}</span>
         <span style={{ fontSize:13, color:'#111827', fontWeight:500 }}>{v}</span>
         </div>
         ))}
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', background:'#f8fafc', borderRadius:8, padding:'7px 11px', border:'1.5px solid #e2e8f0' }}>
+        <span style={{ fontSize:11, color:'#374151', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.05em' }}>截止日期</span>
+        <input type="date" value={(viewJob.dueDate||'').slice(0,10)} onChange={async e=>{const updated={...viewJob,dueDate:e.target.value};setViewJob(updated);setJobs(prev=>prev.map(j=>j.id===viewJob.id?updated:j));try{await sbUpdate('jobs',updated.id,{data:updated});}catch(er){console.warn(er);}}} style={{fontSize:13,color:'#111827',fontWeight:500,border:'none',background:'transparent',outline:'none',cursor:'pointer',textAlign:'right'}} />
+        </div>
         {(() => { const vm = getMember(viewJob.assignedTo); return vm ? (
         <div style={{ display:'flex', alignItems:'center', gap:8, background:'#f8fafc', borderRadius:8, padding:'7px 11px', border:'1.5px solid #e2e8f0' }}>
         <span style={{ fontSize:11, color:'#374151', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.05em', flex:1 }}>负责人</span>
@@ -3028,12 +3036,16 @@ ${rawText.slice(0,5000)}` }]
       {/* Case info */}
       <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
       <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:2 }}>案件信息</div>
-      {[['客户', vc2?.name||'—'], ['类型', viewJob.type], ['截止日期', fmtDate(viewJob.dueDate)], ['创建', fmtDate(viewJob.createdAt)]].map(([l,v]) => (
+      {[['客户', vc2?.name||'—'], ['类型', viewJob.type], ['创建', fmtDate(viewJob.createdAt)]].map(([l,v]) => (
       <div key={l} style={{ display:'flex', justifyContent:'space-between', background:'#f8fafc', borderRadius:8, padding:'7px 11px', border:'1.5px solid #e2e8f0' }}>
       <span style={{ fontSize:11, color:'#374151', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.05em' }}>{l}</span>
       <span style={{ fontSize:13, color:'#111827', fontWeight:500 }}>{v}</span>
       </div>
       ))}
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', background:'#f8fafc', borderRadius:8, padding:'7px 11px', border:'1.5px solid #e2e8f0' }}>
+      <span style={{ fontSize:11, color:'#374151', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.05em' }}>截止日期</span>
+      <input type="date" value={(viewJob.dueDate||'').slice(0,10)} onChange={async e=>{const updated={...viewJob,dueDate:e.target.value};setViewJob(updated);setJobs(prev=>prev.map(j=>j.id===viewJob.id?updated:j));try{await sbUpdate('jobs',updated.id,{data:updated});}catch(er){console.warn(er);}}} style={{fontSize:13,color:'#111827',fontWeight:500,border:'none',background:'transparent',outline:'none',cursor:'pointer',textAlign:'right'}} />
+      </div>
       {(() => { const vm = getMember(viewJob.assignedTo); return vm ? (
       <div style={{ display:'flex', alignItems:'center', gap:8, background:'#f8fafc', borderRadius:8, padding:'7px 11px', border:'1.5px solid #e2e8f0' }}>
       <span style={{ fontSize:11, color:'#374151', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.05em', flex:1 }}>负责人</span>
@@ -3453,12 +3465,16 @@ function Team({ team, jobs, clients, setTeam, setJobs: setJobsOuter }) {
       {/* Case info */}
       <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
       <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:2 }}>案件信息</div>
-      {[['客户', vc2?.name||'—'], ['类型', viewJob.type], ['截止日期', fmtDate(viewJob.dueDate)], ['创建', fmtDate(viewJob.createdAt)]].map(([l,v]) => (
+      {[['客户', vc2?.name||'—'], ['类型', viewJob.type], ['创建', fmtDate(viewJob.createdAt)]].map(([l,v]) => (
       <div key={l} style={{ display:'flex', justifyContent:'space-between', background:'#f8fafc', borderRadius:8, padding:'7px 11px', border:'1.5px solid #e2e8f0' }}>
       <span style={{ fontSize:11, color:'#374151', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.05em' }}>{l}</span>
       <span style={{ fontSize:13, color:'#111827', fontWeight:500 }}>{v}</span>
       </div>
       ))}
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', background:'#f8fafc', borderRadius:8, padding:'7px 11px', border:'1.5px solid #e2e8f0' }}>
+      <span style={{ fontSize:11, color:'#374151', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.05em' }}>截止日期</span>
+      <input type="date" value={(viewJob.dueDate||'').slice(0,10)} onChange={async e=>{const updated={...viewJob,dueDate:e.target.value};setViewJob(updated);setJobs(prev=>prev.map(j=>j.id===viewJob.id?updated:j));try{await sbUpdate('jobs',updated.id,{data:updated});}catch(er){console.warn(er);}}} style={{fontSize:13,color:'#111827',fontWeight:500,border:'none',background:'transparent',outline:'none',cursor:'pointer',textAlign:'right'}} />
+      </div>
       {(() => { const vm = getMember(viewJob.assignedTo); return vm ? (
       <div style={{ display:'flex', alignItems:'center', gap:8, background:'#f8fafc', borderRadius:8, padding:'7px 11px', border:'1.5px solid #e2e8f0' }}>
       <span style={{ fontSize:11, color:'#374151', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.05em', flex:1 }}>负责人</span>
