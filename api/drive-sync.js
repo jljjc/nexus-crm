@@ -53,13 +53,24 @@ export default async function handler(req, res) {
     const rootId = rootSearch.files[0].id;
 
     // ── 2. Find the client subfolder ────────────────────────────────────────
-    // Try exact match first, then each name part
-    const nameParts = clientName.trim().split(/\s+/).filter(Boolean);
+    // Safety: only use exact name match OR full-name-contains match.
+    // NEVER fall back to individual word parts — e.g. searching for "chen"
+    // could match an unrelated client folder like "Chencho Pem".
     const escape = (s) => s.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    const normalize = (s) => s.trim().toLowerCase().replace(/\s+/g, ' ');
+
+    // Helper: check that a candidate folder name is actually this client.
+    // Both names must share at least one full word (case-insensitive).
+    const isValidMatch = (folderName) => {
+      const clientWords = normalize(clientName).split(' ').filter(w => w.length > 1);
+      const folderWords = normalize(folderName).split(/[\s_\-,]+/).filter(w => w.length > 1);
+      // Require at least one full word to match exactly (not just substring)
+      return clientWords.some(cw => folderWords.some(fw => fw === cw));
+    };
 
     const queries = [
       `name = '${escape(clientName)}'`,
-      ...nameParts.map(p => `name contains '${escape(p)}'`),
+      `name contains '${escape(clientName)}'`,
     ];
 
     let clientFolder = null;
@@ -69,7 +80,11 @@ export default async function handler(req, res) {
         fields: 'files(id,name)',
         pageSize: '10',
       });
-      if (r.files?.length) { clientFolder = r.files[0]; break; }
+      if (r.files?.length) {
+        // Pick the first candidate that passes the safety check
+        const safe = r.files.find(f => isValidMatch(f.name));
+        if (safe) { clientFolder = safe; break; }
+      }
     }
 
     if (!clientFolder) {
