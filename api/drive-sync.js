@@ -5,6 +5,12 @@
 // Requires the access token to have scope: https://www.googleapis.com/auth/drive.readonly
 // (Add this scope to gmail-auth.js and have users re-authorise.)
 
+export const config = {
+  api: {
+    bodyParser: { sizeLimit: '2mb' },
+  },
+};
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 

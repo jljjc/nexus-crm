@@ -1,0 +1,19 @@
+{
+  "functions": {
+    "api/claude.js": {
+      "maxDuration": 60
+    },
+    "api/drive-sync.js": {
+      "maxDuration": 60
+    },
+    "api/generate-contract.js": {
+      "maxDuration": 30
+    },
+    "api/gmail-sync.js": {
+      "maxDuration": 30
+    },
+    "api/parse-document.js": {
+      "maxDuration": 30
+    }
+  }
+}

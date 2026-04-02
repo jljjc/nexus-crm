@@ -4,6 +4,12 @@
 // Then add your API key in Vercel dashboard:
 //   Project Settings → Environment Variables → ANTHROPIC_API_KEY
 
+export const config = {
+  api: {
+    bodyParser: { sizeLimit: '8mb' },
+  },
+};
+
 export default async function handler(req, res) {
   // Only allow POST
   if (req.method !== 'POST') {

@@ -39,17 +39,41 @@ function repairAndParseJSON(raw) {
 
 /* ── Shared Claude fetch (both Generate and Apply calls) ────────────────── */
 async function callClaude(body) {
-  const r = await fetch('/api/claude', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
+  let r;
+  try {
+    r = await fetch('/api/claude', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  } catch (networkErr) {
+    // Pure network failure (timeout, connection refused, body too large for browser, etc.)
+    // If the request included PDF/image blocks, retry without them as a fallback.
+    const hasBinaryBlocks = Array.isArray(body.messages?.[0]?.content) &&
+      body.messages[0].content.some(b => b.type === 'document' || b.type === 'image');
+    if (hasBinaryBlocks) {
+      const textOnly = body.messages[0].content.find(b => b.type === 'text')?.text || '';
+      const fallbackBody = {
+        ...body,
+        _beta: undefined,
+        messages: [{ role: 'user', content: textOnly + '\n\n（注：部分 PDF/图片因网络限制未能上传，以上为文字内容摘要）' }],
+      };
+      delete fallbackBody._beta;
+      r = await fetch('/api/claude', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(fallbackBody),
+      });
+    } else {
+      throw new Error(`网络请求失败，请检查网络连接或稍后重试。(${networkErr.message})`);
+    }
+  }
   const rawText = await r.text();
   let data;
   try { data = JSON.parse(rawText); }
   catch {
     throw new Error(r.status === 413
-      ? 'PDF 文件太大，请减小文件大小后重试（Vercel 请求体限制 4.5MB）'
+      ? 'PDF 文件太大，请减小文件大小后重试（Vercel 请求体限制 8MB）'
       : `服务器返回非 JSON 响应 (${r.status}): ${rawText.slice(0, 120)}`);
   }
   if (!r.ok) throw new Error(
