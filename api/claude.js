@@ -1,46 +1,58 @@
-// api/claude.js  —  Vercel Serverless Function (proxy for Anthropic API)
-// Place this file at:  /api/claude.js  in your project root (NOT inside /src)
+// api/claude.js  —  Vercel Edge Function (proxy for Anthropic API)
 //
-// Then add your API key in Vercel dashboard:
-//   Project Settings → Environment Variables → ANTHROPIC_API_KEY
+// Edge Runtime gives 25 s CPU on Vercel Hobby plan vs only 10 s for
+// the default Node.js Serverless Runtime — essential for long Claude responses.
+//
+// Environment variable: ANTHROPIC_API_KEY  (set in Vercel dashboard)
 
-export const config = {
-  api: {
-    bodyParser: { sizeLimit: '8mb' },
-  },
-};
+export const config = { runtime: 'edge' };
 
-export default async function handler(req, res) {
-  // Only allow POST
+export default async function handler(req) {
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+      status: 405,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
-    return res.status(500).json({ error: 'ANTHROPIC_API_KEY not configured in Vercel environment variables' });
+    return new Response(
+      JSON.stringify({ error: 'ANTHROPIC_API_KEY not configured in Vercel environment variables' }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    );
   }
 
   try {
-    const body = { ...req.body };
+    const body = await req.json();
+
     const extraHeaders = {};
-    // Forward PDF beta flag when document blocks are included
-    if (body._beta) { extraHeaders['anthropic-beta'] = body._beta; delete body._beta; }
+    // Forward optional beta flags (e.g. PDF document blocks)
+    if (body._beta) {
+      extraHeaders['anthropic-beta'] = body._beta;
+      delete body._beta;
+    }
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
-        'Content-Type':         'application/json',
-        'x-api-key':            apiKey,
-        'anthropic-version':    '2023-06-01',
+        'Content-Type':      'application/json',
+        'x-api-key':         apiKey,
+        'anthropic-version': '2023-06-01',
         ...extraHeaders,
       },
       body: JSON.stringify(body),
     });
 
     const data = await response.json();
-    return res.status(response.status).json(data);
+    return new Response(JSON.stringify(data), {
+      status: response.status,
+      headers: { 'Content-Type': 'application/json' },
+    });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return new Response(JSON.stringify({ error: err.message }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 }
