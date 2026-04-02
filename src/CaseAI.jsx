@@ -197,7 +197,6 @@ export default function CaseAI({ selectedClient, selectedCase, onSaveCase }) {
 
     const gmail = readSession();
     let driveContext = '';
-    let pdfBlocks = [];
 
     // ── Drive ──────────────────────────────────────────────────────────────
     if (selectedClient && sessionIsValid(gmail)) {
@@ -216,99 +215,58 @@ export default function CaseAI({ selectedClient, selectedCase, onSaveCase }) {
           }
 
           if (driveData.folderFound && driveData.processed?.length) {
-              const textParts = [];
-              const binaryNames = [];
-              for (const f of driveData.processed) {
-                if (f.textContent) {
-                  textParts.push(`[文件: ${f.name}]\n${f.textContent.slice(0, 4000)}`);
-                } else if (
-                  f.base64Content &&
-                  f.mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-                ) {
-                  try {
-                    const binary = atob(f.base64Content);
-                    const bytes = new Uint8Array(binary.length);
-                    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-                    const { value: docxText } = await mammoth.extractRawText({ arrayBuffer: bytes.buffer });
-                    if (docxText?.trim()) {
-                      textParts.push(`[文件: ${f.name}]\n${docxText.slice(0, 4000)}`);
-                    } else {
-                      binaryNames.push(`  [✓] ${f.name}`);
-                    }
-                  } catch {
+            const textParts  = [];
+            const binaryNames = [];
+
+            for (const f of driveData.processed) {
+              if (f.textContent) {
+                // Plain text / Google Doc export — include content directly
+                textParts.push(`[文件: ${f.name}]\n${f.textContent.slice(0, 4000)}`);
+              } else if (
+                f.base64Content &&
+                f.mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+              ) {
+                // DOCX — extract text client-side via mammoth
+                try {
+                  const binary = atob(f.base64Content);
+                  const bytes  = new Uint8Array(binary.length);
+                  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+                  const { value: docxText } = await mammoth.extractRawText({ arrayBuffer: bytes.buffer });
+                  if (docxText?.trim()) {
+                    textParts.push(`[文件: ${f.name}]\n${docxText.slice(0, 4000)}`);
+                  } else {
                     binaryNames.push(`  [✓] ${f.name}`);
                   }
-                } else if (
-                  (f.mimeType?.includes('pdf') || f.mimeType?.startsWith('image/')) &&
-                  pdfBlocks.length < 3
-                ) {
-                  setStep(`📄 下载文件: ${f.name}...`);
-                  try {
-                    let fileBase64 = f.base64Content;
-                    if (!fileBase64) {
-                      const dlRes = await fetch(
-                        `https://www.googleapis.com/drive/v3/files/${f.id}?alt=media&supportsAllDrives=true`,
-                        { headers: { Authorization: `Bearer ${token}` } }
-                      );
-                      if (dlRes.ok) {
-                        const blob = await dlRes.blob();
-                        fileBase64 = await new Promise(resolve => {
-                          const reader = new FileReader();
-                          reader.onload = () => resolve(reader.result.split(',')[1]);
-                          reader.readAsDataURL(blob);
-                        });
-                      }
-                    }
-                    if (fileBase64) {
-                      const blockType = f.mimeType === 'application/pdf' ? 'document' : 'image';
-                      // Validate PDF magic bytes before sending — invalid PDFs cause Claude API errors
-                      if (blockType === 'document') {
-                        try {
-                          const header = atob(fileBase64.slice(0, 8));
-                          if (!header.startsWith('%PDF')) {
-                            binaryNames.push(`  [✓] ${f.name}`);
-                            continue; // skip invalid PDF
-                          }
-                        } catch {
-                          binaryNames.push(`  [✓] ${f.name}`);
-                          continue;
-                        }
-                      }
-                      pdfBlocks.push({
-                        type: blockType,
-                        source: { type: 'base64', media_type: f.mimeType, data: fileBase64 },
-                        _name: f.name,
-                      });
-                    } else {
-                      binaryNames.push(`  [✓] ${f.name}`);
-                    }
-                  } catch {
-                    binaryNames.push(`  [✓] ${f.name}`);
-                  }
-                } else {
+                } catch {
                   binaryNames.push(`  [✓] ${f.name}`);
                 }
+              } else {
+                // PDF / image / other binary — list by name only (no download).
+                // Downloading & sending base64 PDFs through Vercel causes timeouts
+                // on the Hobby plan (10s limit). The filename alone gives Claude
+                // useful context (e.g. "passport.pdf", "IELTS_certificate.pdf").
+                binaryNames.push(`  [✓] ${f.name}`);
               }
-              const parts = [...textParts];
-              if (pdfBlocks.length) {
-                parts.push(`以下 PDF/图片文件已附加至消息供 AI 直接阅读：\n${pdfBlocks.map(b => `  [📄] ${b._name}`).join('\n')}`);
-              }
-              if (binaryNames.length) {
-                parts.push(`已存档（未读取）：\n${binaryNames.join('\n')}`);
-              }
-              if (parts.length) {
-                driveContext = `Google Drive 文件夹: ${driveData.folderName} (共${driveData.totalFiles}个文件)\n\n` +
-                  parts.join('\n\n---\n\n');
-              }
-              setDriveStatus({
-                found: true,
-                folderName: driveData.folderName,
-                fileCount: driveData.totalFiles,
-                readCount: textParts.length + pdfBlocks.length,
-              });
-            } else {
-              setDriveStatus({ found: false, message: driveData.message || '未找到客户文件夹' });
             }
+
+            const parts = [...textParts];
+            if (binaryNames.length) {
+              parts.push(`已存档文件（文件名供参考）：\n${binaryNames.join('\n')}`);
+            }
+            if (parts.length) {
+              driveContext =
+                `Google Drive 文件夹: ${driveData.folderName} (共${driveData.totalFiles}个文件)\n\n` +
+                parts.join('\n\n---\n\n');
+            }
+            setDriveStatus({
+              found: true,
+              folderName: driveData.folderName,
+              fileCount: driveData.totalFiles,
+              readCount: textParts.length,
+            });
+          } else {
+            setDriveStatus({ found: false, message: driveData.message || '未找到客户文件夹' });
+          }
         }
       } catch (driveErr) {
         setDriveStatus({ found: false, message: `Drive 连接失败: ${driveErr.message}` });
@@ -352,32 +310,9 @@ export default function CaseAI({ selectedClient, selectedCase, onSaveCase }) {
     try {
       const prompt = buildCaseBriefPrompt(selectedClient, selectedCase, emailContext, driveContext);
 
-      // Cap combined PDF payload at 3MB (Vercel body limit is 4.5MB)
-      const MAX_PDF_BYTES = 3 * 1024 * 1024;
-      let totalPdfBytes = 0;
-      const safePdfBlocks = [];
-      const skippedNames = [];
-      for (const block of pdfBlocks) {
-        const sz = (block.source?.data?.length || 0) * 0.75;
-        if (totalPdfBytes + sz <= MAX_PDF_BYTES) {
-          safePdfBlocks.push(block);
-          totalPdfBytes += sz;
-        } else {
-          skippedNames.push(block._name);
-        }
-      }
-      const hasPdfs = safePdfBlocks.length > 0;
-      const finalPrompt = skippedNames.length
-        ? prompt + `\n\n（以下文件因超出大小限制未能附加，请人工查阅：${skippedNames.join('、')}）`
-        : prompt;
-      const messageContent = hasPdfs
-        ? [{ type: 'text', text: finalPrompt }, ...safePdfBlocks.map(({ type, source }) => ({ type, source }))]
-        : finalPrompt;
-
       const data = await callClaude({
         model: 'claude-sonnet-4-6', max_tokens: 4096,
-        messages: [{ role: 'user', content: messageContent }],
-        ...(hasPdfs ? { _beta: 'pdfs-2024-09-25' } : {}),
+        messages: [{ role: 'user', content: prompt }],
       });
       const briefText = data.content?.[0]?.text || '';
       setBrief(briefText);
