@@ -5,6 +5,10 @@
 //
 // Environment variable: ANTHROPIC_API_KEY  (set in Vercel dashboard)
 
+export const config = {
+  api: { bodyParser: { sizeLimit: '8mb' } },
+};
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });

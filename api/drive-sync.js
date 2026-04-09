@@ -163,51 +163,122 @@ export default async function handler(req, res) {
       } catch { /* skip inaccessible subfolder */ }
     }
 
-    // Sort: Google Docs and plain text first (we can read their content);
-    // everything else (DOCX, PDF, images) goes after — we list them by filename only.
-    // We do NOT download binary files: doing so takes 10-30 s on Vercel Hobby and
-    // causes FUNCTION_INVOCATION_TIMEOUT before we even reach the Claude call.
-    const readabilityRank = (f) => {
-      const mime = f.mimeType || '';
-      if (mime === 'application/vnd.google-apps.document' || mime === 'text/plain') return 0;
-      return 1; // DOCX, PDF, images, etc. — filename context only
+    // ── Immigration document relevance scorer ───────────────────────────────
+    // Scores a file by how important it is for an Australian immigration case.
+    // Higher = read first. Returns -1 to skip the file entirely.
+    const scoreFile = (name) => {
+      const n = (name || '').toLowerCase().replace(/[_\-\.]/g, ' ');
+
+      // ── Skip entirely: design/marketing/internal work files ──────────────
+      if (/\.(psd|ai|sketch|fig|xd)$/.test(name.toLowerCase())) return -1;
+      if (/canva|brochure|flyer|poster|price.?list|template\b/.test(n) &&
+          !/application|visa|immi/.test(n)) return -1;
+
+      // ── Tier 1 (100-90): Identity & visa status — must-read ──────────────
+      if (/passport|travel.?doc/.test(n))                               return 100;
+      if (/visa.?grant|grant.?letter|approval.?letter|vevo|immicard/.test(n)) return 98;
+      if (/refusal|cancellation|decision.?record/.test(n))              return 95; // critical to understand
+      if (/bridging.?visa|bva|bvb|bvc/.test(n))                        return 92;
+      if (/birth.?cert|national.?id|china.?id|chinese.?id|id.?card/.test(n)) return 90;
+
+      // ── Tier 2 (89-75): English & skills — core assessment docs ──────────
+      if (/ielts|pte\b|toefl|oet\b|cambridge.?english|english.?(test|result|score|certificate)/.test(n)) return 88;
+      if (/skills?.?assessment/.test(n))                                return 87;
+      if (/\b(acs|vetassess|engineers?.?australia|aitsl|ahpra|anmac|naati)\b/.test(n)) return 86;
+      if (/\btra\b|trades.?recognition|cpa.?australia|caanz|cfa\b|icaa/.test(n)) return 85;
+
+      // ── Tier 3 (74-60): Qualifications & employment ──────────────────────
+      if (/degree|bachelor|master|phd|doctorate/.test(n))              return 74;
+      if (/transcript|academic.?record|graduation|diploma|qualification/.test(n)) return 72;
+      if (/employment.?(letter|contract|reference)|work.?(letter|reference)/.test(n)) return 70;
+      if (/payslip|pay.?slip|salary|remuneration/.test(n))             return 68;
+      if (/tax.?return|notice.?of.?assessment|noa\b|group.?cert/.test(n)) return 67;
+      if (/reference.?letter|employer.?letter/.test(n))                return 65;
+      if (/work.?contract|contract.?of.?employment/.test(n))           return 63;
+      if (/resume|curriculum.?vitae|\bcv\b/.test(n))                   return 60;
+
+      // ── Tier 4 (59-45): Relationship & sponsor ───────────────────────────
+      if (/marriage.?cert|wedding.?cert/.test(n))                      return 58;
+      if (/de.?facto|defacto|relationship.?(statement|evidence|declaration)/.test(n)) return 56;
+      if (/sponsor(ship)?|nomination|labour.?market|lmt\b/.test(n))    return 54;
+      if (/state.?nomination|regional.?cert|skillselect|\beoi\b|invitation.?to.?apply/.test(n)) return 52;
+      if (/family.?evidence|partner.?evidence|joint.?asset/.test(n))   return 50;
+      if (/police.?clear|character.?clear|criminal.?record/.test(n))   return 48;
+      if (/health.?assess|medical.?exam|\bhap\b|chest.?x.?ray/.test(n)) return 47;
+      if (/service.?agreement|agent.?nom|form.?956|pow?er.?of.?attorney/.test(n)) return 45;
+
+      // ── Tier 5 (44-30): Financial & supporting ───────────────────────────
+      if (/bank.?statement|financial.?evidence|savings|funds/.test(n)) return 44;
+      if (/lease|rental.?agreement|utility.?bill|address.?evidence/.test(n)) return 38;
+      if (/insurance|ovhc|oshc/.test(n))                               return 35;
+      if (/enrol(l?ment)?|coe\b|confirmation.?of.?enrol/.test(n))      return 33;
+
+      // ── Tier 6 (29-15): Communication & notes — future WeChat / meeting notes
+      if (/\bnote[s]?\b|meeting.?note|consult(ation)?|summary/.test(n)) return 29;
+      if (/wechat|chat.?log|message|communication/.test(n))            return 28;
+      if (/email.?log|email.?summary/.test(n))                         return 26;
+
+      // ── Everything else (low relevance) ──────────────────────────────────
+      return 10;
     };
-    const allFiles = [...directFiles, ...subFiles].sort((a, b) => readabilityRank(a) - readabilityRank(b));
+
+    // Score, filter, then sort: highest-score files first.
+    // Files scoring -1 are excluded from both reading AND the filename list.
+    const allFiles = [...directFiles, ...subFiles]
+      .map(f => ({ ...f, _score: scoreFile(f.name) }))
+      .filter(f => f._score >= 0)
+      .sort((a, b) => b._score - a._score);   // highest immigration relevance first
+
     const processed = [];
 
-    // ── 4. Read text files (max 10); list all others by filename only ────────
-    // Binary downloads (DOCX, PDF, images) are intentionally skipped.
-    // The filename alone gives Claude useful context (e.g. "passport.pdf").
+    // ── 4. Read text-readable files (up to 12); list all others by filename ──
+    // Only Google Docs and plain-text files are downloaded (fast, no binary).
+    // DOCX / PDF / images → filename only — Claude infers content from the name.
+    // Timeout budget: each Google Doc export ≈ 0.3-0.5 s → 12 reads ≈ 4-6 s safe.
+    const TEXT_READ_LIMIT = 12;
+    let textReadCount = 0;
+
     for (const file of allFiles) {
+      const mime = file.mimeType || '';
+      const isTextReadable = (
+        mime === 'application/vnd.google-apps.document' ||
+        mime === 'text/plain'
+      );
+
       const entry = {
         id: file.id,
         name: file.name,
         mimeType: file.mimeType,
         modifiedTime: file.modifiedTime,
+        relevanceScore: file._score,
         textContent: null,
         base64Content: null,
         skipped: false,
       };
 
-      const mime = file.mimeType || '';
-
       try {
-        if (mime === 'application/vnd.google-apps.document' && processed.filter(p => p.textContent).length < 10) {
-          // Google Doc → export as plain text (fast, no binary download)
-          const r = await fetch(
-            `https://www.googleapis.com/drive/v3/files/${file.id}/export?mimeType=text%2Fplain&supportsAllDrives=true`,
-            { headers: { Authorization: `Bearer ${accessToken}` } }
-          );
-          if (r.ok) entry.textContent = (await r.text()).slice(0, 8000);
-          else entry.skipped = true;
-
-        } else if (mime === 'text/plain' && processed.filter(p => p.textContent).length < 10) {
-          // Plain text → small download, fast
-          const r = await driveDownload(file.id);
-          entry.textContent = (await r.text()).slice(0, 8000);
-
+        if (isTextReadable && textReadCount < TEXT_READ_LIMIT) {
+          if (mime === 'application/vnd.google-apps.document') {
+            // Google Doc → export as plain text (no binary download, very fast)
+            const r = await fetch(
+              `https://www.googleapis.com/drive/v3/files/${file.id}/export?mimeType=text%2Fplain&supportsAllDrives=true`,
+              { headers: { Authorization: `Bearer ${accessToken}` } }
+            );
+            if (r.ok) {
+              entry.textContent = (await r.text()).slice(0, 8000);
+              textReadCount++;
+            } else {
+              entry.skipped = true;
+            }
+          } else {
+            // Plain text file — small, fast download
+            const r = await driveDownload(file.id);
+            entry.textContent = (await r.text()).slice(0, 8000);
+            textReadCount++;
+          }
         } else {
-          // DOCX, PDF, images, Sheets, Slides — filename context only, no download
+          // Binary (PDF/DOCX/image) or text-read budget exhausted →
+          // filename-only context. Claude uses the name to infer the document.
           entry.skipped = true;
         }
       } catch (e) {
