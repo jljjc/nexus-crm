@@ -1223,8 +1223,8 @@ ${noteImportText.slice(0,4000)}`
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 4000,
+          model: 'claude-sonnet-4-6',
+          max_tokens: 3000,
           messages: [{ role: 'user', content:
 `You are an expert Australian immigration consultant assistant. Generate a professional bilingual (Chinese/English) client snapshot document based on the following client data.
 
@@ -1300,15 +1300,38 @@ OUTPUT FORMAT (follow this structure exactly):
 Output ONLY the document text, no preamble, no markdown fences.` }]
         }),
       });
-      const d = await res.json();
+      // Parse response — handle 504 / non-JSON gracefully
+      const rawText = await res.text();
+      let d;
+      try { d = JSON.parse(rawText); }
+      catch { throw new Error(`服务器返回非 JSON 响应 (${res.status})，请稍后重试`); }
+      if (!res.ok) throw new Error(d?.error?.message || d?.error || `请求失败 (${res.status})`);
+
       const snapshotText = (d.content || []).map(c => c?.text || '').join('').trim();
       if (!snapshotText) throw new Error('AI 返回内容为空');
 
-      // Save snapshot to client profile
+      // Save snapshot to client profile + add structured note to Notes tab
       const dateStr = new Date().toISOString().slice(0, 10);
-      await onSaveProfile({ ...client, profile: { ...(client.profile || {}), snapshot: snapshotText, snapshotDate: dateStr } });
+      const snapshotNote = {
+        id: 'n' + Math.random().toString(36).slice(2, 9),
+        text: [
+          `📄 客户快照 — ${client.name}`,
+          p2.visaTarget  ? `签证目标: ${p2.visaTarget}` : '',
+          p2.currentStatus ? `当前状态: ${p2.currentStatus}` : '',
+          p2.nextSteps?.length ? `下步行动: ${Array.isArray(p2.nextSteps) ? p2.nextSteps.join('; ') : p2.nextSteps}` : '',
+          `生成日期: ${dateStr}`,
+        ].filter(Boolean).join('\n'),
+        createdAt: new Date().toISOString(),
+        type: 'snapshot',
+      };
+      const updatedNotes = [snapshotNote, ...normalizeNotes(client.notes)];
+      await onSaveProfile({
+        ...client,
+        notes: updatedNotes,
+        profile: { ...(client.profile || {}), snapshot: snapshotText, snapshotDate: dateStr },
+      });
 
-      // Download as .txt
+      // Download as .txt AND copy to clipboard for easy paste into Get笔记
       const safeName = (client.name || 'client').replace(/[^a-zA-Z0-9\u4e00-\u9fa5_\- ]/g, '').trim();
       const blob = new Blob([snapshotText], { type: 'text/plain;charset=utf-8' });
       const url  = URL.createObjectURL(blob);
@@ -1317,6 +1340,9 @@ Output ONLY the document text, no preamble, no markdown fences.` }]
       a.download = `${safeName}_Client_Snapshot_${dateStr}.txt`;
       a.click();
       URL.revokeObjectURL(url);
+
+      // Also copy full text to clipboard so user can paste into Get笔记 (biji.com)
+      navigator.clipboard.writeText(snapshotText).catch(() => {});
     } catch(err) {
       window.alert('快照生成失败: ' + err.message);
     } finally {

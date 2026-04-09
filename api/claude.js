@@ -1,33 +1,24 @@
-// api/claude.js  —  Vercel Edge Function (proxy for Anthropic API)
+// api/claude.js  —  Vercel Serverless Function (proxy for Anthropic API)
 //
-// Edge Runtime gives 25 s CPU on Vercel Hobby plan vs only 10 s for
-// the default Node.js Serverless Runtime — essential for long Claude responses.
+// Uses Node.js runtime with maxDuration:60 (set in vercel.json) to handle
+// long Claude responses (snapshot generation, PDF analysis, etc.)
 //
 // Environment variable: ANTHROPIC_API_KEY  (set in Vercel dashboard)
 
-export const config = { runtime: 'edge' };
-
-export default async function handler(req) {
+export default async function handler(req, res) {
   if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-      status: 405,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
-    return new Response(
-      JSON.stringify({ error: 'ANTHROPIC_API_KEY not configured in Vercel environment variables' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    );
+    return res.status(500).json({ error: 'ANTHROPIC_API_KEY not configured in Vercel environment variables' });
   }
 
   try {
-    const body = await req.json();
+    const body = req.body;
 
     const extraHeaders = {};
-    // Forward optional beta flags (e.g. PDF document blocks)
     if (body._beta) {
       extraHeaders['anthropic-beta'] = body._beta;
       delete body._beta;
@@ -45,14 +36,8 @@ export default async function handler(req) {
     });
 
     const data = await response.json();
-    return new Response(JSON.stringify(data), {
-      status: response.status,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return res.status(response.status).json(data);
   } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return res.status(500).json({ error: err.message });
   }
 }

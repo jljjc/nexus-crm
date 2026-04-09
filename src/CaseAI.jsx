@@ -1,6 +1,5 @@
 // src/CaseAI.jsx
 import React, { useState, useCallback } from 'react';
-import * as mammoth from 'mammoth';
 import { readSession, sessionIsValid, getValidToken } from './utils/gmailSession';
 
 const C = {
@@ -220,31 +219,11 @@ export default function CaseAI({ selectedClient, selectedCase, onSaveCase }) {
 
             for (const f of driveData.processed) {
               if (f.textContent) {
-                // Plain text / Google Doc export — include content directly
+                // Google Doc / plain text — include content directly
                 textParts.push(`[文件: ${f.name}]\n${f.textContent.slice(0, 4000)}`);
-              } else if (
-                f.base64Content &&
-                f.mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-              ) {
-                // DOCX — extract text client-side via mammoth
-                try {
-                  const binary = atob(f.base64Content);
-                  const bytes  = new Uint8Array(binary.length);
-                  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-                  const { value: docxText } = await mammoth.extractRawText({ arrayBuffer: bytes.buffer });
-                  if (docxText?.trim()) {
-                    textParts.push(`[文件: ${f.name}]\n${docxText.slice(0, 4000)}`);
-                  } else {
-                    binaryNames.push(`  [✓] ${f.name}`);
-                  }
-                } catch {
-                  binaryNames.push(`  [✓] ${f.name}`);
-                }
               } else {
-                // PDF / image / other binary — list by name only (no download).
-                // Downloading & sending base64 PDFs through Vercel causes timeouts
-                // on the Hobby plan (10s limit). The filename alone gives Claude
-                // useful context (e.g. "passport.pdf", "IELTS_certificate.pdf").
+                // DOCX, PDF, image, etc. — drive-sync returns filename only (no binary download)
+                // to avoid Vercel timeout. Filename still gives Claude useful context.
                 binaryNames.push(`  [✓] ${f.name}`);
               }
             }
@@ -426,13 +405,24 @@ export default function CaseAI({ selectedClient, selectedCase, onSaveCase }) {
         // v === false on existing key: leave unchanged
       }
 
-      // Build note — included in updatedCase so single write covers everything
+      // Build note in same structured format as Email Import notes
       const dateStr = new Date().toISOString().slice(0, 10);
       const briefNote = {
         id: 'n' + Math.random().toString(36).slice(2, 9),
-        text: `[AI 案件简报 ${dateStr}]\n${briefText.slice(0, 1500)}`,
+        text: [
+          `🤖 AI 案件简报 — ${selectedCase.type || '案件'}`,
+          ex.snapshot   ? `摘要: ${ex.snapshot}` : '',
+          ex.status     ? `状态: ${ex.status}` : '',
+          ex.nextSteps?.length
+            ? `下步行动: ${ex.nextSteps.join('; ')}`
+            : '',
+          ex.keyIssues?.length
+            ? `关键问题: ${ex.keyIssues.map(i => `[${i.priority}] ${i.item}`).join('; ')}`
+            : '',
+          `生成日期: ${dateStr}`,
+        ].filter(Boolean).join('\n'),
         createdAt: new Date().toISOString(),
-        type: 'note',
+        type: 'ai-brief',
       };
       const existingNotes = Array.isArray(selectedCase.notes) ? selectedCase.notes : [];
 
@@ -522,15 +512,34 @@ export default function CaseAI({ selectedClient, selectedCase, onSaveCase }) {
           )}
 
           {brief && (
-            <textarea
-              readOnly
-              value={brief}
-              style={{
-                width: '100%', minHeight: 280, fontSize: 12, fontFamily: 'monospace',
-                borderRadius: 8, border: `1.5px solid ${C.border}`, padding: '10px 12px',
-                resize: 'vertical', boxSizing: 'border-box', background: '#fff',
-              }}
-            />
+            <div style={{ position: 'relative' }}>
+              <textarea
+                readOnly
+                value={brief}
+                style={{
+                  width: '100%', minHeight: 280, fontSize: 12, fontFamily: 'monospace',
+                  borderRadius: 8, border: `1.5px solid ${C.border}`, padding: '10px 12px',
+                  resize: 'vertical', boxSizing: 'border-box', background: '#fff',
+                }}
+              />
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(brief).then(() => {
+                    setApplyMsg('📋 已复制到剪贴板，可直接粘贴到 Get笔记');
+                    setTimeout(() => setApplyMsg(''), 3000);
+                  });
+                }}
+                title="复制全文，可粘贴到 Get笔记 (biji.com)"
+                style={{
+                  position: 'absolute', top: 8, right: 8,
+                  padding: '4px 10px', fontSize: 11, fontWeight: 600,
+                  background: '#f1f5f9', border: '1px solid #cbd5e1',
+                  borderRadius: 6, cursor: 'pointer', color: '#374151',
+                }}
+              >
+                📋 复制
+              </button>
+            </div>
           )}
 
           {applyMsg && (

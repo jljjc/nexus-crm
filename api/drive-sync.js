@@ -163,24 +163,22 @@ export default async function handler(req, res) {
       } catch { /* skip inaccessible subfolder */ }
     }
 
-    // Sort files so readable types come first, maximising useful content within the 10-file budget.
-    // Priority: 1) Google Docs / plain text (always readable, no size limit)
-    //           2) DOCX < 5 MB (client-side mammoth extraction)
-    //           3) PDF / image < 4 MB (binary block)
-    //           4) everything else (will be skipped anyway)
+    // Sort: Google Docs and plain text first (we can read their content);
+    // everything else (DOCX, PDF, images) goes after — we list them by filename only.
+    // We do NOT download binary files: doing so takes 10-30 s on Vercel Hobby and
+    // causes FUNCTION_INVOCATION_TIMEOUT before we even reach the Claude call.
     const readabilityRank = (f) => {
       const mime = f.mimeType || '';
-      const sizeMB = parseInt(f.size || '0') / (1024 * 1024);
       if (mime === 'application/vnd.google-apps.document' || mime === 'text/plain') return 0;
-      if (mime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' && sizeMB < 5) return 1;
-      if ((mime === 'application/pdf' || mime.startsWith('image/')) && sizeMB < 4) return 2;
-      return 3;
+      return 1; // DOCX, PDF, images, etc. — filename context only
     };
     const allFiles = [...directFiles, ...subFiles].sort((a, b) => readabilityRank(a) - readabilityRank(b));
     const processed = [];
 
-    // ── 4. Download & read files (max 10) ───────────────────────────────────
-    for (const file of allFiles.slice(0, 10)) {
+    // ── 4. Read text files (max 10); list all others by filename only ────────
+    // Binary downloads (DOCX, PDF, images) are intentionally skipped.
+    // The filename alone gives Claude useful context (e.g. "passport.pdf").
+    for (const file of allFiles) {
       const entry = {
         id: file.id,
         name: file.name,
@@ -191,47 +189,29 @@ export default async function handler(req, res) {
         skipped: false,
       };
 
-      try {
-        const mime = file.mimeType || '';
+      const mime = file.mimeType || '';
 
-        if (mime === 'application/vnd.google-apps.document') {
-          // Google Doc → export as plain text
+      try {
+        if (mime === 'application/vnd.google-apps.document' && processed.filter(p => p.textContent).length < 10) {
+          // Google Doc → export as plain text (fast, no binary download)
           const r = await fetch(
             `https://www.googleapis.com/drive/v3/files/${file.id}/export?mimeType=text%2Fplain&supportsAllDrives=true`,
             { headers: { Authorization: `Bearer ${accessToken}` } }
           );
-          if (r.ok) entry.textContent = (await r.text()).slice(0, 10000);
+          if (r.ok) entry.textContent = (await r.text()).slice(0, 8000);
           else entry.skipped = true;
 
-        } else if (mime === 'text/plain') {
+        } else if (mime === 'text/plain' && processed.filter(p => p.textContent).length < 10) {
+          // Plain text → small download, fast
           const r = await driveDownload(file.id);
-          entry.textContent = (await r.text()).slice(0, 10000);
-
-        } else if (mime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
-          // DOCX — return as base64 for client-side mammoth extraction
-          const sizeMB = parseInt(file.size || '0') / (1024 * 1024);
-          if (sizeMB < 5) {
-            const r = await driveDownload(file.id);
-            const buf = await r.arrayBuffer();
-            entry.base64Content = Buffer.from(buf).toString('base64');
-          } else {
-            entry.skipped = true;
-          }
-
-        } else if (mime === 'application/pdf' || mime.startsWith('image/')) {
-          const sizeMB = parseInt(file.size || '0') / (1024 * 1024);
-          if (sizeMB < 4) {
-            const r = await driveDownload(file.id);
-            const buf = await r.arrayBuffer();
-            entry.base64Content = Buffer.from(buf).toString('base64');
-          } else {
-            entry.skipped = true; // too large to download
-          }
+          entry.textContent = (await r.text()).slice(0, 8000);
 
         } else {
-          entry.skipped = true; // unsupported type (Sheets, Slides, etc.)
+          // DOCX, PDF, images, Sheets, Slides — filename context only, no download
+          entry.skipped = true;
         }
       } catch (e) {
+        entry.skipped = true;
         entry.error = e.message;
       }
 
