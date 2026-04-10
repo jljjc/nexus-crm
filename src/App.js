@@ -1191,113 +1191,102 @@ ${noteImportText.slice(0,4000)}`
       const today = new Date().toLocaleDateString('zh-CN', { year:'numeric', month:'long', day:'numeric' });
       const p2 = client.profile || {};
 
-      // Build a structured data summary to feed Claude
-      const dataBlock = JSON.stringify({
+      // ── Send only the most critical immigration fields ──────────────────
+      // Rationale: fewer tokens in = Claude responds faster = avoids timeout.
+      // Excluded: passportNo/chinaId (sensitive), auAddress, serviceAgreement,
+      //           marriage photos, full sponsor details, old notes.
+      const coreData = {
+        // Identity
         name: client.name,
-        nameChinese: p2.nameChinese,
-        dob: p2.dob,
-        sex: p2.sex,
-        nationality: client.nationality,
-        passportNo: p2.passportNo,
-        passportExpiry: p2.passportExpiry,
-        chinaId: p2.chinaId,
-        auAddress: p2.auAddress,
-        maritalStatus: p2.maritalStatus,
-        email: client.email,
-        phone: client.phone,
-        consultant: p2.consultant,
-        visaTarget: p2.visaTarget,
-        serviceAgreement: p2.serviceAgreement,
-        visaHistory: p2.visaHistory,
-        skillsAssessments: p2.skillsAssessments,
-        caseTimeline: p2.caseTimeline,
-        currentStatus: p2.currentStatus,
-        nextSteps: p2.nextSteps,
-        sponsor: p2.sponsor,
-        marriage: p2.marriage,
-        keyIssues: p2.keyIssues,
-        notes: (client.notes || []).slice(0, 10).map(n => typeof n === 'string' ? n : n.text),
-      }, null, 2);
+        nameChinese: p2.nameChinese || '',
+        dob: p2.dob || '',
+        sex: p2.sex || '',
+        nationality: client.nationality || '',
+        email: client.email || '',
+        phone: client.phone || '',
+        maritalStatus: p2.maritalStatus || '',
+        consultant: p2.consultant || 'Liang Jiang',
+        // Immigration goal & current situation
+        visaTarget: p2.visaTarget || '',
+        currentStatus: p2.currentStatus || '',
+        nextSteps: (p2.nextSteps || []).slice(0, 4),
+        keyIssues: (p2.keyIssues || []).slice(0, 4),
+        // Visa history — most recent 5 only
+        visaHistory: (p2.visaHistory || []).slice(0, 5),
+        // Skills assessment — all entries
+        skillsAssessments: p2.skillsAssessments || [],
+        // Timeline — most recent 6 events only
+        caseTimeline: (p2.caseTimeline || []).slice(-6),
+        // Sponsor — summary only if exists
+        sponsor: p2.sponsor ? {
+          name: p2.sponsor.name,
+          relationship: p2.sponsor.relationship,
+          visaStatus: p2.sponsor.visaStatus,
+        } : null,
+        // Notes — last 3 AI/important notes only (skip email imports)
+        recentNotes: (client.notes || [])
+          .filter(n => {
+            const t = (typeof n === 'string' ? n : n.text || '');
+            return !t.startsWith('📧 Email Import') && t.trim().length > 0;
+          })
+          .slice(0, 3)
+          .map(n => typeof n === 'string' ? n.slice(0, 200) : (n.text || '').slice(0, 200)),
+      };
 
       const res = await fetch('/api/claude', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: 'claude-sonnet-4-6',
-          max_tokens: 3000,
+          max_tokens: 2000,
           messages: [{ role: 'user', content:
-`You are an expert Australian immigration consultant assistant. Generate a professional bilingual (Chinese/English) client snapshot document based on the following client data.
+`You are an Australian immigration consultant assistant for Ozsky Perth.
+Generate a concise bilingual (Chinese/English) client snapshot. Keep each section to 3-5 lines max.
+Skip any section where data is entirely absent — do NOT write placeholder lines.
+Output ONLY the document text. No preamble, no markdown fences.
 
-Client Data (JSON):
-${dataBlock}
+Client Data:
+${JSON.stringify(coreData, null, 1)}
 
-Generate date: ${today}
-Agent: ${p2.consultant || 'Ozsky Migration'}
+Date: ${today} | Agent: ${coreData.consultant}
 
-FORMAT REQUIREMENTS:
-- Use the exact same format as the example below (═══ borders, ━━━ section dividers, Chinese section numbers)
-- Bilingual headers: Chinese | ENGLISH
-- For any field with no data, write: —（未记录）
-- Include ALL sections even if empty
-- Dates: keep original format from data
-- Status icons: ✅ = approved/completed, 🔄 = in progress, ⏳ = pending, ❌ = refused
+FORMAT (use exactly — ═══ borders, ━━━ dividers):
+═══════════════════════════════════════════════════
+  客户档案快照 | CLIENT SNAPSHOT  ${client.name}
+  生成日期：${today} | 经办：${coreData.consultant}
+═══════════════════════════════════════════════════
 
-OUTPUT FORMAT (follow this structure exactly):
-═══════════════════════════════════════════════════════════════
-             客户档案快照 | CLIENT SNAPSHOT
-             [Full Name]
-             生成日期：[today]
-             经办代理：[consultant]
-═══════════════════════════════════════════════════════════════
+━━━ 一、申请人基本信息 | APPLICANT ━━━
+姓名 | Name: [name] [nameChinese]
+国籍 | Nationality:  DOB:  性别:  婚姻:
+联系 | Contact: [email] [phone]
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-一、申请人基本信息 | APPLICANT DETAILS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━ 二、签证目标 & 当前状态 | VISA STATUS ━━━
+签证目标 | Target: [visaTarget]
+当前状态 | Status: [currentStatus + icon ✅🔄⏳❌]
+下步行动 | Next Steps: [numbered list, max 4]
+关键问题 | Key Issues: [max 4, with priority]
 
-[Fill in all personal info fields with label : value format]
+━━━ 三、签证历史 | VISA HISTORY ━━━
+[Each visa: Subclass | 递签: date | 结果: status + icon]
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-二、担保人信息 | SPONSOR DETAILS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━ 四、职业评估 | SKILLS ASSESSMENT ━━━
+[Body | Occupation | Result | Date — or 暂无记录]
 
-[Sponsor details if available, otherwise note 无担保人信息]
+━━━ 五、时间线 | TIMELINE (最近6条) ━━━
+[YYYY-MM-DD | Event — Status]
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-三、签证申请历史 | VISA APPLICATION HISTORY
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[Only include 担保人 section if sponsor data exists:]
+━━━ 六、担保人 | SPONSOR ━━━
+[Name | Relationship | Visa Status]
 
-[All visa history entries with dates and status]
+[Only include 备注 section if notes exist:]
+━━━ 七、备注 | NOTES ━━━
+[Key points from recent notes]
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-四、职业评估 | SKILLS ASSESSMENT
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-[Skills assessment entries or 暂无职业评估记录]
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-五、当前签证状态摘要 | CURRENT VISA STATUS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-[Current status summary table and next steps]
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-六、时间线 | TIMELINE
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-[All case timeline events in chronological order]
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-七、案件备注 | CASE NOTES
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-[Key issues and notes]
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-经办代理：[consultant]
-邮箱：[email if known] | BP No: [if known]
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Output ONLY the document text, no preamble, no markdown fences.` }]
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+经办：${coreData.consultant} | Ozsky Perth Migration
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━` }]
         }),
       });
       // Parse response — handle 504 / non-JSON gracefully

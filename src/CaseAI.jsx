@@ -108,8 +108,8 @@ function buildCaseBriefPrompt(client, caseObj, emailContext, driveContext) {
   ].filter(Boolean).join('\n');
 
   return `你是澳洲移民公司 Ozsky Perth 的 AI 助理。
-根据以下资料，生成一份案件进度简报，供顾问接案或内部交接使用。
-如某项信息不足，写"资料待补充"，不要虚构。
+根据以下资料，生成一份简洁的案件进度简报（总字数控制在800字以内），供顾问接案或内部交接使用。
+每节控制在3-5行，如某项信息不足写"资料待补充"，不要虚构，不要重复信息。
 
 ${driveContext ? `╔═══════════════════════════════════════════════╗
 ║  📁 Google Drive 客户文件夹文件（主要数据来源）  ║
@@ -217,13 +217,24 @@ export default function CaseAI({ selectedClient, selectedCase, onSaveCase }) {
             const textParts  = [];
             const binaryNames = [];
 
+            // Cap per-file text at 2000 chars and total driveContext at 6000 chars
+            // so the Claude prompt stays small → faster response → avoids timeout.
+            const CHARS_PER_FILE = 2000;
+            const TOTAL_DRIVE_CHARS = 6000;
+            let driveCharsUsed = 0;
+
             for (const f of driveData.processed) {
               if (f.textContent) {
-                // Google Doc / plain text — include content directly
-                textParts.push(`[文件: ${f.name}]\n${f.textContent.slice(0, 4000)}`);
+                const snippet = f.textContent.slice(0, CHARS_PER_FILE);
+                if (driveCharsUsed + snippet.length <= TOTAL_DRIVE_CHARS) {
+                  textParts.push(`[文件: ${f.name}]\n${snippet}`);
+                  driveCharsUsed += snippet.length;
+                } else {
+                  // Over budget — just list by filename
+                  binaryNames.push(`  [✓] ${f.name} (内容超出预算，仅列名)`);
+                }
               } else {
-                // DOCX, PDF, image, etc. — drive-sync returns filename only (no binary download)
-                // to avoid Vercel timeout. Filename still gives Claude useful context.
+                // DOCX, PDF, image — filename only (no binary download)
                 binaryNames.push(`  [✓] ${f.name}`);
               }
             }
@@ -290,7 +301,7 @@ export default function CaseAI({ selectedClient, selectedCase, onSaveCase }) {
       const prompt = buildCaseBriefPrompt(selectedClient, selectedCase, emailContext, driveContext);
 
       const data = await callClaude({
-        model: 'claude-sonnet-4-6', max_tokens: 4096,
+        model: 'claude-sonnet-4-6', max_tokens: 2000,
         messages: [{ role: 'user', content: prompt }],
       });
       const briefText = data.content?.[0]?.text || '';
