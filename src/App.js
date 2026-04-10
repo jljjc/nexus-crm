@@ -1237,8 +1237,8 @@ ${noteImportText.slice(0,4000)}`
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 2000,
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 1000,
           messages: [{ role: 'user', content:
 `You are an Australian immigration consultant assistant for Ozsky Perth.
 Generate a concise bilingual (Chinese/English) client snapshot. Keep each section to 3-5 lines max.

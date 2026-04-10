@@ -301,7 +301,7 @@ export default function CaseAI({ selectedClient, selectedCase, onSaveCase }) {
       const prompt = buildCaseBriefPrompt(selectedClient, selectedCase, emailContext, driveContext);
 
       const data = await callClaude({
-        model: 'claude-sonnet-4-6', max_tokens: 2000,
+        model: 'claude-haiku-4-5-20251001', max_tokens: 1500,
         messages: [{ role: 'user', content: prompt }],
       });
       const briefText = data.content?.[0]?.text || '';
@@ -335,7 +335,7 @@ export default function CaseAI({ selectedClient, selectedCase, onSaveCase }) {
       setPreviousCase({ ...selectedCase });
 
       const data = await callClaude({
-        model: 'claude-sonnet-4-6', max_tokens: 4096,
+        model: 'claude-haiku-4-5-20251001', max_tokens: 800,
         messages: [{
           role: 'user',
           content: `从以下案件简报提取信息，仅返回一个纯 JSON 对象（不含 markdown 代码块、注释或其他文字）。只填写找到的字段，找不到的用空字符串或空数组。
