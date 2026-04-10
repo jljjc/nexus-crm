@@ -841,6 +841,10 @@ function SnapshotSection({
       const messageContent = hasPdfs
         ? [{ type: 'text', text: finalPrompt }, ...safePdfBlocks.map(({ type, source }) => ({ type, source }))]
         : finalPrompt;
+
+      // ── Streaming fetch: read SSE events, build text incrementally ──────────
+      // This avoids Vercel 504 timeout — the Edge function pipes tokens in real-time
+      // and the browser stays connected until "done" event arrives.
       const r = await fetch('/api/claude', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -849,12 +853,62 @@ function SnapshotSection({
           ...(hasPdfs ? { _beta: 'pdfs-2024-09-25' } : {}),
         }),
       });
-      const rawText = await r.text();
-      let data;
-      try { data = JSON.parse(rawText); }
-      catch { throw new Error(r.status === 413 ? 'PDF 文件太大，请减小文件大小后重试（Vercel 请求体限制 4.5MB）' : `服务器返回非 JSON 响应 (${r.status}): ${rawText.slice(0, 120)}`); }
-      if (!r.ok) throw new Error(typeof data.error === 'object' ? (data.error?.message || JSON.stringify(data.error)) : data.error || '生成失败');
-      const snapshotResult = data.content?.[0]?.text || '';
+
+      if (!r.ok) {
+        const raw = await r.text();
+        throw new Error(r.status === 413
+          ? 'PDF 文件太大，请减小文件大小后重试'
+          : `服务器错误 (${r.status}): ${raw.slice(0, 120)}`);
+      }
+
+      const contentType = r.headers.get('content-type') || '';
+      let snapshotResult = '';
+
+      if (contentType.includes('text/event-stream')) {
+        // New streaming path: read SSE line by line
+        const reader = r.body.getReader();
+        const decoder = new TextDecoder();
+        let buf = '';
+        let accumulated = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buf += decoder.decode(value, { stream: true });
+          const lines = buf.split('\n');
+          buf = lines.pop();
+
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            const raw = line.slice(6).trim();
+            if (!raw) continue;
+            try {
+              const ev = JSON.parse(raw);
+              if (ev.type === 'error') throw new Error(ev.message || '生成失败');
+              if (ev.type === 'delta') {
+                accumulated += ev.text;
+                // Show live progress in step indicator
+                const wordCount = accumulated.length;
+                setStep(`🤖 生成中... (${wordCount} 字)`);
+              }
+              if (ev.type === 'done') { snapshotResult = ev.text; }
+            } catch (parseErr) {
+              if (parseErr.message !== '生成失败' && !parseErr.message.includes('JSON')) throw parseErr;
+            }
+          }
+        }
+        if (!snapshotResult && accumulated) snapshotResult = accumulated;
+      } else {
+        // Fallback: plain JSON response
+        const rawText = await r.text();
+        let data;
+        try { data = JSON.parse(rawText); }
+        catch { throw new Error(`服务器返回非 JSON 响应 (${r.status}): ${rawText.slice(0, 120)}`); }
+        if (data.error) throw new Error(typeof data.error === 'object' ? (data.error?.message || JSON.stringify(data.error)) : data.error);
+        snapshotResult = data.content?.[0]?.text || '';
+      }
+
+      if (!snapshotResult) throw new Error('AI 返回内容为空');
       setSnapshot(snapshotResult);
       onSaveSnapshot?.(snapshotResult);
     } catch (e) {

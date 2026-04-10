@@ -1289,14 +1289,47 @@ FORMAT (use exactly — ═══ borders, ━━━ dividers):
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━` }]
         }),
       });
-      // Parse response — handle 504 / non-JSON gracefully
-      const rawText = await res.text();
-      let d;
-      try { d = JSON.parse(rawText); }
-      catch { throw new Error(`服务器返回非 JSON 响应 (${res.status})，请稍后重试`); }
-      if (!res.ok) throw new Error(d?.error?.message || d?.error || `请求失败 (${res.status})`);
 
-      const snapshotText = (d.content || []).map(c => c?.text || '').join('').trim();
+      if (!res.ok && !res.headers.get('content-type')?.includes('text/event-stream')) {
+        const raw = await res.text();
+        throw new Error(`服务器错误 (${res.status})：${raw.slice(0, 120)}`);
+      }
+
+      // Read streaming SSE response
+      let snapshotText = '';
+      const contentType = res.headers.get('content-type') || '';
+      if (contentType.includes('text/event-stream')) {
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buf = '';
+        let accumulated = '';
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buf += decoder.decode(value, { stream: true });
+          const lines = buf.split('\n');
+          buf = lines.pop();
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            const raw = line.slice(6).trim();
+            if (!raw) continue;
+            try {
+              const ev = JSON.parse(raw);
+              if (ev.type === 'error') throw new Error(ev.message || '生成失败');
+              if (ev.type === 'delta') accumulated += ev.text;
+              if (ev.type === 'done') snapshotText = ev.text;
+            } catch (pe) { if (pe.message === '生成失败') throw pe; }
+          }
+        }
+        if (!snapshotText && accumulated) snapshotText = accumulated;
+      } else {
+        const rawText = await res.text();
+        let d;
+        try { d = JSON.parse(rawText); }
+        catch { throw new Error(`服务器返回非 JSON 响应 (${res.status})，请稍后重试`); }
+        if (!res.ok) throw new Error(d?.error?.message || d?.error || `请求失败 (${res.status})`);
+        snapshotText = (d.content || []).map(c => c?.text || '').join('').trim();
+      }
       if (!snapshotText) throw new Error('AI 返回内容为空');
 
       // Save snapshot to client profile + add structured note to Notes tab
