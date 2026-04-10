@@ -848,7 +848,7 @@ function SnapshotSection({
       const r = await fetch('/api/claude', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-6', max_tokens: 4096,
+          model: 'claude-haiku-4-5-20251001', max_tokens: 1500,
           messages: [{ role: 'user', content: messageContent }],
           ...(hasPdfs ? { _beta: 'pdfs-2024-09-25' } : {}),
         }),
@@ -941,7 +941,7 @@ function SnapshotSection({
       const r = await fetch('/api/claude', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-6', max_tokens: 4000,
+          model: 'claude-haiku-4-5-20251001', max_tokens: 1000,
           messages: [{ role: 'user', content: `从以下客户快照提取信息，返回纯JSON（无markdown，无注释）。只填写找到的字段，找不到的字段用空字符串或空数组。数组字段如果没有数据则返回[]。
 
 {

@@ -1102,8 +1102,8 @@ function ClientDetailModal({ client, jobs, setJobs, team, onClose, onEdit, onSav
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 1500,
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 800,
           messages: [{ role:'user', content:
 `You are an immigration CRM assistant. Analyse this email conversation involving client "${client.name}" and extract a structured communication summary.
 
@@ -1157,7 +1157,7 @@ Return ONLY valid JSON (no markdown, no preamble):
       const res = await fetch('/api/claude', {
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({
-          model:'claude-sonnet-4-20250514', max_tokens:1000,
+          model:'claude-haiku-4-5-20251001', max_tokens:800,
           messages:[{ role:'user', content:
 `Summarise this note for an immigration CRM client record. Write the summary in the SAME LANGUAGE as the input (Chinese input → Chinese output, English input → English output).
 Return ONLY a plain text summary (no JSON, no markdown, no preamble), 2-4 sentences, capturing key points, dates, and any action items.
@@ -1560,7 +1560,7 @@ FORMAT (use exactly — ═══ borders, ━━━ dividers):
                       if (file.name.endsWith('.txt')) { rawText = await file.text(); }
                       else { const buf = await file.arrayBuffer(); const { value } = await mammoth.extractRawText({ arrayBuffer: buf }); rawText = value; }
                       const res = await fetch('/api/claude', { method:'POST', headers:{'Content-Type':'application/json'},
-                        body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:2000,
+                        body: JSON.stringify({ model:'claude-haiku-4-5-20251001', max_tokens:800,
                           messages:[{ role:'user', content:`Extract case timeline and current status from this immigration snapshot. Return ONLY valid JSON:
 {"snapshot":"brief 1-2 sentence current status","caseTimeline":[{"date":"","event":"","status":"Completed"}]}
 Status values: Completed/In Progress/Urgent/Pending
@@ -2629,7 +2629,7 @@ function Jobs({ jobs, clients, team, setJobs, openJobId, setOpenJobId, jobsMembe
                 if (file.name.endsWith('.txt')) { rawText = await file.text(); }
                 else { const buf = await file.arrayBuffer(); const { value } = await mammoth.extractRawText({ arrayBuffer: buf }); rawText = value; }
                 const res = await fetch('/api/claude', { method:'POST', headers:{'Content-Type':'application/json'},
-                  body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:2000,
+                  body: JSON.stringify({ model:'claude-haiku-4-5-20251001', max_tokens:800,
                     messages:[{ role:'user', content:`Extract case timeline and current status from this immigration snapshot. Return ONLY valid JSON:
 {"snapshot":"brief 1-2 sentence current status","caseTimeline":[{"date":"","event":"","status":"Completed"}]}
 Status values: Completed/In Progress/Urgent/Pending
@@ -3054,7 +3054,7 @@ ${rawText.slice(0,5000)}` }]
               if (file.name.endsWith('.txt')) { rawText = await file.text(); }
               else { const buf = await file.arrayBuffer(); const { value } = await mammoth.extractRawText({ arrayBuffer: buf }); rawText = value; }
               const res = await fetch('/api/claude', { method:'POST', headers:{'Content-Type':'application/json'},
-                body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:2000,
+                body: JSON.stringify({ model:'claude-haiku-4-5-20251001', max_tokens:800,
                   messages:[{ role:'user', content:`Extract case timeline and current status from this immigration snapshot. Return ONLY valid JSON:\n{"snapshot":"brief 1-2 sentence current status","caseTimeline":[{"date":"","event":"","status":"Completed"}]}\nStatus values: Completed/In Progress/Urgent/Pending\nDocument:\n${rawText.slice(0,5000)}` }]
                 })
               });
