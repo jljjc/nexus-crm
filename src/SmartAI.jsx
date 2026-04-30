@@ -941,8 +941,10 @@ function SnapshotSection({
       const r = await fetch('/api/claude', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'claude-haiku-4-5-20251001', max_tokens: 1000,
+          _stream: false,
+          model: 'claude-haiku-4-5-20251001', max_tokens: 1200,
           messages: [{ role: 'user', content: `从以下客户快照提取信息，返回纯JSON（无markdown，无注释）。只填写找到的字段，找不到的字段用空字符串或空数组。数组字段如果没有数据则返回[]。
+所有日期字段必须统一格式为 YYYY-MM-DD（如 2024-03-15），不得使用中文日期、斜杠格式或其他格式。
 
 {
   "name": "",
@@ -998,8 +1000,13 @@ function SnapshotSection({
 
 快照文本：\n${snapshot}` }] }),
       });
+      if (!r.ok) {
+        const errText = await r.text().catch(()=>'');
+        let errMsg = 'AI 提取失败';
+        try { const errData = JSON.parse(errText); errMsg = errData?.error?.message || errData?.error || errMsg; } catch {}
+        throw new Error(errMsg);
+      }
       const data = await r.json();
-      if (!r.ok) throw new Error(typeof data.error === 'object' ? (data.error?.message || JSON.stringify(data.error)) : data.error || 'AI 提取失败');
       const text = data.content?.[0]?.text || '';
       // Extract outermost {...} using bracket counting — stops at matching }, ignores trailing text
       const jsonStr = (() => {
@@ -1019,8 +1026,39 @@ function SnapshotSection({
       })();
       if (!jsonStr) throw new Error('无法解析 AI 返回的 JSON');
       const extracted = repairAndParseJSON(jsonStr);
+      // Normalise all date fields to YYYY-MM-DD before applying
+      const normDate = (v) => {
+        if (!v || typeof v !== 'string') return v;
+        // Already YYYY-MM-DD
+        if (/^\d{4}-\d{2}-\d{2}$/.test(v.trim())) return v.trim();
+        // DD/MM/YYYY or DD-MM-YYYY
+        const m1 = v.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
+        if (m1) return `${m1[3]}-${m1[2].padStart(2,'0')}-${m1[1].padStart(2,'0')}`;
+        // YYYY/MM/DD
+        const m2 = v.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/);
+        if (m2) return `${m2[1]}-${m2[2].padStart(2,'0')}-${m2[3].padStart(2,'0')}`;
+        // Chinese: 2024年3月15日
+        const m3 = v.match(/(\d{4})年(\d{1,2})月(\d{1,2})日/);
+        if (m3) return `${m3[1]}-${m3[2].padStart(2,'0')}-${m3[3].padStart(2,'0')}`;
+        // Try native Date parse as last resort
+        const d = new Date(v);
+        if (!isNaN(d.getTime())) return d.toISOString().slice(0,10);
+        return '';
+      };
+      const normDates = (obj) => {
+        if (!obj || typeof obj !== 'object') return obj;
+        const DATE_KEYS = new Set(['dob','passportExpiry','lodgeDate','grantDate','expiry','date','contractDate','submitted','appealDeadline']);
+        const out = Array.isArray(obj) ? [] : {};
+        for (const [k, v] of Object.entries(obj)) {
+          if (DATE_KEYS.has(k) && typeof v === 'string') out[k] = normDate(v);
+          else if (v && typeof v === 'object') out[k] = normDates(v);
+          else out[k] = v;
+        }
+        return out;
+      };
+      const normalised = normDates(extracted);
       // Apply directly — no confirm step needed
-      onImportClient?.(extracted, overwrite);
+      onImportClient?.(normalised, overwrite);
       setApplyMsg('✅ 已应用到客户档案');
       setTimeout(() => setApplyMsg(''), 4000);
     } catch (e) {
