@@ -1,11 +1,11 @@
-// src/CaseAI.jsx
-import React, { useState, useCallback } from 'react';
+// src/CaseAI.jsx — Phase 2: Manus API + per-case Project + Research Chat
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { readSession, sessionIsValid, getValidToken } from './utils/gmailSession';
 
 const C = {
   blue: '#4f46e5', green: '#059669', red: '#dc2626',
   orange: '#d97706', mid: '#64748b', muted: '#94a3b8',
-  border: '#e2e8f0',
+  border: '#e2e8f0', purple: '#7c3aed', teal: '#0d9488',
 };
 
 const btnStyle = (color, disabled) => ({
@@ -13,10 +13,10 @@ const btnStyle = (color, disabled) => ({
   background: disabled ? '#e5e7eb' : color,
   color: disabled ? '#9ca3af' : '#fff',
   border: 'none', borderRadius: 8, cursor: disabled ? 'default' : 'pointer',
-  opacity: disabled ? 0.7 : 1,
+  opacity: disabled ? 0.7 : 1, transition: 'opacity 0.15s',
 });
 
-/* ── JSON repair (same as SmartAI) ──────────────────────────────────────── */
+/* ── JSON repair ──────────────────────────────────────────────────────────── */
 function repairAndParseJSON(raw) {
   try { return JSON.parse(raw); } catch { /* fall through */ }
   let s = raw.replace(/,\s*$/, '').replace(/:\s*$/, ':null').replace(/"[^"]*$/, '"');
@@ -36,46 +36,35 @@ function repairAndParseJSON(raw) {
   return JSON.parse(s);
 }
 
-/* ── Shared Claude fetch (both Generate and Apply calls) ────────────────── */
-async function callClaude(body) {
-  // Always force non-streaming — /api/claude defaults to SSE which r.text()+JSON.parse() cannot handle
-  const safeBody = { ...body, _stream: false };
+/* ── Manus API call (non-streaming, returns Anthropic-compatible shape) ───── */
+async function callManus(body, projectId = null) {
+  const safeBody = {
+    ...body,
+    _stream: false,
+    ...(projectId ? { project_id: projectId } : {}),
+  };
   let r;
   try {
-    r = await fetch('/api/claude', {
+    r = await fetch('/api/manus', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(safeBody),
     });
   } catch (networkErr) {
-    // Pure network failure (timeout, connection refused, body too large for browser, etc.)
-    // If the request included PDF/image blocks, retry without them as a fallback.
-    const hasBinaryBlocks = Array.isArray(safeBody.messages?.[0]?.content) &&
-      safeBody.messages[0].content.some(b => b.type === 'document' || b.type === 'image');
-    if (hasBinaryBlocks) {
-      const textOnly = safeBody.messages[0].content.find(b => b.type === 'text')?.text || '';
-      const fallbackBody = {
-        ...safeBody,
-        _beta: undefined,
-        _stream: false,
-        messages: [{ role: 'user', content: textOnly + '\n\n（注：部分 PDF/图片因网络限制未能上传，以上为文字内容摘要）' }],
-      };
-      delete fallbackBody._beta;
-      r = await fetch('/api/claude', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(fallbackBody),
-      });
-    } else {
-      throw new Error(`网络请求失败，请检查网络连接或稍后重试。(${networkErr.message})`);
-    }
+    // Fallback to direct Claude if Manus unreachable
+    const fallbackBody = { ...body, _stream: false };
+    r = await fetch('/api/claude', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(fallbackBody),
+    });
   }
   const rawText = await r.text();
   let data;
   try { data = JSON.parse(rawText); }
   catch {
     throw new Error(r.status === 413
-      ? 'PDF 文件太大，请减小文件大小后重试（Vercel 请求体限制 8MB）'
+      ? 'PDF 文件太大，请减小文件大小后重试（请求体限制 8MB）'
       : `服务器返回非 JSON 响应 (${r.status}): ${rawText.slice(0, 120)}`);
   }
   if (!r.ok) throw new Error(
@@ -86,100 +75,217 @@ async function callClaude(body) {
   return data;
 }
 
-/* ── Prompt builder ─────────────────────────────────────────────────────── */
+/* ── Manus streaming call for Research Chat ──────────────────────────────── */
+async function callManusStream(body, projectId, onChunk) {
+  const safeBody = {
+    ...body,
+    _stream: true,
+    ...(projectId ? { project_id: projectId } : {}),
+  };
+  const r = await fetch('/api/manus', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(safeBody),
+  });
+  if (!r.ok) {
+    const errText = await r.text();
+    throw new Error(`Manus error ${r.status}: ${errText.slice(0, 120)}`);
+  }
+  const reader = r.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let fullText = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop();
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      try {
+        const evt = JSON.parse(line.slice(6));
+        if (evt.type === 'delta' && evt.text) {
+          fullText += evt.text;
+          onChunk(fullText);
+        } else if (evt.type === 'done') {
+          fullText = evt.text || fullText;
+          onChunk(fullText);
+        } else if (evt.type === 'error') {
+          throw new Error(evt.message || 'Manus stream error');
+        }
+      } catch { /* skip malformed SSE line */ }
+    }
+  }
+  return fullText;
+}
+
+/* ── Create or retrieve Manus Project for this case ─────────────────────── */
+async function ensureManusProject(caseObj, client, onSaveCase) {
+  // Already has a project — return it
+  if (caseObj.manusProjectId) return caseObj.manusProjectId;
+
+  try {
+    const r = await fetch('/api/manus-project', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'create',
+        caseId: caseObj.id,
+        caseName: caseObj.type || 'Visa Case',
+        clientName: client?.name || 'Client',
+        visaSubclass: caseObj.type || '',
+        agentName: caseObj.assignedTo || 'Ozsky Team',
+      }),
+    });
+    if (!r.ok) return null;
+    const data = await r.json();
+    if (data.project_id) {
+      // Persist project_id to case record
+      const updatedCase = { ...caseObj, manusProjectId: data.project_id, manusProjectUrl: data.project_url };
+      await onSaveCase(updatedCase);
+      return data.project_id;
+    }
+  } catch { /* non-blocking — proceed without project */ }
+  return null;
+}
+
+/* ── Deep case brief prompt ──────────────────────────────────────────────── */
 function buildCaseBriefPrompt(client, caseObj, emailContext, driveContext) {
   const c = caseObj || {};
-  const today = new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });
+  const today = new Date().toLocaleDateString('en-AU', { year: 'numeric', month: 'long', day: 'numeric' });
+  const visaSubclass = c.type || 'Unknown Visa Subclass';
 
   const crmData = [
-    client?.name        && `客户姓名：${client.name}`,
-    client?.email       && `邮箱：${client.email}`,
-    client?.phone       && `电话：${client.phone}`,
-    c.type              && `案件类型：${c.type}`,
-    c.status            && `当前状态：${c.status}`,
-    c.priority          && `优先级：${c.priority}`,
-    c.dueDate           && `截止日期：${new Date(c.dueDate).toLocaleDateString('zh-CN')}`,
-    c.snapshot          && `案件摘要：${c.snapshot}`,
-    c.caseTimeline?.length && `时间线：\n${c.caseTimeline.map(t =>
+    client?.name        && `Client Name: ${client.name}`,
+    client?.email       && `Email: ${client.email}`,
+    client?.phone       && `Phone: ${client.phone}`,
+    client?.profile?.dob && `DOB: ${client.profile.dob}`,
+    client?.profile?.nationality && `Nationality: ${client.profile.nationality}`,
+    client?.profile?.occupation && `Occupation: ${client.profile.occupation}`,
+    c.type              && `Case Type: ${c.type}`,
+    c.status            && `Current Status: ${c.status}`,
+    c.priority          && `Priority: ${c.priority}`,
+    c.dueDate           && `Due Date: ${c.dueDate}`,
+    c.assignedTo        && `Assigned Agent: ${c.assignedTo}`,
+    c.snapshot          && `Case Summary: ${c.snapshot}`,
+    c.caseTimeline?.length && `Timeline:\n${c.caseTimeline.map(t =>
       `  [${t.date || ''}] ${t.event || ''} — ${t.status || ''}`).join('\n')}`,
-    c.keyIssues?.length && `关键问题：\n${c.keyIssues.map(i =>
+    c.keyIssues?.length && `Key Issues:\n${c.keyIssues.map(i =>
       `  [${i.priority || ''}] ${i.item || ''}`).join('\n')}`,
-    c.nextSteps?.length && `下步行动：\n${c.nextSteps.map((s, i) =>
+    c.nextSteps?.length && `Next Steps:\n${c.nextSteps.map((s, i) =>
       `  ${i + 1}. ${s}`).join('\n')}`,
-    c.docs && Object.keys(c.docs).length && `文件清单：\n${Object.entries(c.docs).map(([k, v]) =>
+    c.docs && Object.keys(c.docs).length && `Document Checklist:\n${Object.entries(c.docs).map(([k, v]) =>
       `  [${v ? '✓' : ' '}] ${k}`).join('\n')}`,
   ].filter(Boolean).join('\n');
 
-  return `你是澳洲移民公司 Ozsky Perth 的 AI 助理。
-根据以下资料，生成一份简洁的案件进度简报（总字数控制在800字以内），供顾问接案或内部交接使用。
-每节控制在3-5行，如某项信息不足写"资料待补充"，不要虚构，不要重复信息。
+  return `You are an expert Australian migration AI assistant for Ozsky International, Perth WA.
 
-${driveContext ? `╔═══════════════════════════════════════════════╗
-║  📁 Google Drive 客户文件夹文件（主要数据来源）  ║
-╚═══════════════════════════════════════════════╝
+Your task: Generate a comprehensive, accurate case progress brief for internal use by migration agents.
+
+VISA CONTEXT: ${visaSubclass}
+- Apply relevant DHA policy, Migration Act 1958, and PAM3 guidelines for this visa subclass
+- Reference specific criteria (e.g., Schedule 2 criteria, TSS stream requirements, skills assessment bodies)
+- Flag any compliance risks, character/health issues, or procedural deadlines proactively
+- Use Australian English spelling
+
+${driveContext ? `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PRIMARY DATA SOURCE — Google Drive Client Folder
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ${driveContext}
 
-` : ''}═══════════════════════════════
-CRM 案件数据（补充参考）：
-═══════════════════════════════
-${crmData || '（暂无 CRM 数据）'}
+` : ''}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CRM CASE DATA (supplementary)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${crmData || '(No CRM data available)'}
 
-${emailContext ? `═══════════════════════════════
-相关邮件摘要：
-═══════════════════════════════
+${emailContext ? `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+RELATED EMAIL CORRESPONDENCE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ${emailContext}` : ''}
 
-═══════════════════════════════
-请严格按以下格式输出（中英文双语，内容尽量详细）：
+OUTPUT FORMAT — produce a bilingual (English/Chinese) case brief using EXACTLY this structure:
 
 ================================================================================
-  案件进度简报  |  CASE PROGRESS BRIEF
-  ${client?.name || '[客户姓名]'} — ${c.type || '[案件类型]'}
-  生成日期：${today} | 经办顾问：${caseObj?.assignedTo || 'Liang Jiang'} | Ozsky Migration
+  CASE PROGRESS BRIEF  |  案件进度简报
+  ${client?.name || '[Client Name]'} — ${visaSubclass}
+  Generated: ${today} | Agent: ${caseObj?.assignedTo || 'Ozsky Migration'} | CONFIDENTIAL
 ================================================================================
 
-━━━ 一、案件概况  CASE OVERVIEW ━━━
-案件类型、当前状态、优先级、截止日期
+━━━ 1. CASE OVERVIEW  案件概况 ━━━
+Visa subclass, current status, priority, key dates, assigned agent.
+Include relevant visa stream/pathway (e.g., ENS Direct Entry, TSS Short-term).
 
-━━━ 二、文件进度  DOCUMENT STATUS ━━━
-列出所有文件，标注 [✓] 已收到 / [ ] 待收集
-以 Drive 文件夹内容为主，结合 CRM 文件清单
+━━━ 2. DOCUMENT STATUS  文件进度 ━━━
+List ALL documents with status. Format: [✓] Received / [✗] Missing / [?] Unverified
+Group by category: Identity / Qualification / Employment / Health & Character / Sponsor
+Cross-reference Drive files with CRM checklist.
 
-━━━ 三、当前进展  CURRENT PROGRESS ━━━
-已完成 / 处理中 / 待办
+━━━ 3. CURRENT PROGRESS  当前进展 ━━━
+Completed milestones, in-progress items, blocked items.
+Reference specific DHA processing stages where applicable.
 
-━━━ 四、关键问题与风险  KEY ISSUES & RISKS ━━━
-🔴 高 / 🟡 中 / 🟢 低
+━━━ 4. KEY ISSUES & RISKS  关键问题与风险 ━━━
+🔴 HIGH — Blocking issues requiring immediate action
+🟡 MEDIUM — Issues to monitor or address soon
+🟢 LOW — Minor items or improvements
+Include relevant visa criteria references (e.g., cl.186.223, s.65 Migration Act).
 
-━━━ 五、下步行动  NEXT STEPS ━━━
-编号行动项，注明优先级
+━━━ 5. NEXT STEPS  下步行动 ━━━
+Numbered action items with owner (Agent/Client/Sponsor) and suggested timeframe.
+Prioritise by urgency.
 
-━━━ 六、时间线  TIMELINE ━━━
-YYYY-MM-DD | 事件 — 状态（Completed / In Progress / Pending）
+━━━ 6. TIMELINE  时间线 ━━━
+YYYY-MM-DD | Event — Status (Completed / In Progress / Pending / Urgent)
+Include all key milestones from Drive files and CRM data.
+
+━━━ 7. COMPLIANCE NOTES  合规备注 ━━━
+Any legislative, policy, or procedural compliance items to flag.
+Mention relevant ANZSCO codes, skills assessment bodies, or state nomination requirements if applicable.
 
 ================================================================================
+  AI-assisted brief for internal use only. Not legal advice. Ozsky International.
   本简报由 AI 辅助整理，仅供内部参考，不构成法律意见。
 ================================================================================
 
-如输出长度受限，优先保留：一、二、四、五节。`;
+IMPORTANT: If information is unavailable, write "Information pending" — do NOT fabricate details.
+Keep each section concise (3-6 lines). Total length: 800-1200 words.`;
 }
 
 /* ── Main component ─────────────────────────────────────────────────────── */
 export default function CaseAI({ selectedClient, selectedCase, onSaveCase }) {
-  const [open, setOpen]           = useState(false);
-  const [loading, setLoading]     = useState(false);
-  const [step, setStep]           = useState('');
-  const [brief, setBrief]         = useState('');
-  const [error, setError]         = useState('');
+  const [open, setOpen]               = useState(false);
+  const [loading, setLoading]         = useState(false);
+  const [step, setStep]               = useState('');
+  const [brief, setBrief]             = useState('');
+  const [error, setError]             = useState('');
   const [driveStatus, setDriveStatus] = useState(null);
-  const [applyBusy, setApplyBusy] = useState(false);
-  const [applyMsg, setApplyMsg]   = useState('');
+  const [applyBusy, setApplyBusy]     = useState(false);
+  const [applyMsg, setApplyMsg]       = useState('');
   const [previousCase, setPreviousCase] = useState(null);
-  // Folder confirmation state: set when server finds multiple matching folders
-  const [folderCandidates, setFolderCandidates] = useState(null); // [{id, name}]
+  const [folderCandidates, setFolderCandidates] = useState(null);
+  const [projectId, setProjectId]     = useState(selectedCase?.manusProjectId || null);
+  const [projectUrl, setProjectUrl]   = useState(selectedCase?.manusProjectUrl || null);
 
-  // Core drive-fetch logic, extracted so it can be called both on first attempt
-  // and after the user confirms a specific folder.
+  // Research Chat state
+  const [chatOpen, setChatOpen]       = useState(false);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatInput, setChatInput]     = useState('');
+  const [chatLoading, setChatLoading] = useState(false);
+  const chatEndRef = useRef(null);
+
+  // Sync projectId when selectedCase changes
+  useEffect(() => {
+    setProjectId(selectedCase?.manusProjectId || null);
+    setProjectUrl(selectedCase?.manusProjectUrl || null);
+  }, [selectedCase?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-scroll chat
+  useEffect(() => {
+    if (chatOpen) chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages, chatOpen]);
+
+  /* ── Drive fetch ─────────────────────────────────────────────────────── */
   const fetchDriveContext = useCallback(async (token, confirmedFolderId = null, confirmedFolderName = null) => {
     const r = await fetch('/api/drive-sync', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -193,6 +299,7 @@ export default function CaseAI({ selectedClient, selectedCase, onSaveCase }) {
     return r.json();
   }, [selectedClient]);
 
+  /* ── Generate brief ──────────────────────────────────────────────────── */
   const generate = useCallback(async (confirmedFolderId = null, confirmedFolderName = null) => {
     if (!selectedCase) return;
     setLoading(true); setError(''); setBrief(''); setDriveStatus(null); setFolderCandidates(null);
@@ -200,73 +307,56 @@ export default function CaseAI({ selectedClient, selectedCase, onSaveCase }) {
     const gmail = readSession();
     let driveContext = '';
 
-    // ── Drive ──────────────────────────────────────────────────────────────
+    // Step 1: Ensure Manus Project exists for this case
+    setStep('🚀 初始化案件 Project...');
+    let pid = projectId;
+    if (!pid) {
+      pid = await ensureManusProject(selectedCase, selectedClient, onSaveCase);
+      if (pid) { setProjectId(pid); }
+    }
+
+    // Step 2: Drive
     if (selectedClient && sessionIsValid(gmail)) {
       setStep('📁 读取 Drive 文件夹...');
       try {
         const token = await getValidToken();
         if (token) {
           const driveData = await fetchDriveContext(token, confirmedFolderId, confirmedFolderName);
-
-          // Server found multiple possible folders — pause and ask user to confirm.
           if (driveData.needsConfirmation) {
             setFolderCandidates(driveData.candidates);
             setDriveStatus({ found: false, message: driveData.message });
             setLoading(false); setStep('');
-            return; // halt until user picks a folder
+            return;
           }
-
           if (driveData.folderFound && driveData.processed?.length) {
-            const textParts  = [];
-            const binaryNames = [];
-
-            // Cap per-file text at 2000 chars and total driveContext at 6000 chars
-            // so the Claude prompt stays small → faster response → avoids timeout.
-            const CHARS_PER_FILE = 2000;
-            const TOTAL_DRIVE_CHARS = 6000;
+            const textParts = [], binaryNames = [];
+            const CHARS_PER_FILE = 2000, TOTAL_DRIVE_CHARS = 6000;
             let driveCharsUsed = 0;
-
             for (const f of driveData.processed) {
               if (f.textContent) {
                 const snippet = f.textContent.slice(0, CHARS_PER_FILE);
                 if (driveCharsUsed + snippet.length <= TOTAL_DRIVE_CHARS) {
-                  textParts.push(`[文件: ${f.name}]\n${snippet}`);
+                  textParts.push(`[File: ${f.name}]\n${snippet}`);
                   driveCharsUsed += snippet.length;
-                } else {
-                  // Over budget — just list by filename
-                  binaryNames.push(`  [✓] ${f.name} (内容超出预算，仅列名)`);
-                }
-              } else {
-                // DOCX, PDF, image — filename only (no binary download)
-                binaryNames.push(`  [✓] ${f.name}`);
-              }
+                } else { binaryNames.push(`  [✓] ${f.name} (content over budget)`); }
+              } else { binaryNames.push(`  [✓] ${f.name}`); }
             }
-
             const parts = [...textParts];
-            if (binaryNames.length) {
-              parts.push(`已存档文件（文件名供参考）：\n${binaryNames.join('\n')}`);
-            }
+            if (binaryNames.length) parts.push(`Archived files (filename only):\n${binaryNames.join('\n')}`);
             if (parts.length) {
-              driveContext =
-                `Google Drive 文件夹: ${driveData.folderName} (共${driveData.totalFiles}个文件)\n\n` +
-                parts.join('\n\n---\n\n');
+              driveContext = `Google Drive Folder: ${driveData.folderName} (${driveData.totalFiles} files)\n\n` + parts.join('\n\n---\n\n');
             }
-            setDriveStatus({
-              found: true,
-              folderName: driveData.folderName,
-              fileCount: driveData.totalFiles,
-              readCount: textParts.length,
-            });
+            setDriveStatus({ found: true, folderName: driveData.folderName, fileCount: driveData.totalFiles, readCount: textParts.length });
           } else {
-            setDriveStatus({ found: false, message: driveData.message || '未找到客户文件夹' });
+            setDriveStatus({ found: false, message: driveData.message || 'Client folder not found' });
           }
         }
       } catch (driveErr) {
-        setDriveStatus({ found: false, message: `Drive 连接失败: ${driveErr.message}` });
+        setDriveStatus({ found: false, message: `Drive error: ${driveErr.message}` });
       }
     }
 
-    // ── Gmail ──────────────────────────────────────────────────────────────
+    // Step 3: Gmail
     let emailContext = '';
     if (selectedClient && sessionIsValid(gmail)) {
       setStep('📧 读取相关邮件...');
@@ -287,9 +377,9 @@ export default function CaseAI({ selectedClient, selectedCase, onSaveCase }) {
               emailContext = relevant.slice(0, 10).map((e, i) => {
                 const ai = e.ai || {};
                 return [
-                  `[邮件${i + 1}] ${e.date ? new Date(e.date).toLocaleDateString('zh-CN') : ''} | ${e.subject}`,
-                  ai.rawSummary && `摘要：${ai.rawSummary}`,
-                  ai.keyNeeds   && `需求：${ai.keyNeeds}`,
+                  `[Email ${i + 1}] ${e.date ? new Date(e.date).toLocaleDateString('en-AU') : ''} | ${e.subject}`,
+                  ai.rawSummary && `Summary: ${ai.rawSummary}`,
+                  ai.keyNeeds   && `Key needs: ${ai.keyNeeds}`,
                 ].filter(Boolean).join('\n');
               }).join('\n\n');
             }
@@ -298,26 +388,26 @@ export default function CaseAI({ selectedClient, selectedCase, onSaveCase }) {
       } catch { /* non-blocking */ }
     }
 
-    // ── Generate brief ─────────────────────────────────────────────────────
-    setStep('🤖 生成案件简报...');
+    // Step 4: Generate brief via Manus
+    setStep('🤖 生成案件简报 (Manus AI)...');
     try {
       const prompt = buildCaseBriefPrompt(selectedClient, selectedCase, emailContext, driveContext);
-
-      const data = await callClaude({
-        model: 'claude-haiku-4-5-20251001', max_tokens: 1500,
+      const data = await callManus({
+        model: 'claude-haiku-4-5-20251001', max_tokens: 2000,
+        _title: `Case Brief — ${selectedClient?.name || 'Client'} ${selectedCase?.type || ''}`,
         messages: [{ role: 'user', content: prompt }],
-      });
+      }, pid);
       const briefText = data.content?.[0]?.text || '';
       setBrief(briefText);
-      // Auto-apply to case immediately after generating
-      await applyBriefText(briefText);
+      await applyBriefText(briefText, pid);
     } catch (e) {
       setError(e.message);
     } finally {
       setLoading(false); setStep('');
     }
-  }, [selectedClient, selectedCase, fetchDriveContext]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedClient, selectedCase, fetchDriveContext, projectId, onSaveCase]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  /* ── Revert ──────────────────────────────────────────────────────────── */
   const handleRevert = async () => {
     if (!previousCase) return;
     try {
@@ -325,20 +415,18 @@ export default function CaseAI({ selectedClient, selectedCase, onSaveCase }) {
       setPreviousCase(null);
       setApplyMsg('⏮ 已还原到上一版本');
       setTimeout(() => setApplyMsg(''), 3000);
-    } catch (e) {
-      setError(e.message);
-    }
+    } catch (e) { setError(e.message); }
   };
 
-  const applyBriefText = async (briefText) => {
+  /* ── Apply brief to case ─────────────────────────────────────────────── */
+  const applyBriefText = async (briefText, pid = projectId) => {
     if (!briefText) return;
     setApplyBusy(true); setApplyMsg(''); setError('');
     try {
-      // Snapshot the current case before modifying (enables revert)
       setPreviousCase({ ...selectedCase });
-
-      const data = await callClaude({
+      const data = await callManus({
         model: 'claude-haiku-4-5-20251001', max_tokens: 1200,
+        _title: `Extract JSON — ${selectedClient?.name || 'Client'}`,
         messages: [{
           role: 'user',
           content: `Extract information from the case brief below and return ONLY a single valid JSON object.
@@ -346,8 +434,7 @@ export default function CaseAI({ selectedClient, selectedCase, onSaveCase }) {
 STRICT RULES:
 - Output ONLY the JSON object, nothing else — no markdown fences, no comments, no explanation
 - Use double quotes for all keys and string values
-- No trailing commas
-- No JavaScript comments (// or /* */)
+- No trailing commas, no JavaScript comments (// or /* */)
 - All brackets must be properly closed
 - If a field is not found, use empty string "" or empty array []
 
@@ -362,9 +449,9 @@ JSON schema:
 }
 
 Field rules:
-1. status: English only, e.g. "In Progress" / "Awaiting Decision" / "Completed"
+1. status: English only — "In Progress" / "Awaiting Decision" / "Completed" / "On Hold"
 2. snapshot: one sentence summary in Chinese, max 50 characters
-3. caseTimeline: status must be Completed/In Progress/Pending/Urgent; max 10 most recent entries
+3. caseTimeline: status must be Completed/In Progress/Pending/Urgent; max 10 most recent entries; dates in YYYY-MM-DD
 4. docs: true = received, false = pending
 5. keyIssues: priority must be High/Medium/Low; max 5 items
 6. nextSteps: one string per step; max 5 items
@@ -372,14 +459,9 @@ Field rules:
 Case brief:
 ${briefText.slice(0, 6000)}`,
         }],
-      });
+      }, pid);
 
       const text = data.content?.[0]?.text || '';
-
-      // Extract JSON:
-      // 1. Try markdown code block  ```json ... ```
-      // 2. Balanced-bracket scan for complete object
-      // 3. Fallback: pass partial content to repairAndParseJSON (handles truncation)
       const jsonStr = (() => {
         const mdMatch = text.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
         if (mdMatch) return mdMatch[1];
@@ -395,79 +477,63 @@ ${briefText.slice(0, 6000)}`,
           if (ch === '{') depth++;
           else if (ch === '}') { depth--; if (depth === 0) return text.slice(start, i + 1); }
         }
-        // JSON was truncated — return partial content from '{' so repairAndParseJSON can close it
         return start !== -1 ? text.slice(start) : null;
       })();
       if (!jsonStr) throw new Error(`无法从 AI 响应中提取 JSON。原始响应：${text.slice(0, 200)}`);
-      // Pre-process: strip JS-style comments and trailing commas before parsing
-      // This handles cases where the AI adds // comments or /* */ blocks inside the JSON
+
       const cleanedJson = jsonStr
-        .replace(/\/\/[^\n]*/g, '')          // strip // line comments
-        .replace(/\/\*[\s\S]*?\*\//g, '')    // strip /* block comments */
-        .replace(/,\s*([}\]])/g, '$1');       // strip trailing commas
+        .replace(/\/\/[^\n]*/g, '')
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/,\s*([}\]])/g, '$1');
       const ex = repairAndParseJSON(cleanedJson);
 
-      // Merge caseTimeline — append only, dedup by trim+lowercase date AND event
+      // Merge timeline
       const existingTimeline = selectedCase.caseTimeline || [];
-      const existingKeys = new Set(
-        existingTimeline.map(t =>
-          `${(t.date || '').trim().toLowerCase()}|${(t.event || '').trim().toLowerCase()}`
-        )
-      );
+      const existingKeys = new Set(existingTimeline.map(t =>
+        `${(t.date || '').trim().toLowerCase()}|${(t.event || '').trim().toLowerCase()}`
+      ));
       const newEntries = (ex.caseTimeline || []).filter(t => {
         if (!t.date && !t.event) return false;
-        return !existingKeys.has(
-          `${(t.date || '').trim().toLowerCase()}|${(t.event || '').trim().toLowerCase()}`
-        );
+        return !existingKeys.has(`${(t.date || '').trim().toLowerCase()}|${(t.event || '').trim().toLowerCase()}`);
       });
-      const mergedTimeline = [...existingTimeline, ...newEntries];
 
-      // Merge docs — add new keys; upgrade false→true; never overwrite true→false
+      // Merge docs
       const existingDocs = selectedCase.docs || {};
       const mergedDocs = { ...existingDocs };
       for (const [k, v] of Object.entries(ex.docs || {})) {
-        if (!(k in mergedDocs)) {
-          mergedDocs[k] = v;
-        } else if (v === true) {
-          mergedDocs[k] = true;
-        }
-        // v === false on existing key: leave unchanged
+        if (!(k in mergedDocs)) mergedDocs[k] = v;
+        else if (v === true) mergedDocs[k] = true;
       }
 
-      // Build note in same structured format as Email Import notes
       const dateStr = new Date().toISOString().slice(0, 10);
       const briefNote = {
         id: 'n' + Math.random().toString(36).slice(2, 9),
         text: [
-          `🤖 AI 案件简报 — ${selectedCase.type || '案件'}`,
-          ex.snapshot   ? `摘要: ${ex.snapshot}` : '',
-          ex.status     ? `状态: ${ex.status}` : '',
-          ex.nextSteps?.length
-            ? `下步行动: ${ex.nextSteps.join('; ')}`
-            : '',
-          ex.keyIssues?.length
-            ? `关键问题: ${ex.keyIssues.map(i => `[${i.priority}] ${i.item}`).join('; ')}`
-            : '',
-          `生成日期: ${dateStr}`,
+          `🤖 AI Case Brief — ${selectedCase.type || 'Case'} [Manus AI]`,
+          ex.snapshot   ? `Summary: ${ex.snapshot}` : '',
+          ex.status     ? `Status: ${ex.status}` : '',
+          ex.nextSteps?.length ? `Next Steps: ${ex.nextSteps.join('; ')}` : '',
+          ex.keyIssues?.length ? `Key Issues: ${ex.keyIssues.map(i => `[${i.priority}] ${i.item}`).join('; ')}` : '',
+          `Generated: ${dateStr}`,
         ].filter(Boolean).join('\n'),
         createdAt: new Date().toISOString(),
         type: 'ai-brief',
       };
-      const existingNotes = Array.isArray(selectedCase.notes) ? selectedCase.notes : [];
 
       const updatedCase = {
         ...selectedCase,
         status:       ex.status?.trim()    || selectedCase.status,
         snapshot:     ex.snapshot?.trim()  || selectedCase.snapshot,
-        caseTimeline: mergedTimeline,
+        caseTimeline: [...existingTimeline, ...newEntries],
         docs:         mergedDocs,
         keyIssues:    ex.keyIssues?.length  ? ex.keyIssues  : (selectedCase.keyIssues  || []),
         nextSteps:    ex.nextSteps?.length  ? ex.nextSteps  : (selectedCase.nextSteps  || []),
-        notes:        [briefNote, ...existingNotes],
+        notes:        [briefNote, ...(Array.isArray(selectedCase.notes) ? selectedCase.notes : [])],
+        ...(pid && !selectedCase.manusProjectId ? { manusProjectId: pid } : {}),
       };
 
       await onSaveCase(updatedCase);
-      setApplyMsg('✅ 已应用到案件档案');
+      setApplyMsg('✅ 已应用到案件档案 (Manus AI)');
       setTimeout(() => setApplyMsg(''), 4000);
     } catch (e) {
       setError(e.message);
@@ -476,31 +542,99 @@ ${briefText.slice(0, 6000)}`,
     }
   };
 
+  /* ── Research Chat send ──────────────────────────────────────────────── */
+  const handleChatSend = async () => {
+    const q = chatInput.trim();
+    if (!q || chatLoading) return;
+    setChatInput('');
+    setChatLoading(true);
+
+    const userMsg = { role: 'user', content: q };
+    setChatMessages(prev => [...prev, userMsg, { role: 'assistant', content: '', loading: true }]);
+
+    // Build context-aware system prompt
+    const caseContext = `Case: ${selectedCase?.type || 'Visa'} | Client: ${selectedClient?.name || 'Client'} | Status: ${selectedCase?.status || 'Unknown'}`;
+
+    try {
+      // Ensure project exists
+      let pid = projectId;
+      if (!pid) {
+        pid = await ensureManusProject(selectedCase, selectedClient, onSaveCase);
+        if (pid) setProjectId(pid);
+      }
+
+      const messages = [
+        {
+          role: 'user',
+          content: `You are an expert Australian migration assistant for Ozsky International, Perth WA.
+Current case context: ${caseContext}
+Answer the following question with specific reference to Australian migration law, DHA policy, and relevant visa criteria.
+Use Australian English. Be concise but thorough. Flag any compliance risks clearly.
+
+Question: ${q}`,
+        },
+      ];
+
+      let fullResponse = '';
+      await callManusStream(
+        { model: 'claude-haiku-4-5-20251001', max_tokens: 1000, messages, _title: `Research: ${q.slice(0, 60)}` },
+        pid,
+        (text) => {
+          fullResponse = text;
+          setChatMessages(prev => {
+            const updated = [...prev];
+            updated[updated.length - 1] = { role: 'assistant', content: text, loading: false };
+            return updated;
+          });
+        }
+      );
+
+      if (!fullResponse) throw new Error('No response from Manus');
+    } catch (e) {
+      setChatMessages(prev => {
+        const updated = [...prev];
+        updated[updated.length - 1] = { role: 'assistant', content: `❌ Error: ${e.message}`, loading: false, error: true };
+        return updated;
+      });
+    } finally {
+      setChatLoading(false);
+    }
+  };
+
+  /* ── Drive status line ───────────────────────────────────────────────── */
   const driveStatusLine = () => {
     if (!driveStatus) return null;
-    if (driveStatus.found) {
-      return `📁 ${driveStatus.folderName} — 已读取 ${driveStatus.readCount}/${driveStatus.fileCount} 个文件`;
-    }
+    if (driveStatus.found) return `📁 ${driveStatus.folderName} — 已读取 ${driveStatus.readCount}/${driveStatus.fileCount} 个文件`;
     return `📁 ${driveStatus.message}`;
   };
 
+  /* ── Render ──────────────────────────────────────────────────────────── */
   return (
     <div style={{ marginTop: 16, border: `1.5px solid ${C.border}`, borderRadius: 10, overflow: 'hidden' }}>
+      {/* Header */}
       <button
         onClick={() => setOpen(o => !o)}
         style={{
-          width: '100%', background: '#F8FAFC', border: 'none', borderBottom: '1px solid #E2E8F0', padding: '11px 16px',
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          width: '100%', background: '#F8FAFC', border: 'none', borderBottom: '1px solid #E2E8F0',
+          padding: '11px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
           cursor: 'pointer', fontSize: 13, fontWeight: 700, color: '#1A2035', fontFamily: 'inherit',
         }}
       >
         <span>🤖 AI 案件简报</span>
-        <span style={{ fontSize: 11, color: C.muted }}>{open ? '▲' : '▼'}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {projectId && (
+            <span style={{ fontSize: 10, background: '#EDE9FE', color: C.purple, padding: '2px 7px', borderRadius: 10, fontWeight: 600 }}>
+              Manus Project ✓
+            </span>
+          )}
+          <span style={{ fontSize: 11, color: C.muted }}>{open ? '▲' : '▼'}</span>
+        </div>
       </button>
 
       {open && (
         <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {/* Action buttons */}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             <button onClick={() => generate()} disabled={loading || applyBusy || !selectedCase}
               style={btnStyle(C.blue, loading || applyBusy || !selectedCase)}>
               {loading ? `⏳ ${step}` : applyBusy ? '⏳ 应用中...' : '✨ 生成并应用简报'}
@@ -511,9 +645,22 @@ ${briefText.slice(0, 6000)}`,
                 ↩️ 恢复上一版本
               </button>
             )}
+            <button
+              onClick={() => setChatOpen(o => !o)}
+              style={{ ...btnStyle(C.purple, false), marginLeft: 'auto' }}
+              title="向 Manus AI 提问签证法律问题"
+            >
+              💬 {chatOpen ? '关闭研究助手' : '研究助手'}
+            </button>
+            {projectUrl && (
+              <a href={projectUrl} target="_blank" rel="noopener noreferrer"
+                style={{ fontSize: 11, color: C.purple, textDecoration: 'none', fontWeight: 600 }}>
+                🔗 Manus Project ↗
+              </a>
+            )}
           </div>
 
-          {/* Folder confirmation picker — shown when multiple Drive folders match */}
+          {/* Folder confirmation */}
           {folderCandidates && (
             <div style={{ background: '#FFFBEB', border: '1.5px solid #F59E0B', borderRadius: 10, padding: '12px 14px' }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: '#92400e', marginBottom: 8 }}>
@@ -528,25 +675,25 @@ ${briefText.slice(0, 6000)}`,
                 ))}
                 <button onClick={() => { setFolderCandidates(null); setDriveStatus(null); }}
                   style={{ textAlign: 'left', padding: '6px 12px', background: 'none', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 12, color: '#6b7280', cursor: 'pointer' }}>
-                  跳过 Drive 文件夹，仅使用 CRM 数据生成
+                  跳过 Drive，仅使用 CRM 数据生成
                 </button>
               </div>
             </div>
           )}
 
+          {/* Drive status */}
           {driveStatus && (
             <div style={{ fontSize: 11, color: driveStatus.found ? C.mid : C.orange }}>
               {driveStatusLine()}
             </div>
           )}
 
+          {/* Brief output */}
           {brief && (
             <div style={{ position: 'relative' }}>
-              <textarea
-                readOnly
-                value={brief}
+              <textarea readOnly value={brief}
                 style={{
-                  width: '100%', minHeight: 280, fontSize: 12, fontFamily: 'monospace',
+                  width: '100%', minHeight: 300, fontSize: 12, fontFamily: 'monospace',
                   borderRadius: 8, border: `1.5px solid ${C.border}`, padding: '10px 12px',
                   resize: 'vertical', boxSizing: 'border-box', background: '#fff',
                 }}
@@ -554,11 +701,10 @@ ${briefText.slice(0, 6000)}`,
               <button
                 onClick={() => {
                   navigator.clipboard.writeText(brief).then(() => {
-                    setApplyMsg('📋 已复制到剪贴板，可直接粘贴到 Get笔记');
+                    setApplyMsg('📋 已复制到剪贴板');
                     setTimeout(() => setApplyMsg(''), 3000);
                   });
                 }}
-                title="复制全文，可粘贴到 Get笔记 (biji.com)"
                 style={{
                   position: 'absolute', top: 8, right: 8,
                   padding: '4px 10px', fontSize: 11, fontWeight: 600,
@@ -571,15 +717,77 @@ ${briefText.slice(0, 6000)}`,
             </div>
           )}
 
-          {applyMsg && (
-            <div style={{ fontSize: 13, color: C.green, fontWeight: 600 }}>{applyMsg}</div>
-          )}
+          {/* Apply message */}
+          {applyMsg && <div style={{ fontSize: 13, color: C.green, fontWeight: 600 }}>{applyMsg}</div>}
+
+          {/* Error */}
           {error && (
-            <div style={{
-              background: '#FEF0EF', border: `1px solid ${C.red}`, color: C.red,
-              borderRadius: 6, padding: '8px 10px', fontSize: 12,
-            }}>
+            <div style={{ background: '#FEF0EF', border: `1px solid ${C.red}`, color: C.red, borderRadius: 6, padding: '8px 10px', fontSize: 12 }}>
               {error}
+            </div>
+          )}
+
+          {/* ── Research Chat ─────────────────────────────────────────────── */}
+          {chatOpen && (
+            <div style={{ border: `1.5px solid #DDD6FE`, borderRadius: 10, overflow: 'hidden', marginTop: 4 }}>
+              {/* Chat header */}
+              <div style={{ background: '#F5F3FF', padding: '10px 14px', borderBottom: '1px solid #DDD6FE', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: C.purple }}>💬 Manus 研究助手</span>
+                <span style={{ fontSize: 11, color: '#7c3aed', background: '#EDE9FE', padding: '2px 7px', borderRadius: 10 }}>
+                  ozsky-migration-agent
+                </span>
+                <span style={{ fontSize: 11, color: C.muted, marginLeft: 'auto' }}>
+                  {selectedCase?.type || 'Visa'} | {selectedClient?.name || 'Client'}
+                </span>
+              </div>
+
+              {/* Messages */}
+              <div style={{ maxHeight: 320, overflowY: 'auto', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10, background: '#FAFAFA' }}>
+                {chatMessages.length === 0 && (
+                  <div style={{ fontSize: 12, color: C.muted, textAlign: 'center', padding: '20px 0' }}>
+                    向 Manus AI 提问签证法律、政策或案件相关问题
+                    <br />
+                    <span style={{ fontSize: 11 }}>例：What are the key criteria for SC-186 Direct Entry stream?</span>
+                  </div>
+                )}
+                {chatMessages.map((msg, i) => (
+                  <div key={i} style={{
+                    alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
+                    maxWidth: '85%',
+                    background: msg.role === 'user' ? C.purple : (msg.error ? '#FEF0EF' : '#fff'),
+                    color: msg.role === 'user' ? '#fff' : (msg.error ? C.red : '#1e293b'),
+                    borderRadius: msg.role === 'user' ? '12px 12px 4px 12px' : '12px 12px 12px 4px',
+                    padding: '8px 12px', fontSize: 12, lineHeight: 1.6,
+                    border: msg.role === 'assistant' ? `1px solid ${msg.error ? '#fca5a5' : '#e2e8f0'}` : 'none',
+                    whiteSpace: 'pre-wrap',
+                  }}>
+                    {msg.loading ? (
+                      <span style={{ color: C.muted }}>⏳ Manus AI 思考中...</span>
+                    ) : msg.content}
+                  </div>
+                ))}
+                <div ref={chatEndRef} />
+              </div>
+
+              {/* Input */}
+              <div style={{ padding: '10px 12px', borderTop: '1px solid #DDD6FE', display: 'flex', gap: 8, background: '#fff' }}>
+                <input
+                  value={chatInput}
+                  onChange={e => setChatInput(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleChatSend()}
+                  placeholder="Ask about visa criteria, policy, documents..."
+                  disabled={chatLoading}
+                  style={{
+                    flex: 1, padding: '8px 12px', fontSize: 12, borderRadius: 8,
+                    border: `1.5px solid ${chatLoading ? '#e2e8f0' : '#DDD6FE'}`,
+                    outline: 'none', fontFamily: 'inherit', background: chatLoading ? '#f8fafc' : '#fff',
+                  }}
+                />
+                <button onClick={handleChatSend} disabled={chatLoading || !chatInput.trim()}
+                  style={btnStyle(C.purple, chatLoading || !chatInput.trim())}>
+                  {chatLoading ? '⏳' : '发送'}
+                </button>
+              </div>
             </div>
           )}
         </div>

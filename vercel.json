@@ -14,6 +14,12 @@
     },
     "api/parse-document.js": {
       "maxDuration": 30
+    },
+    "api/manus.js": {
+      "maxDuration": 120
+    },
+    "api/manus-project.js": {
+      "maxDuration": 30
     }
   }
 }

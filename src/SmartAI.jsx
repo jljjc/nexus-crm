@@ -848,14 +848,24 @@ function SnapshotSection({
       // ── Streaming fetch: read SSE events, build text incrementally ──────────
       // This avoids Vercel 504 timeout — the Edge function pipes tokens in real-time
       // and the browser stays connected until "done" event arrives.
-      const r = await fetch('/api/claude', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      const _snapshotBody = {
           model: 'claude-haiku-4-5-20251001', max_tokens: 1500,
+          _title: `Client Snapshot — ${selectedClient?.name || 'Client'}`,
           messages: [{ role: 'user', content: messageContent }],
           ...(hasPdfs ? { _beta: 'pdfs-2024-09-25' } : {}),
-        }),
-      });
+        };
+      let r;
+      try {
+        r = await fetch('/api/manus', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(_snapshotBody),
+        });
+      } catch {
+        r = await fetch('/api/claude', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(_snapshotBody),
+        });
+      }
 
       if (!r.ok) {
         const raw = await r.text();
@@ -941,10 +951,9 @@ function SnapshotSection({
     if (!snapshot) return;
     setApplyBusy(true);
     try {
-      const r = await fetch('/api/claude', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      const _applyBody = {
           _stream: false,
+          _title: `Apply Snapshot — ${selectedClient?.name || 'Client'}`,
           model: 'claude-haiku-4-5-20251001', max_tokens: 1200,
           messages: [{ role: 'user', content: `从以下客户快照提取信息，返回纯JSON（无markdown，无注释）。只填写找到的字段，找不到的字段用空字符串或空数组。数组字段如果没有数据则返回[]。
 所有日期字段必须统一格式为 YYYY-MM-DD（如 2024-03-15），不得使用中文日期、斜杠格式或其他格式。
@@ -1001,8 +1010,20 @@ function SnapshotSection({
 4. nextSteps: 提取下步行动计划，每条一个字符串
 5. serviceAgreement.totalFee: 提取服务费金额（如 "AUD 3,080"）
 
-快照文本：\n${snapshot}` }] }),
-      });
+快照文本：\n${snapshot}` }]
+        };
+      let r;
+      try {
+        r = await fetch('/api/manus', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(_applyBody),
+        });
+      } catch {
+        r = await fetch('/api/claude', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(_applyBody),
+        });
+      }
       if (!r.ok) {
         const errText = await r.text().catch(()=>'');
         let errMsg = 'AI 提取失败';
