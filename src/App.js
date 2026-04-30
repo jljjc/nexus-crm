@@ -780,12 +780,21 @@ function ClientSnapshot({ client, jobs, visible, anchorRef }) {
       </div>
       {/* Latest note */}
       {latestNote && (
-        <div style={{ background:'#ffffff', borderRadius:8, padding:'8px 10px', borderLeft:'3px solid #38bdf840' }}>
+        <div style={{ background:'#ffffff', borderRadius:8, padding:'8px 10px', borderLeft:'3px solid #38bdf840', marginBottom:8 }}>
           <div style={{ fontSize:11, color:'#1f2937', marginBottom:4 }}>📝 Latest note · {fmtDateTime(latestNote.createdAt)}</div>
           <div style={{ fontSize:12, color:'#1f2937', lineHeight:1.4 }}>{latestNote.text.length > 90 ? latestNote.text.slice(0,90)+'…' : latestNote.text}</div>
         </div>
       )}
-      <div style={{ marginTop:10, fontSize:11, color:'#1f2937' }}>Client since {fmtDate(client.createdAt)} · {clientJobs.length} total cases</div>
+      {/* AI Snapshot preview */}
+      {client.profile?.snapshot && (
+        <div style={{ background:'#f0f0ff', borderRadius:8, padding:'8px 10px', borderLeft:'3px solid #6366f1', marginBottom:8 }}>
+          <div style={{ fontSize:11, color:'#6366f1', fontWeight:600, marginBottom:3 }}>✨ AI Snapshot{client.profile.snapshotDate ? ` · ${client.profile.snapshotDate}` : ''}</div>
+          <div style={{ fontSize:11, color:'#374151', lineHeight:1.45, fontFamily:"'JetBrains Mono','Courier New',monospace" }}>
+            {client.profile.snapshot.slice(0,120)}{client.profile.snapshot.length > 120 ? '…' : ''}
+          </div>
+        </div>
+      )}
+      <div style={{ marginTop:6, fontSize:11, color:'#1f2937' }}>Client since {fmtDate(client.createdAt)} · {clientJobs.length} total cases</div>
     </div>
   );
 }
@@ -830,6 +839,26 @@ function Dashboard({ clients, jobs, team, onGoTo, setJobsMemberFilter, setJobsSt
     status: s,
     count: jobs.filter(j=>j.status===s).length
   }));
+
+  // Visa Subclass Summary — group active jobs by visa subclass prefix
+  const SUBCLASS_COLORS = {
+    '500':'#60a5fa','485':'#34d399','189':'#a78bfa','190':'#f59e0b',
+    '491':'#38bdf8','494':'#fb923c','887':'#4ade80','482':'#f472b6',
+    '186':'#ff158a','407':'#c084fc','820':'#fbbf24','309':'#6ee7b7',
+    '300':'#93c5fd','600':'#d1d5db','408':'#e2e8f0',
+  };
+  const subclassSummary = (() => {
+    const counts = {};
+    jobs.filter(j => j.status !== 'Completed').forEach(j => {
+      const m = (j.type || '').match(/Subclass (\d+)/);
+      const key = m ? m[1] : (j.type?.includes('Skills Assessment') ? 'Skills' : 'Other');
+      counts[key] = (counts[key] || 0) + 1;
+    });
+    return Object.entries(counts)
+      .sort((a,b) => b[1] - a[1])
+      .slice(0, 8)
+      .map(([sub, count]) => ({ sub, count, color: SUBCLASS_COLORS[sub] || '#9ca3af' }));
+  })();
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
@@ -982,6 +1011,40 @@ function Dashboard({ clients, jobs, team, onGoTo, setJobsMemberFilter, setJobsSt
                     <PriorityBadge priority={j.priority} />
                     <StatusBadge status={j.status} small />
                   </div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
+
+      {/* Visa Subclass Summary */}
+      {subclassSummary.length > 0 && (
+        <Card style={{ marginBottom:20 }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
+            <h3 style={{ fontSize:15, fontWeight:600, color:'#111827' }}>📊 Active Cases by Visa Type</h3>
+            <button onClick={()=>onGoTo('jobs')} style={{ background:'none', border:'none', color:'#ff158a', fontSize:13, cursor:'pointer' }}>View all →</button>
+          </div>
+          <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
+            {subclassSummary.map(({ sub, count, color }) => {
+              const total = subclassSummary.reduce((s, x) => s + x.count, 0);
+              const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+              return (
+                <div key={sub}
+                  onClick={() => { setJobsStatusFilter(''); onGoTo('jobs'); }}
+                  style={{ flex:'1 1 120px', minWidth:110, background:'#f8fafc', border:`2px solid ${color}30`,
+                    borderRadius:10, padding:'10px 14px', cursor:'pointer', transition:'border-color 0.15s' }}
+                  onMouseEnter={e=>e.currentTarget.style.borderColor=color+'80'}
+                  onMouseLeave={e=>e.currentTarget.style.borderColor=color+'30'}
+                >
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:6 }}>
+                    <span style={{ fontSize:13, fontWeight:700, color:'#111827' }}>{sub === 'Skills' ? '💼 Skills' : sub === 'Other' ? '📄 Other' : `SC-${sub}`}</span>
+                    <span style={{ fontSize:16, fontWeight:800, color, fontFamily:"'JetBrains Mono',monospace" }}>{count}</span>
+                  </div>
+                  <div style={{ height:4, borderRadius:4, background:'#e5e7eb', overflow:'hidden' }}>
+                    <div style={{ height:'100%', width:`${pct}%`, background:color, borderRadius:4, transition:'width 0.4s' }} />
+                  </div>
+                  <div style={{ fontSize:10, color:'#9ca3af', marginTop:4 }}>{pct}% of active</div>
                 </div>
               );
             })}
@@ -1440,13 +1503,32 @@ FORMAT (use exactly — ═══ borders, ━━━ dividers):
           {/* ── Saved snapshot ── */}
           {p.snapshot && (
             <div style={{ marginTop:20, borderTop:'1.5px solid #e2e8f0', paddingTop:16 }}>
-              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
-                <span style={{ fontSize:11, fontWeight:700, color:'#6366f1', textTransform:'uppercase', letterSpacing:'0.07em' }}>
-                  客户快照
-                </span>
-                {p.snapshotDate && (
-                  <span style={{ fontSize:11, color:'#9ca3af' }}>更新于 {p.snapshotDate}</span>
-                )}
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8, flexWrap:'wrap', gap:6 }}>
+                <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                  <span style={{ fontSize:11, fontWeight:700, color:'#6366f1', textTransform:'uppercase', letterSpacing:'0.07em' }}>客户快照</span>
+                  {p.snapshotDate && <span style={{ fontSize:11, color:'#9ca3af' }}>更新于 {p.snapshotDate}</span>}
+                </div>
+                <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+                  <button
+                    onClick={() => navigator.clipboard.writeText(p.snapshot).catch(()=>{})}
+                    style={{ background:'#f1f5f9', border:'1px solid #e2e8f0', borderRadius:6, padding:'4px 10px', fontSize:11, color:'#374151', cursor:'pointer', fontWeight:500 }}
+                  >📋 复制</button>
+                  <button
+                    onClick={() => {
+                      const blob = new Blob([p.snapshot], { type:'text/plain;charset=utf-8' });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `${(client.name||'client').replace(/[^a-zA-Z0-9\u4e00-\u9fa5_\- ]/g,'').trim()}_Snapshot_${p.snapshotDate||new Date().toISOString().slice(0,10)}.txt`;
+                      a.click(); URL.revokeObjectURL(url);
+                    }}
+                    style={{ background:'#f1f5f9', border:'1px solid #e2e8f0', borderRadius:6, padding:'4px 10px', fontSize:11, color:'#374151', cursor:'pointer', fontWeight:500 }}
+                  >⬇️ 下载</button>
+                  <button
+                    onClick={() => setTab('ai')}
+                    style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:6, padding:'4px 12px', fontSize:11, color:'#fff', cursor:'pointer', fontWeight:600 }}
+                  >✨ 增强快照 →</button>
+                </div>
               </div>
               <div style={{ background:'#f8fafc', border:'1px solid #e2e8f0', borderRadius:8, padding:12,
                 fontSize:12, color:'#374151', lineHeight:1.75, whiteSpace:'pre-wrap',
