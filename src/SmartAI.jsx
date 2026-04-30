@@ -8,26 +8,29 @@ import {
 
 /* ── Brand colours ────────────────────────────────────────────────────────── */
 const C = {
-  blue:'#1E3A5F', gold:'#C9A84C', mid:'#2E6DA4',
-  light:'#EBF3FB', border:'#D0E3F5',
-  red:'#C0392B', green:'#27AE60', orange:'#E67E22',
-  text:'#2C3E50', muted:'#7F8C8D', white:'#FFFFFF',
+  blue:'#1A2035', gold:'#D97706', mid:'#3B82F6',
+  light:'#EFF6FF', border:'#DBEAFE',
+  red:'#EF4444', green:'#10B981', orange:'#F59E0B',
+  text:'#1A2035', muted:'#718096', white:'#FFFFFF',
+  brand:'#E91E8C',
 };
 const urgencyColor = { urgent:C.red, high:C.orange, medium:C.gold, low:C.green };
 const urgencyLabel = { urgent:'紧急', high:'高', medium:'中', low:'低' };
 
 /* ── Shared style helpers ────────────────────────────────────────────────── */
 const btnStyle = (bg, disabled=false) => ({
-  background: disabled ? '#CCC' : bg, color: 'white', border: 'none',
-  borderRadius: 6, padding: '8px 14px', cursor: disabled ? 'not-allowed' : 'pointer',
+  background: disabled ? '#CBD5E0' : bg, color: 'white', border: 'none',
+  borderRadius: 8, padding: '8px 16px', cursor: disabled ? 'not-allowed' : 'pointer',
   fontSize: 13, fontWeight: 600, opacity: disabled ? 0.6 : 1,
+  transition: 'all 0.15s', fontFamily: 'inherit',
 });
 const inputStyle = {
-  width: '100%', padding: '6px 10px', border: `1px solid ${C.border}`,
-  borderRadius: 6, fontSize: 13, color: C.text, boxSizing: 'border-box',
-  outline: 'none', background: 'white',
+  width: '100%', padding: '8px 12px', border: '1.5px solid #E2E8F0',
+  borderRadius: 8, fontSize: 13, color: '#1A2035', boxSizing: 'border-box',
+  outline: 'none', background: '#fff', fontFamily: 'inherit',
+  transition: 'border-color 0.15s, box-shadow 0.15s',
 };
-const labelStyle = { display: 'block', fontSize: 11, color: C.muted, marginBottom: 4, fontWeight: 600 };
+const labelStyle = { display: 'block', fontSize: 11, color: '#718096', marginBottom: 5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' };
 const badgeStyle = {
   display: 'inline-block', padding: '2px 7px', borderRadius: 10,
   fontSize: 10, fontWeight: 700, color: 'white',
@@ -190,7 +193,7 @@ function GmailSection({ gmail, onGmailUpdate, selectedClient, onAddNote, emails,
             未连接 — 连接后可读取 Gmail 邮件和 Google Drive 客户文件
           </div>
           <button onClick={handleReconnect}
-            style={{ background:'linear-gradient(135deg,#4f46e5,#7c3aed)', border:'none', borderRadius:8,
+            style={{ background:'linear-gradient(135deg,#E91E8C,#F472B6)', border:'none', borderRadius:10,
               padding:'9px 20px', color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer' }}>
             🔗 连接 Gmail &amp; Drive
           </button>
@@ -1032,7 +1035,7 @@ function SnapshotSection({
         // Already YYYY-MM-DD
         if (/^\d{4}-\d{2}-\d{2}$/.test(v.trim())) return v.trim();
         // DD/MM/YYYY or DD-MM-YYYY
-        const m1 = v.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
+        const m1 = v.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
         if (m1) return `${m1[3]}-${m1[2].padStart(2,'0')}-${m1[1].padStart(2,'0')}`;
         // YYYY/MM/DD
         const m2 = v.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/);

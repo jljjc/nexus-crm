@@ -471,9 +471,9 @@ export default function CaseAI({ selectedClient, selectedCase, onSaveCase }) {
       <button
         onClick={() => setOpen(o => !o)}
         style={{
-          width: '100%', background: '#f1f5f9', border: 'none', padding: '10px 16px',
+          width: '100%', background: '#F8FAFC', border: 'none', borderBottom: '1px solid #E2E8F0', padding: '11px 16px',
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          cursor: 'pointer', fontSize: 13, fontWeight: 700, color: '#374151',
+          cursor: 'pointer', fontSize: 13, fontWeight: 700, color: '#1A2035', fontFamily: 'inherit',
         }}
       >
         <span>🤖 AI 案件简报</span>
@@ -497,7 +497,7 @@ export default function CaseAI({ selectedClient, selectedCase, onSaveCase }) {
 
           {/* Folder confirmation picker — shown when multiple Drive folders match */}
           {folderCandidates && (
-            <div style={{ background: '#fffbeb', border: '1.5px solid #f59e0b', borderRadius: 8, padding: '12px 14px' }}>
+            <div style={{ background: '#FFFBEB', border: '1.5px solid #F59E0B', borderRadius: 10, padding: '12px 14px' }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: '#92400e', marginBottom: 8 }}>
                 ⚠️ 找到多个可能匹配的文件夹，请确认使用哪一个：
               </div>
@@ -544,7 +544,7 @@ export default function CaseAI({ selectedClient, selectedCase, onSaveCase }) {
                 style={{
                   position: 'absolute', top: 8, right: 8,
                   padding: '4px 10px', fontSize: 11, fontWeight: 600,
-                  background: '#f1f5f9', border: '1px solid #cbd5e1',
+                  background: '#F1F5F9', border: '1px solid #CBD5E0',
                   borderRadius: 6, cursor: 'pointer', color: '#374151',
                 }}
               >

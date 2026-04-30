@@ -136,212 +136,377 @@ function useLang() {
 
 /* ─── STYLES ───────────────────────────────────────────────────────────────── */
 const GLOBAL_CSS = `
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300;0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;1,14..32,400&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+  /* ── DESIGN TOKENS ─────────────────────────────────────────────────────── */
+  :root {
+    /* Brand */
+    --brand:        #E91E8C;
+    --brand-light:  #FDF0F8;
+    --brand-mid:    rgba(233,30,140,0.12);
+    --brand-glow:   rgba(233,30,140,0.28);
+
+    /* Neutrals */
+    --ink-900:  #0B0F1A;
+    --ink-800:  #1A2035;
+    --ink-700:  #2D3650;
+    --ink-600:  #4A5568;
+    --ink-500:  #718096;
+    --ink-400:  #A0AEC0;
+    --ink-300:  #CBD5E0;
+    --ink-200:  #E2E8F0;
+    --ink-100:  #F1F5F9;
+    --ink-50:   #F8FAFC;
+
+    /* Semantic */
+    --success:  #10B981;
+    --warning:  #F59E0B;
+    --danger:   #EF4444;
+    --info:     #3B82F6;
+
+    /* Surface */
+    --surface-0: #FFFFFF;
+    --surface-1: #F8FAFC;
+    --surface-2: #F1F5F9;
+
+    /* Nav */
+    --nav-bg:       #0B1120;
+    --nav-border:   rgba(255,255,255,0.06);
+    --nav-text:     #94A3B8;
+    --nav-active-bg: rgba(233,30,140,0.14);
+    --nav-active-text: #F472B6;
+    --nav-hover-bg: rgba(255,255,255,0.06);
+
+    /* Shadows */
+    --shadow-xs:  0 1px 2px rgba(0,0,0,0.05);
+    --shadow-sm:  0 1px 6px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-md:  0 4px 16px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.04);
+    --shadow-lg:  0 12px 40px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06);
+    --shadow-xl:  0 24px 64px rgba(0,0,0,0.18), 0 4px 16px rgba(0,0,0,0.08);
+
+    /* Radius */
+    --r-sm:  6px;
+    --r-md:  10px;
+    --r-lg:  14px;
+    --r-xl:  20px;
+    --r-full: 9999px;
+
+    /* Transitions */
+    --t-fast:   0.12s ease;
+    --t-base:   0.2s ease;
+    --t-slow:   0.3s cubic-bezier(.16,1,.3,1);
+  }
 
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   body {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-    background: #eef0f6;
-    color: #0f172a;
-    overflow-x: hidden;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--surface-1);
+    color: var(--ink-800);
+    font-size: 14px;
+    line-height: 1.5;
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   ::-webkit-scrollbar { width: 5px; height: 5px; }
   ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 99px; }
+  ::-webkit-scrollbar-thumb { background: var(--ink-300); border-radius: var(--r-full); }
+  ::-webkit-scrollbar-thumb:hover { background: var(--ink-400); }
 
-  button { cursor: pointer; font-family: inherit; }
-  input, select, textarea { font-family: inherit; }
+  @keyframes fadeIn  { from { opacity:0 } to { opacity:1 } }
+  @keyframes slideUp { from { opacity:0; transform:translateY(20px) scale(0.98) } to { opacity:1; transform:translateY(0) scale(1) } }
+  @keyframes drawIn  { from { transform:translateX(-100%) } to { transform:translateX(0) } }
+  @keyframes pulse   { 0%,100% { opacity:1 } 50% { opacity:0.5 } }
 
-  @keyframes fadeIn  { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
-  @keyframes slideIn { from { opacity:0; transform:translateX(-12px); } to { opacity:1; transform:translateX(0); } }
-  @keyframes slideUp { from { opacity:0; transform:translateY(22px) scale(0.99); } to { opacity:1; transform:translateY(0) scale(1); } }
-  @keyframes tooltipIn { from { opacity:0; transform:translateY(6px) scale(0.97); } to { opacity:1; transform:translateY(0) scale(1); } }
-  @keyframes pulse  { 0%,100%{opacity:1;} 50%{opacity:0.45;} }
-  @keyframes shake  { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-8px)} 40%{transform:translateX(8px)} 60%{transform:translateX(-4px)} 80%{transform:translateX(4px)} }
-  @keyframes drawIn { from{transform:translateX(-100%)} to{transform:translateX(0)} }
-
-  .animate-fade  { animation: fadeIn  0.32s cubic-bezier(.16,1,.3,1) both; }
-  .animate-slide { animation: slideIn 0.28s ease both; }
-  .tooltip-anim  { animation: tooltipIn 0.18s ease both; }
-
-  /* ── SIDEBAR ─────────────────────────────────── */
-  .oz-sidebar {
-    width: 236px; min-height: 100vh; background: #1f1f3d;
-    display: flex; flex-direction: column; flex-shrink: 0;
-    position: sticky; top: 0; height: 100vh;
-    box-shadow: 2px 0 20px rgba(0,0,0,0.15);
-    z-index: 50; transition: transform 0.3s cubic-bezier(.16,1,.3,1);
+  /* ── LAYOUT ─────────────────────────────────────────────────────────────── */
+  .oz-layout {
+    display: flex; min-height: 100vh;
   }
+
+  /* ── SIDEBAR / NAV ──────────────────────────────────────────────────────── */
+  .oz-sidebar {
+    width: 240px; min-height: 100vh;
+    background: var(--nav-bg);
+    display: flex; flex-direction: column;
+    border-right: 1px solid var(--nav-border);
+    flex-shrink: 0;
+    transition: transform var(--t-slow);
+  }
+
+  .oz-nav-logo {
+    padding: 20px 20px 16px;
+    border-bottom: 1px solid var(--nav-border);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .oz-nav-logo-icon {
+    width: 34px; height: 34px; border-radius: var(--r-md);
+    background: linear-gradient(135deg, var(--brand), #FF6EC7);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; font-weight: 800; color: #fff;
+    box-shadow: 0 2px 12px var(--brand-glow);
+    flex-shrink: 0;
+  }
+  .oz-nav-logo-text {
+    font-size: 15px; font-weight: 700; color: #F8FAFC; letter-spacing: -0.01em;
+  }
+  .oz-nav-logo-sub {
+    font-size: 10px; color: var(--nav-text); font-weight: 500; letter-spacing: 0.04em;
+  }
+
+  .oz-nav-section {
+    padding: 12px 10px 4px;
+    font-size: 9.5px; font-weight: 700; color: #475569;
+    text-transform: uppercase; letter-spacing: 0.1em;
+  }
+
+  .oz-nav-items { padding: 8px 10px; flex: 1; overflow-y: auto; }
+
   .oz-nav-item {
     display: flex; align-items: center; gap: 10px;
-    padding: 9px 13px; border-radius: 9px; border: none;
-    width: 100%; text-align: left; font-size: 13.5px; font-weight: 500;
-    margin-bottom: 1px; color: #b8c4d8; background: transparent;
-    transition: all 0.15s; cursor: pointer;
+    padding: 9px 12px; border-radius: var(--r-md); border: none;
+    width: 100%; text-align: left; cursor: pointer;
+    font-size: 13.5px; font-weight: 500; color: var(--nav-text);
+    background: transparent;
+    margin-bottom: 2px;
+    transition: background var(--t-fast), color var(--t-fast);
+    position: relative;
   }
-  .oz-nav-item:hover { background: rgba(255,255,255,0.1); color: #e2e8f0; }
+  .oz-nav-item:hover {
+    background: var(--nav-hover-bg);
+    color: #E2E8F0;
+  }
   .oz-nav-item.active {
-    background: rgba(255,21,138,0.15);
-    color: #ff8bc8; font-weight: 600;
-    box-shadow: inset 3px 0 0 #ff158a;
+    background: var(--nav-active-bg);
+    color: var(--nav-active-text);
+    font-weight: 600;
   }
+  .oz-nav-item.active::before {
+    content: ''; position: absolute; left: 0; top: 20%; bottom: 20%;
+    width: 3px; border-radius: 0 3px 3px 0;
+    background: var(--brand);
+  }
+  .oz-nav-icon { font-size: 16px; width: 20px; text-align: center; flex-shrink: 0; }
   .oz-nav-badge {
-    margin-left: auto; font-size: 10px; padding: 1px 7px; border-radius: 99px;
-    font-family: 'JetBrains Mono', monospace; font-weight: 600;
-    background: rgba(255,255,255,0.09); color: #9ba5c0;
+    margin-left: auto; font-size: 10px; font-weight: 700;
+    padding: 1px 7px; border-radius: var(--r-full);
+    background: rgba(255,255,255,0.08); color: #64748B;
   }
-  .oz-nav-item.active .oz-nav-badge { background: rgba(255,21,138,0.25); color: #ff8bc8; }
+  .oz-nav-item.active .oz-nav-badge {
+    background: rgba(233,30,140,0.2); color: #F472B6;
+  }
 
-  /* ── TOPBAR ─────────────────────────────────── */
+  .oz-nav-footer {
+    padding: 12px 10px;
+    border-top: 1px solid var(--nav-border);
+  }
+
+  /* ── TOPBAR ─────────────────────────────────────────────────────────────── */
   .oz-topbar {
-    position: sticky; top: 0; z-index: 40;
-    background: rgba(255,255,255,0.92); backdrop-filter: blur(12px);
-    border-bottom: 1px solid #e9eaf3;
-    height: 58px; display: flex; align-items: center; padding: 0 28px; gap: 14px;
-    box-shadow: 0 1px 6px rgba(0,0,0,0.05);
+    height: 60px; padding: 0 28px;
+    display: flex; align-items: center; justify-content: space-between;
+    background: rgba(255,255,255,0.95);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--ink-200);
+    position: sticky; top: 0; z-index: 30;
   }
 
-  /* ── CARDS ─────────────────────────────────── */
+  /* ── MAIN CONTENT ───────────────────────────────────────────────────────── */
+  .oz-main-content {
+    background: var(--surface-1);
+    flex: 1; min-width: 0;
+  }
+
+  /* ── CARD ───────────────────────────────────────────────────────────────── */
   .oz-card {
-    background: #fff; border-radius: 14px;
-    border: 1px solid #e9eaf3;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 4px 12px rgba(0,0,0,0.04);
-    transition: box-shadow 0.2s, transform 0.15s;
+    background: var(--surface-0);
+    border-radius: var(--r-lg);
+    border: 1px solid var(--ink-200);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
   }
-  .oz-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.10); }
 
-  /* ── KPI CARDS ─────────────────────────────── */
-  .oz-kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px,1fr)); gap: 14px; margin-bottom: 28px; }
+  /* ── KPI CARDS ──────────────────────────────────────────────────────────── */
+  .oz-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
   .oz-kpi {
-    background: #fff; border-radius: 14px; padding: 18px 20px;
-    border: 1px solid #e9eaf3; box-shadow: 0 1px 4px rgba(0,0,0,0.05);
-    transition: box-shadow 0.2s;
+    background: var(--surface-0);
+    border-radius: var(--r-lg);
+    border: 1px solid var(--ink-200);
+    padding: 20px 22px;
+    box-shadow: var(--shadow-sm);
+    transition: box-shadow var(--t-base), transform var(--t-base);
+    position: relative; overflow: hidden;
   }
-  .oz-kpi:hover { box-shadow: 0 6px 20px rgba(0,0,0,0.09); transform: translateY(-1px); }
-  .oz-kpi-label { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #676879; margin-bottom: 8px; }
-  .oz-kpi-val   { font-size: 30px; font-weight: 800; color: #323338; line-height: 1; }
-  .oz-kpi-sub   { font-size: 12px; color: #676879; margin-top: 5px; }
+  .oz-kpi:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+  .oz-kpi-label {
+    font-size: 11px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--ink-500); margin-bottom: 10px;
+  }
+  .oz-kpi-val {
+    font-size: 32px; font-weight: 800; color: var(--ink-900); line-height: 1;
+    letter-spacing: -0.02em;
+  }
+  .oz-kpi-sub { font-size: 12px; color: var(--ink-500); margin-top: 6px; }
+  .oz-kpi-accent {
+    position: absolute; top: 0; right: 0;
+    width: 80px; height: 80px; border-radius: 0 var(--r-lg) 0 80px;
+    opacity: 0.06;
+  }
 
-  /* ── TABLE ─────────────────────────────────── */
+  /* ── TABLE ──────────────────────────────────────────────────────────────── */
   .oz-table { width: 100%; border-collapse: collapse; }
   .oz-table th {
-    padding: 10px 16px; text-align: left; font-size: 11px; font-weight: 700;
-    text-transform: uppercase; letter-spacing: 0.07em; color: #4b5563;
-    background: #f9fafb; border-bottom: 1px solid #e9eaf3; white-space: nowrap;
+    padding: 11px 16px; font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.07em; color: var(--ink-500);
+    background: var(--surface-1); border-bottom: 1px solid var(--ink-200);
+    white-space: nowrap; text-align: left;
   }
-  .oz-table td { padding: 13px 16px; border-bottom: 1px solid #f3f4f8; font-size: 13.5px; color: #374151; vertical-align: middle; }
-  .oz-table tbody tr:hover td { background: #fafbff; }
+  .oz-table td {
+    padding: 13px 16px; border-bottom: 1px solid var(--ink-100);
+    font-size: 13.5px; color: var(--ink-700); vertical-align: middle;
+  }
+  .oz-table tbody tr { transition: background var(--t-fast); }
+  .oz-table tbody tr:hover td { background: #F9F5FF; }
   .oz-table tbody tr:last-child td { border-bottom: none; }
 
-  /* ── BUTTONS ─────────────────────────────── */
+  /* ── BUTTONS ────────────────────────────────────────────────────────────── */
   .oz-btn {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 9px 18px; border-radius: 9px; font-size: 13px; font-weight: 600;
-    border: none; transition: all 0.15s; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 9px 18px; border-radius: var(--r-md);
+    font-size: 13px; font-weight: 600; font-family: inherit;
+    border: none; transition: all var(--t-fast); cursor: pointer;
+    white-space: nowrap; line-height: 1.2;
   }
   .oz-btn-primary {
-    background: linear-gradient(135deg, #ff158a, #ff5fae);
-    color: #fff; box-shadow: 0 2px 10px rgba(255,21,138,0.35);
+    background: var(--brand);
+    color: #fff;
+    box-shadow: 0 2px 8px var(--brand-glow);
   }
-  .oz-btn-primary:hover { opacity: 0.92; transform: translateY(-1px); box-shadow: 0 4px 16px rgba(255,21,138,0.45); }
+  .oz-btn-primary:hover {
+    background: #D01880;
+    box-shadow: 0 4px 16px var(--brand-glow);
+    transform: translateY(-1px);
+  }
   .oz-btn-ghost {
-    background: #f3f4f8; color: #374151;
-    border: 1px solid #e5e7eb;
+    background: var(--surface-1); color: var(--ink-700);
+    border: 1px solid var(--ink-200);
   }
-  .oz-btn-ghost:hover { background: #ebebf5; color: #374151; }
-  .oz-btn-danger { background: #fef2f2; color: #ef4444; border: 1px solid #fecaca; }
-  .oz-btn-danger:hover { background: #fee2e2; }
+  .oz-btn-ghost:hover { background: var(--ink-100); border-color: var(--ink-300); }
+  .oz-btn-danger { background: #FEF2F2; color: var(--danger); border: 1px solid #FECACA; }
+  .oz-btn-danger:hover { background: #FEE2E2; }
 
-  /* ── INPUTS ─────────────────────────────── */
+  /* ── INPUTS ─────────────────────────────────────────────────────────────── */
   .oz-input {
-    width: 100%; background: #f9fafb; border: 1.5px solid #e5e7eb;
-    border-radius: 9px; padding: 9px 13px; color: #0f172a;
-    font-size: 14px; outline: none;
-    transition: border-color 0.18s, box-shadow 0.18s, background 0.18s;
+    width: 100%; background: var(--surface-0);
+    border: 1.5px solid var(--ink-200);
+    border-radius: var(--r-md); padding: 9px 13px;
+    color: var(--ink-900); font-size: 14px; font-family: inherit;
+    outline: none;
+    transition: border-color var(--t-fast), box-shadow var(--t-fast);
   }
-  .oz-input:focus { border-color: #ff158a; background: #fff; box-shadow: 0 0 0 3px rgba(255,21,138,0.12); }
-  .oz-input::placeholder { color: #b0b7c3; }
+  .oz-input:focus {
+    border-color: var(--brand);
+    box-shadow: 0 0 0 3px var(--brand-mid);
+  }
+  .oz-input::placeholder { color: var(--ink-400); }
 
-  /* ── MODAL ─────────────────────────────── */
+  /* ── MODAL ──────────────────────────────────────────────────────────────── */
   .oz-overlay {
-    position: fixed; inset: 0; background: rgba(17,24,39,0.5);
-    backdrop-filter: blur(4px); z-index: 200;
+    position: fixed; inset: 0;
+    background: rgba(11,17,26,0.55);
+    backdrop-filter: blur(6px); z-index: 200;
     display: flex; align-items: center; justify-content: center; padding: 20px;
     animation: fadeIn 0.15s ease both;
   }
   .oz-modal {
-    background: #fff; border-radius: 18px; width: 100%; max-width: 640px;
+    background: var(--surface-0); border-radius: var(--r-xl);
+    width: 100%; max-width: 640px;
     max-height: 92vh; overflow-y: auto;
-    box-shadow: 0 24px 64px rgba(0,0,0,0.22);
+    box-shadow: var(--shadow-xl);
+    border: 1px solid var(--ink-200);
     animation: slideUp 0.28s cubic-bezier(.16,1,.3,1) both;
   }
-  .oz-modal-wide { max-width: 900px; }
+  .oz-modal-wide { max-width: 920px; }
   .oz-modal-hd {
-    padding: 22px 26px 18px; border-bottom: 1px solid #f3f4f8;
+    padding: 22px 26px 18px; border-bottom: 1px solid var(--ink-100);
     display: flex; justify-content: space-between; align-items: center;
+    position: sticky; top: 0; background: var(--surface-0); z-index: 2;
   }
-  .oz-modal-title { font-size: 17px; font-weight: 700; color: #111827; }
+  .oz-modal-title { font-size: 17px; font-weight: 700; color: var(--ink-900); }
   .oz-modal-body  { padding: 22px 26px 28px; }
   .oz-close-btn {
-    background: #f3f4f8; border: none; border-radius: 8px;
-    width: 32px; height: 32px; font-size: 16px; color: #4b5563;
+    background: var(--surface-1); border: 1px solid var(--ink-200);
+    border-radius: var(--r-md); width: 32px; height: 32px;
+    font-size: 15px; color: var(--ink-500);
     display: flex; align-items: center; justify-content: center;
-    transition: background 0.15s, color 0.15s;
+    transition: all var(--t-fast); cursor: pointer;
   }
-  .oz-close-btn:hover { background: #fee2e2; color: #ef4444; }
+  .oz-close-btn:hover { background: #FEE2E2; border-color: #FECACA; color: var(--danger); }
 
-  /* ── FORM ─────────────────────────────── */
+  /* ── FORM ───────────────────────────────────────────────────────────────── */
   .oz-label {
-    display: block; font-size: 11.5px; font-weight: 700; color: #374151;
+    display: block; font-size: 11.5px; font-weight: 700; color: var(--ink-600);
     text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px;
   }
   .oz-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   .oz-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
   .oz-full   { grid-column: 1/-1; }
 
-  /* ── BADGES ─────────────────────────────── */
+  /* ── BADGES ─────────────────────────────────────────────────────────────── */
   .oz-badge {
     display: inline-flex; align-items: center; gap: 4px;
-    padding: 3px 10px; border-radius: 99px; font-size: 11.5px; font-weight: 600;
+    padding: 3px 10px; border-radius: var(--r-full);
+    font-size: 11.5px; font-weight: 600;
   }
   .oz-tag {
     display: inline-flex; align-items: center;
-    padding: 2px 9px; border-radius: 7px; font-size: 11px; font-weight: 600;
+    padding: 2px 9px; border-radius: var(--r-sm);
+    font-size: 11px; font-weight: 600;
   }
 
-  /* ── SECTION HEADER ─────────────────────── */
-  .oz-page-hd { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
-  .oz-page-title { font-size: 22px; font-weight: 800; color: #323338; }
-  .oz-page-sub   { font-size: 13px; color: #676879; margin-top: 3px; }
-  .oz-main-content { background: #f6f7fb; }
+  /* ── SECTION HEADER ─────────────────────────────────────────────────────── */
+  .oz-page-hd {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 24px; flex-wrap: wrap; gap: 12px;
+  }
+  .oz-page-title {
+    font-size: 22px; font-weight: 800; color: var(--ink-900);
+    letter-spacing: -0.02em;
+  }
+  .oz-page-sub { font-size: 13px; color: var(--ink-500); margin-top: 3px; }
 
-  /* ── MOBILE ─────────────────────────────── */
+  /* ── MOBILE ─────────────────────────────────────────────────────────────── */
   .oz-hamburger {
     display: none; background: none; border: none; padding: 4px 6px;
-    font-size: 22px; color: #374151; line-height: 1;
+    font-size: 22px; color: var(--ink-600); line-height: 1; cursor: pointer;
   }
   .oz-mob-overlay {
-    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45);
-    z-index: 49; backdrop-filter: blur(2px);
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.5); z-index: 49; backdrop-filter: blur(2px);
   }
   .oz-mob-nav {
     display: none; position: fixed; bottom: 0; left: 0; right: 0; z-index: 60;
-    background: #1f1f3d; border-top: 1px solid #2d2d5e;
+    background: var(--nav-bg); border-top: 1px solid var(--nav-border);
     padding: 4px 4px 8px; justify-content: space-around;
   }
   .oz-mob-btn {
     display: flex; flex-direction: column; align-items: center; gap: 2px;
     background: none; border: none; padding: 6px 8px; border-radius: 10px;
-    color: #9ba5c0; font-size: 9.5px; font-weight: 600; text-transform: uppercase;
-    letter-spacing: 0.04em; min-width: 52px; transition: all 0.15s;
+    color: var(--nav-text); font-size: 9.5px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.04em;
+    min-width: 52px; transition: all var(--t-fast); cursor: pointer;
   }
-  .oz-mob-btn:hover, .oz-mob-btn.active { color: #ff8bc8; background: rgba(255,21,138,0.2); }
+  .oz-mob-btn:hover, .oz-mob-btn.active {
+    color: #F472B6; background: rgba(233,30,140,0.15);
+  }
   .oz-mob-btn .micon { font-size: 19px; }
 
-  /* ── RESPONSIVE ─────────────────────────── */
+  /* ── RESPONSIVE ─────────────────────────────────────────────────────────── */
   @media (max-width: 880px) {
     .oz-sidebar { position: fixed; left: 0; top: 0; height: 100vh; transform: translateX(-100%); z-index: 50; }
     .oz-sidebar.open { transform: translateX(0); animation: drawIn 0.3s cubic-bezier(.16,1,.3,1); }
@@ -358,12 +523,12 @@ const GLOBAL_CSS = `
   @media (max-width: 560px) {
     .oz-kpi-grid { grid-template-columns: 1fr; }
     .oz-grid-3 { grid-template-columns: 1fr; }
-    .oz-modal { border-radius: 18px 18px 0 0; margin: auto 0 0; max-height: 95vh; }
+    .oz-modal { border-radius: 20px 20px 0 0; margin: auto 0 0; max-height: 95vh; }
     .oz-overlay { align-items: flex-end; padding: 0; }
     .oz-table thead { display: none; }
-    .oz-table tr { display: block; border: 1px solid #e9eaf3; border-radius: 12px; margin-bottom: 10px; background:#fff; }
-    .oz-table td { display: flex; justify-content: space-between; align-items: center; border:none; padding: 9px 14px; }
-    .oz-table td[data-label]::before { content: attr(data-label); font-weight:700; color:#9ca3af; font-size:10.5px; text-transform:uppercase; letter-spacing:0.05em; }
+    .oz-table tr { display: block; border: 1px solid var(--ink-200); border-radius: var(--r-lg); margin-bottom: 10px; background: var(--surface-0); }
+    .oz-table td { display: flex; justify-content: space-between; align-items: center; border: none; padding: 9px 14px; }
+    .oz-table td[data-label]::before { content: attr(data-label); font-weight: 700; color: var(--ink-400); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.05em; }
   }
 `;
 
@@ -4992,39 +5157,40 @@ function App() {
         {/* ── SIDEBAR ── */}
         <aside className={`oz-sidebar${sidebarOpen?' open':''}`}>
           {/* Logo */}
-          <div style={{ padding:'18px 16px 14px', borderBottom:'1px solid rgba(255,255,255,0.07)', display:'flex', flexDirection:'column', alignItems:'center', gap:7 }}>
-            <img src={LOGO_B64} alt="Ozsky" style={{ width:148, height:'auto', borderRadius:6 }} />
-            <div style={{ fontSize:9.5, color:'#4b5280', letterSpacing:'0.07em', textTransform:'uppercase' }}>CRM · Migration & Student Services</div>
+          <div className="oz-nav-logo">
+            <div className="oz-nav-logo-icon">N</div>
+            <div>
+              <div className="oz-nav-logo-text">NexusCRM</div>
+              <div className="oz-nav-logo-sub">Ozsky International</div>
+            </div>
           </div>
-
           {/* Role badge */}
-          <div style={{ padding:'10px 14px 6px' }}>
-            <div style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'3px 10px', borderRadius:99, fontSize:10.5, fontWeight:700, background: isManager?'rgba(168,85,247,0.18)':'rgba(99,102,241,0.15)', color: isManager?'#d8b4fe':'#a5b4fc', letterSpacing:'0.05em', textTransform:'uppercase' }}>
+          <div style={{ padding:'10px 12px 4px' }}>
+            <div style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'3px 10px', borderRadius:'var(--r-full)', fontSize:10.5, fontWeight:700, background: isManager?'rgba(168,85,247,0.15)':'rgba(99,102,241,0.12)', color: isManager?'#c084fc':'#818cf8', letterSpacing:'0.05em', textTransform:'uppercase' }}>
               <span>{isManager?'👑':'👤'}</span> {isManager?'Manager':'Staff'}
             </div>
           </div>
-
           {/* Nav items */}
-          <nav style={{ padding:'6px 10px', flex:1, overflowY:'auto' }}>
+          <div className="oz-nav-items">
+            <div className="oz-nav-section">Menu</div>
             {allNav.map(n => (
               <button key={n.id} className={`oz-nav-item${view===n.id?' active':''}`}
                 onClick={()=>{ setView(n.id); setSidebarOpen(false); }}>
-                <span style={{ fontSize:15, width:20, textAlign:'center', flexShrink:0 }}>{n.icon}</span>
+                <span className="oz-nav-icon">{n.icon}</span>
                 <span style={{ flex:1 }}>{n.label}</span>
-                {n.managerOnly && <span style={{ fontSize:9, padding:'1px 5px', borderRadius:5, background:'rgba(168,85,247,0.25)', color:'#d8b4fe', fontWeight:700, letterSpacing:'0.04em' }}>MGR</span>}
+                {n.managerOnly && <span style={{ fontSize:9, padding:'1px 5px', borderRadius:4, background:'rgba(168,85,247,0.2)', color:'#c084fc', fontWeight:700, letterSpacing:'0.04em' }}>MGR</span>}
                 {n.count !== undefined && n.count > 0 && <span className="oz-nav-badge">{n.count}</span>}
               </button>
             ))}
-          </nav>
-
+          </div>
           {/* Sidebar footer */}
-          <div style={{ padding:'12px 14px', borderTop:'1px solid rgba(255,255,255,0.07)' }}>
-            <div style={{ fontSize:11, color:'#3d4468', marginBottom:8, textAlign:'center' }}>
+          <div className="oz-nav-footer">
+            <div style={{ fontSize:11, color:'#475569', marginBottom:8, textAlign:'center' }}>
               {clients.length} clients · {jobs.length} jobs
             </div>
-            <button onClick={logout} style={{ width:'100%', padding:'7px', background:'rgba(239,68,68,0.1)', border:'1px solid rgba(239,68,68,0.2)', borderRadius:8, color:'#f87171', fontSize:12, fontWeight:600, transition:'all 0.15s' }}
-              onMouseEnter={e=>e.currentTarget.style.background='rgba(239,68,68,0.18)'}
-              onMouseLeave={e=>e.currentTarget.style.background='rgba(239,68,68,0.1)'}>
+            <button onClick={logout} style={{ width:'100%', padding:'8px', background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.18)', borderRadius:'var(--r-md)', color:'#f87171', fontSize:12, fontWeight:600, cursor:'pointer', transition:'all 0.15s', fontFamily:'inherit' }}
+              onMouseEnter={e=>e.currentTarget.style.background='rgba(239,68,68,0.16)'}
+              onMouseLeave={e=>e.currentTarget.style.background='rgba(239,68,68,0.08)'}>
               Sign out
             </button>
           </div>
@@ -5037,18 +5203,18 @@ function App() {
           <header className="oz-topbar">
             <button className="oz-hamburger" onClick={()=>setSidebarOpen(s=>!s)}>☰</button>
             <div style={{ flex:1 }}>
-              <span style={{ fontSize:16, fontWeight:800, color:'#111827' }}>{PAGE_TITLES[view]||view}</span>
+              <span style={{ fontSize:16, fontWeight:700, color:'var(--ink-900)', letterSpacing:'-0.01em' }}>{PAGE_TITLES[view]||view}</span>
             </div>
             {/* User chip */}
             <div style={{ display:'flex', alignItems:'center', gap:10 }}>
               <LangToggle />
-              <div style={{ display:'flex', alignItems:'center', gap:7, padding:'5px 12px', background: isManager?'#f5f3ff':'#eef2ff', borderRadius:99, border:`1px solid ${isManager?'#ddd6fe':'#c7d2fe'}` }}>
+              <div style={{ display:'flex', alignItems:'center', gap:7, padding:'5px 12px', background: isManager?'rgba(168,85,247,0.08)':'rgba(99,102,241,0.08)', borderRadius:'var(--r-full)', border:`1px solid ${isManager?'rgba(168,85,247,0.2)':'rgba(99,102,241,0.2)'}` }}>
                 <span style={{ fontSize:13 }}>{isManager?'👑':'👤'}</span>
-                <span style={{ fontSize:12.5, fontWeight:600, color: isManager?'#7c3aed':'#4338ca' }}>{isManager ? t('Manager') : t('Staff')}</span>
+                <span style={{ fontSize:12.5, fontWeight:600, color: isManager?'#9333ea':'#4f46e5' }}>{isManager ? t('Manager') : t('Staff')}</span>
               </div>
-              <button onClick={logout} style={{ background:'none', border:'1.5px solid #cbd5e1', borderRadius:8, padding:'5px 12px', fontSize:12, fontWeight:600, color:'#1f2937', transition:'all 0.15s' }}
-                onMouseEnter={e=>{e.currentTarget.style.borderColor='#f87171';e.currentTarget.style.color='#ef4444';}}
-                onMouseLeave={e=>{e.currentTarget.style.borderColor='#e5e7eb';e.currentTarget.style.color='#9ca3af';}}>
+              <button onClick={logout} style={{ background:'none', border:'1.5px solid var(--ink-200)', borderRadius:'var(--r-md)', padding:'5px 12px', fontSize:12, fontWeight:600, color:'var(--ink-600)', transition:'all 0.15s', cursor:'pointer', fontFamily:'inherit' }}
+                onMouseEnter={e=>{e.currentTarget.style.borderColor='#fca5a5';e.currentTarget.style.color='var(--danger)';}}
+                onMouseLeave={e=>{e.currentTarget.style.borderColor='var(--ink-200)';e.currentTarget.style.color='var(--ink-600)';}}>
                 {t('Sign out')}
               </button>
             </div>
