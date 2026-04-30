@@ -38,23 +38,26 @@ function repairAndParseJSON(raw) {
 
 /* ── Shared Claude fetch (both Generate and Apply calls) ────────────────── */
 async function callClaude(body) {
+  // Always force non-streaming — /api/claude defaults to SSE which r.text()+JSON.parse() cannot handle
+  const safeBody = { ...body, _stream: false };
   let r;
   try {
     r = await fetch('/api/claude', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
+      body: JSON.stringify(safeBody),
     });
   } catch (networkErr) {
     // Pure network failure (timeout, connection refused, body too large for browser, etc.)
     // If the request included PDF/image blocks, retry without them as a fallback.
-    const hasBinaryBlocks = Array.isArray(body.messages?.[0]?.content) &&
-      body.messages[0].content.some(b => b.type === 'document' || b.type === 'image');
+    const hasBinaryBlocks = Array.isArray(safeBody.messages?.[0]?.content) &&
+      safeBody.messages[0].content.some(b => b.type === 'document' || b.type === 'image');
     if (hasBinaryBlocks) {
-      const textOnly = body.messages[0].content.find(b => b.type === 'text')?.text || '';
+      const textOnly = safeBody.messages[0].content.find(b => b.type === 'text')?.text || '';
       const fallbackBody = {
-        ...body,
+        ...safeBody,
         _beta: undefined,
+        _stream: false,
         messages: [{ role: 'user', content: textOnly + '\n\n（注：部分 PDF/图片因网络限制未能上传，以上为文字内容摘要）' }],
       };
       delete fallbackBody._beta;
