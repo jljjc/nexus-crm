@@ -321,7 +321,7 @@ const errorStyle = {
   borderRadius: 6, padding: '8px 10px', fontSize: 12, marginTop: 8,
 };
 
-function buildSnapshotPrompt(client, caseObj, emailContext, sessionDocs, driveContext) {
+function buildSnapshotPrompt(client, caseObj, emailContext, sessionDocs, driveContext, existingSnapshot) {
   const p = client?.profile || {};
   const s = caseObj || {};
 
@@ -360,8 +360,13 @@ function buildSnapshotPrompt(client, caseObj, emailContext, sessionDocs, driveCo
 
   const today = new Date().toLocaleDateString('zh-CN', { year:'numeric', month:'long', day:'numeric' });
 
+  const isUpdate = !!(existingSnapshot && existingSnapshot.trim().length > 100);
   return `你是澳洲移民留学咨询公司 Ozsky Perth 的 AI 助理。
-请根据以下所有资料，生成一份详细、专业的双语客户快照，供顾问接案前阅读。
+【语言要求】：请以中文为主要语言输出，英文作为辅助标注（如标题括号内）。
+${isUpdate ? `【更新模式】：客户已有旧版快照（见下方），请在旧版基础上更新，补充新信息，修正过时内容，保留仍然有效的信息。重点标注有变化的部分。
+旧版快照（仅供参考，以最新文件为准）：
+${existingSnapshot.slice(0, 3000)}
+---` : '【新建模式】：请根据以下所有资料，生成一份详细、专业的客户快照，供顾问接案前阅读。'}
 如某部分信息不足，写"资料待补充"——不要留空，不要虚构信息。
 重要提示：
 • 如 Google Drive 文件包含 PDF 附件，请仔细阅读其全部内容，提取护照号码、护照有效期、出生日期、国籍、地址等个人信息。
@@ -654,7 +659,7 @@ function SnapshotSection({
   const [step, setStep]           = useState('');
   const [error, setError]         = useState('');
   const [copied, setCopied]       = useState(false);
-  const [applyBusy, setApplyBusy] = useState(false);
+  const [applyBusy, setApplyBusy] = useState(false); // eslint-disable-line no-unused-vars
   const [overwrite] = useState(true); // always overwrite when applying snapshot
   const [applyMsg, setApplyMsg]   = useState('');
   const [driveStatus, setDriveStatus] = useState(null); // {found, folderName, fileCount} | null
@@ -822,7 +827,8 @@ function SnapshotSection({
 
     setStep('🤖 生成快照...');
     try {
-      const prompt = buildSnapshotPrompt(selectedClient, selectedCase, emailContext, sessionDocs, driveContext);
+      const existingSnap = selectedClient?.profile?.snapshot || '';
+      const prompt = buildSnapshotPrompt(selectedClient, selectedCase, emailContext, sessionDocs, driveContext, existingSnap);
       // Vercel body limit ~4.5MB — cap total base64 PDF payload to ~3MB to stay safe
       const MAX_PDF_BYTES = 3 * 1024 * 1024;
       let totalPdfBytes = 0;
@@ -924,12 +930,15 @@ function SnapshotSection({
       if (!snapshotResult) throw new Error('AI 返回内容为空');
       setSnapshot(snapshotResult);
       onSaveSnapshot?.(snapshotResult);
+      // Auto-apply snapshot to client profile immediately after generation
+      setStep('💾 应用到档案...');
+      await autoApply(snapshotResult);
     } catch (e) {
       setError(e.message);
     } finally {
       setLoading(false); setStep('');
     }
-  }, [selectedClient, selectedCase, gmail, sessionDocs, setSnapshot, onSaveSnapshot]);
+  }, [selectedClient, selectedCase, gmail, sessionDocs, setSnapshot, onSaveSnapshot]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCopy = () => {
     navigator.clipboard.writeText(snapshot).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
@@ -947,8 +956,8 @@ function SnapshotSection({
     if (snapshot) onAddNote?.(`[AI 快照 ${new Date().toLocaleDateString('zh-CN')}]\n${snapshot.slice(0, 2000)}`);
   };
 
-  const handleApply = async () => {
-    if (!snapshot) return;
+  const autoApply = async (snapshotText) => {
+    if (!snapshotText) return;
     setApplyBusy(true);
     try {
       const _applyBody = {
@@ -1010,7 +1019,7 @@ function SnapshotSection({
 4. nextSteps: 提取下步行动计划，每条一个字符串
 5. serviceAgreement.totalFee: 提取服务费金额（如 "AUD 3,080"）
 
-快照文本：\n${snapshot}` }]
+快照文本：\n${snapshotText}` }]
         };
       let r;
       try {
@@ -1097,11 +1106,7 @@ function SnapshotSection({
       <div style={{ display: 'flex', gap: 8 }}>
         <button onClick={generate} disabled={loading || !selectedClient}
           style={{ ...btnStyle(C.blue, loading || !selectedClient), padding: '11px 20px', fontSize: 14, flex: 1 }}>
-          {loading ? `⏳ ${step}` : '✨ 生成客户快照'}
-        </button>
-        <button onClick={handleApply} disabled={!snapshot || applyBusy}
-          style={{ ...btnStyle(C.green, !snapshot || applyBusy), padding: '11px 16px', fontSize: 13, whiteSpace: 'nowrap' }}>
-          {applyBusy ? '⏳...' : '⬆️ 应用到档案'}
+          {loading ? `⏳ ${step}` : (selectedClient?.profile?.snapshot ? '🔄 更新客户快照' : '✨ 生成客户快照')}
         </button>
       </div>
 
@@ -1159,7 +1164,7 @@ export default function SmartAI({ selectedClient, selectedCase, onImportClient, 
   // SmartAI always reads Gmail session from sessionStorage via readSession() above.
 
   // Clear snapshot and Drive status when the selected client changes
-  useEffect(() => { setSnapshot(''); }, [selectedClient?.id]);
+  useEffect(() => { setSnapshot(selectedClient?.profile?.snapshot || ''); }, [selectedClient?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const updateGmail = useCallback((session) => {
     if (!session) clearSession();

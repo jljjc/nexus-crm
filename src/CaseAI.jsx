@@ -278,6 +278,12 @@ export default function CaseAI({ selectedClient, selectedCase, onSaveCase }) {
   useEffect(() => {
     setProjectId(selectedCase?.manusProjectId || null);
     setProjectUrl(selectedCase?.manusProjectUrl || null);
+    // Restore previously generated brief from case data
+    if (selectedCase?.aiBrief) {
+      setBrief(selectedCase.aiBrief);
+    } else {
+      setBrief('');
+    }
   }, [selectedCase?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-scroll chat
@@ -524,6 +530,8 @@ ${briefText.slice(0, 6000)}`,
         ...selectedCase,
         status:       ex.status?.trim()    || selectedCase.status,
         snapshot:     ex.snapshot?.trim()  || selectedCase.snapshot,
+        aiBrief:      briefText,
+        aiBriefDate:  dateStr,
         caseTimeline: [...existingTimeline, ...newEntries],
         docs:         mergedDocs,
         keyIssues:    ex.keyIssues?.length  ? ex.keyIssues  : (selectedCase.keyIssues  || []),
@@ -691,6 +699,11 @@ Question: ${q}`,
           {/* Brief output */}
           {brief && (
             <div style={{ position: 'relative' }}>
+              {selectedCase?.aiBriefDate && !loading && (
+                <div style={{ fontSize: 11, color: '#6366f1', marginBottom: 4, fontWeight: 600 }}>
+                  📋 上次生成：{selectedCase.aiBriefDate}
+                </div>
+              )}
               <textarea readOnly value={brief}
                 style={{
                   width: '100%', minHeight: 300, fontSize: 12, fontFamily: 'monospace',

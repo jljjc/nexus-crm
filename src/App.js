@@ -119,7 +119,7 @@ const LANG_ZH = {
 };
 
 // Language context – stored in sessionStorage so it persists across pages
-const getLang = () => sessionStorage.getItem('ozsky_lang') || 'en';
+const getLang = () => sessionStorage.getItem('ozsky_lang') || 'zh';
 const setLang  = (l) => { sessionStorage.setItem('ozsky_lang', l); window.dispatchEvent(new Event('ozsky-lang-change')); };
 
 // Hook: returns a translation function and current lang
@@ -132,6 +132,53 @@ function useLang() {
   }, []);
   const t = (key) => lang === 'zh' ? (LANG_ZH[key] ?? key) : key;
   return { lang, t };
+}
+
+/* ─── SMART CASE TIMELINE COMPONENT ──────────────────────────────────────── */
+function SmartCaseTimeline({ events = [], maxHeight = 180 }) {
+  // Separate: "current" events (In Progress/Urgent/Pending) vs "completed" events
+  const current = events.filter(e => ['In Progress','Urgent','Pending'].includes(e.status));
+  const completed = events.filter(e => !['In Progress','Urgent','Pending'].includes(e.status));
+  const colFor = (s) => s==='Completed'?'#16a34a':s==='Urgent'?'#d97706':s==='Failed'?'#dc2626':s==='In Progress'?'#6366f1':'#6366f1';
+  const EventRow = ({ ev }) => {
+    const col = colFor(ev.status);
+    return (
+      <div style={{ display:'flex', gap:10, marginBottom:7, alignItems:'flex-start' }}>
+        <div style={{ width:9, height:9, borderRadius:'50%', background:col, border:'2px solid #fff', boxShadow:`0 0 0 2px ${col}40`, flexShrink:0, marginTop:3 }} />
+        <div style={{ flex:1, background:'#fff', borderRadius:6, padding:'6px 10px', border:'1px solid #e5e7eb' }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:4 }}>
+            <span style={{ fontSize:12, fontWeight:600, color:'#111827', flex:1 }}>{ev.event}</span>
+            <span style={{ fontSize:10, fontWeight:700, color:col, background:col+'18', padding:'1px 6px', borderRadius:8, whiteSpace:'nowrap' }}>{ev.status}</span>
+          </div>
+          <div style={{ fontSize:11, color:'#6b7280', marginTop:1 }}>{ev.date}</div>
+        </div>
+      </div>
+    );
+  };
+  if (events.length === 0) return null;
+  return (
+    <div style={{ maxHeight, overflowY:'auto' }}>
+      {current.length > 0 && (
+        <div style={{ marginBottom:8 }}>
+          <div style={{ fontSize:10, color:'#6366f1', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:5 }}>🔄 进行中</div>
+          {current.map((ev,i) => <EventRow key={i} ev={ev} />)}
+        </div>
+      )}
+      {completed.length > 0 && (
+        <div>
+          {current.length > 0 && <div style={{ fontSize:10, color:'#9ca3af', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:5, marginTop:4 }}>✅ 已完成</div>}
+          {/* For completed events, show only date + event name (compact) */}
+          {completed.slice().reverse().map((ev,i) => (
+            <div key={i} style={{ display:'flex', gap:8, marginBottom:5, alignItems:'center' }}>
+              <div style={{ width:6, height:6, borderRadius:'50%', background:'#d1d5db', flexShrink:0 }} />
+              <span style={{ fontSize:11, color:'#6b7280', minWidth:82 }}>{ev.date}</span>
+              <span style={{ fontSize:11, color:'#374151', flex:1 }}>{ev.event}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 /* ─── STYLES ───────────────────────────────────────────────────────────────── */
@@ -1311,7 +1358,7 @@ function ClientDetailModal({ client, jobs, setJobs, team, onClose, onEdit, onSav
 
 
   // Generate snapshot state (Profile Tab)
-  const [generatingSnapshot, setGeneratingSnapshot] = useState(false);
+  // snapshot generation moved to SmartAI tab
 
   // Note quick-add state
   const [noteImportText, setNoteImportText] = useState('');
@@ -1412,195 +1459,8 @@ ${noteImportText.slice(0,4000)}`
   };
   const p                           = client.profile || {};
 
-  /* ── Generate client snapshot (.txt) ────────────────── */
-  const generateSnapshot = async () => {
-    setGeneratingSnapshot(true);
-    try {
-      const today = new Date().toLocaleDateString('zh-CN', { year:'numeric', month:'long', day:'numeric' });
-      const p2 = client.profile || {};
-
-      // ── Send only the most critical immigration fields ──────────────────
-      // Rationale: fewer tokens in = Claude responds faster = avoids timeout.
-      // Excluded: passportNo/chinaId (sensitive), auAddress, serviceAgreement,
-      //           marriage photos, full sponsor details, old notes.
-      const coreData = {
-        // Identity
-        name: client.name,
-        nameChinese: p2.nameChinese || '',
-        dob: p2.dob || '',
-        sex: p2.sex || '',
-        nationality: client.nationality || '',
-        email: client.email || '',
-        phone: client.phone || '',
-        maritalStatus: p2.maritalStatus || '',
-        consultant: p2.consultant || 'Liang Jiang',
-        // Immigration goal & current situation
-        visaTarget: p2.visaTarget || '',
-        currentStatus: p2.currentStatus || '',
-        nextSteps: (p2.nextSteps || []).slice(0, 4),
-        keyIssues: (p2.keyIssues || []).slice(0, 4),
-        // Visa history — most recent 5 only
-        visaHistory: (p2.visaHistory || []).slice(0, 5),
-        // Skills assessment — all entries
-        skillsAssessments: p2.skillsAssessments || [],
-        // Timeline — most recent 6 events only
-        caseTimeline: (p2.caseTimeline || []).slice(-6),
-        // Sponsor — summary only if exists
-        sponsor: p2.sponsor ? {
-          name: p2.sponsor.name,
-          relationship: p2.sponsor.relationship,
-          visaStatus: p2.sponsor.visaStatus,
-        } : null,
-        // Notes — last 3 AI/important notes only (skip email imports)
-        recentNotes: (client.notes || [])
-          .filter(n => {
-            const t = (typeof n === 'string' ? n : n.text || '');
-            return !t.startsWith('📧 Email Import') && t.trim().length > 0;
-          })
-          .slice(0, 3)
-          .map(n => typeof n === 'string' ? n.slice(0, 200) : (n.text || '').slice(0, 200)),
-      };
-
-      const res = await fetch('/api/claude', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-haiku-4-5-20251001',
-          max_tokens: 1000,
-          messages: [{ role: 'user', content:
-`You are an Australian immigration consultant assistant for Ozsky Perth.
-Generate a concise bilingual (Chinese/English) client snapshot. Keep each section to 3-5 lines max.
-Skip any section where data is entirely absent — do NOT write placeholder lines.
-Output ONLY the document text. No preamble, no markdown fences.
-
-Client Data:
-${JSON.stringify(coreData, null, 1)}
-
-Date: ${today} | Agent: ${coreData.consultant}
-
-FORMAT (use exactly — ═══ borders, ━━━ dividers):
-═══════════════════════════════════════════════════
-  客户档案快照 | CLIENT SNAPSHOT  ${client.name}
-  生成日期：${today} | 经办：${coreData.consultant}
-═══════════════════════════════════════════════════
-
-━━━ 一、申请人基本信息 | APPLICANT ━━━
-姓名 | Name: [name] [nameChinese]
-国籍 | Nationality:  DOB:  性别:  婚姻:
-联系 | Contact: [email] [phone]
-
-━━━ 二、签证目标 & 当前状态 | VISA STATUS ━━━
-签证目标 | Target: [visaTarget]
-当前状态 | Status: [currentStatus + icon ✅🔄⏳❌]
-下步行动 | Next Steps: [numbered list, max 4]
-关键问题 | Key Issues: [max 4, with priority]
-
-━━━ 三、签证历史 | VISA HISTORY ━━━
-[Each visa: Subclass | 递签: date | 结果: status + icon]
-
-━━━ 四、职业评估 | SKILLS ASSESSMENT ━━━
-[Body | Occupation | Result | Date — or 暂无记录]
-
-━━━ 五、时间线 | TIMELINE (最近6条) ━━━
-[YYYY-MM-DD | Event — Status]
-
-[Only include 担保人 section if sponsor data exists:]
-━━━ 六、担保人 | SPONSOR ━━━
-[Name | Relationship | Visa Status]
-
-[Only include 备注 section if notes exist:]
-━━━ 七、备注 | NOTES ━━━
-[Key points from recent notes]
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-经办：${coreData.consultant} | Ozsky Perth Migration
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━` }]
-        }),
-      });
-
-      if (!res.ok && !res.headers.get('content-type')?.includes('text/event-stream')) {
-        const raw = await res.text();
-        throw new Error(`服务器错误 (${res.status})：${raw.slice(0, 120)}`);
-      }
-
-      // Read streaming SSE response
-      let snapshotText = '';
-      const contentType = res.headers.get('content-type') || '';
-      if (contentType.includes('text/event-stream')) {
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder();
-        let buf = '';
-        let accumulated = '';
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buf += decoder.decode(value, { stream: true });
-          const lines = buf.split('\n');
-          buf = lines.pop();
-          for (const line of lines) {
-            if (!line.startsWith('data: ')) continue;
-            const raw = line.slice(6).trim();
-            if (!raw) continue;
-            try {
-              const ev = JSON.parse(raw);
-              if (ev.type === 'error') throw new Error(ev.message || '生成失败');
-              if (ev.type === 'delta') accumulated += ev.text;
-              if (ev.type === 'done') snapshotText = ev.text;
-            } catch (pe) { if (pe.message === '生成失败') throw pe; }
-          }
-        }
-        if (!snapshotText && accumulated) snapshotText = accumulated;
-      } else {
-        const rawText = await res.text();
-        let d;
-        try { d = JSON.parse(rawText); }
-        catch { throw new Error(`服务器返回非 JSON 响应 (${res.status})，请稍后重试`); }
-        if (!res.ok) throw new Error(d?.error?.message || d?.error || `请求失败 (${res.status})`);
-        snapshotText = (d.content || []).map(c => c?.text || '').join('').trim();
-      }
-      if (!snapshotText) throw new Error('AI 返回内容为空');
-
-      // Save snapshot to client profile + add structured note to Notes tab
-      const dateStr = new Date().toISOString().slice(0, 10);
-      const snapshotNote = {
-        id: 'n' + Math.random().toString(36).slice(2, 9),
-        text: [
-          `📄 客户快照 — ${client.name}`,
-          p2.visaTarget  ? `签证目标: ${p2.visaTarget}` : '',
-          p2.currentStatus ? `当前状态: ${p2.currentStatus}` : '',
-          p2.nextSteps?.length ? `下步行动: ${Array.isArray(p2.nextSteps) ? p2.nextSteps.join('; ') : p2.nextSteps}` : '',
-          `生成日期: ${dateStr}`,
-        ].filter(Boolean).join('\n'),
-        createdAt: new Date().toISOString(),
-        type: 'snapshot',
-      };
-      const updatedNotes = [snapshotNote, ...normalizeNotes(client.notes)];
-      await onSaveProfile({
-        ...client,
-        notes: updatedNotes,
-        profile: { ...(client.profile || {}), snapshot: snapshotText, snapshotDate: dateStr },
-      });
-
-      // Download as .txt AND copy to clipboard for easy paste into Get笔记
-      const safeName = (client.name || 'client').replace(/[^a-zA-Z0-9\u4e00-\u9fa5_\- ]/g, '').trim();
-      const blob = new Blob([snapshotText], { type: 'text/plain;charset=utf-8' });
-      const url  = URL.createObjectURL(blob);
-      const a    = document.createElement('a');
-      a.href     = url;
-      a.download = `${safeName}_Client_Snapshot_${dateStr}.txt`;
-      a.click();
-      URL.revokeObjectURL(url);
-
-      // Also copy full text to clipboard so user can paste into Get笔记 (biji.com)
-      navigator.clipboard.writeText(snapshotText).catch(() => {});
-    } catch(err) {
-      window.alert('快照生成失败: ' + err.message);
-    } finally {
-      setGeneratingSnapshot(false);
-    }
-  };
-
-  const Field = ({ label, value, warn }) => (
+  // generateSnapshot moved to SmartAI tab
+const Field = ({ label, value, warn }) => (
     <div style={{ background:'#f9fafb', borderRadius:8, padding:'9px 13px', border: warn ? '1px solid #f59e0b60' : '1px solid #e5e7eb' }}>
       <div style={{ fontSize:10, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:3 }}>{label}</div>
       <div style={{ fontSize:13, color: warn ? '#d97706' : '#111827', fontWeight:500, wordBreak:'break-word' }}>{value || '—'}</div>
@@ -1646,11 +1506,10 @@ FORMAT (use exactly — ═══ borders, ━━━ dividers):
               <StatusBadge status={client.status} />
               <button onClick={onEdit} style={{ background:'rgba(255,255,255,0.15)', border:'1px solid rgba(255,255,255,0.3)', borderRadius:8, padding:'5px 12px', color:'#fff', fontSize:11, fontWeight:600, cursor:'pointer' }}>✏️ {t('Edit Profile')}</button>
               <button
-                onClick={generateSnapshot}
-                disabled={generatingSnapshot}
-                style={{ background: generatingSnapshot ? 'rgba(255,255,255,0.08)' : 'rgba(99,102,241,0.85)', border:'1px solid rgba(255,255,255,0.3)', borderRadius:8, padding:'5px 12px', color:'#fff', fontSize:11, fontWeight:600, cursor: generatingSnapshot ? 'default' : 'pointer', whiteSpace:'nowrap' }}
+                onClick={() => setTab('ai')}
+                style={{ background:'rgba(99,102,241,0.85)', border:'1px solid rgba(255,255,255,0.3)', borderRadius:8, padding:'5px 12px', color:'#fff', fontSize:11, fontWeight:600, cursor:'pointer', whiteSpace:'nowrap' }}
               >
-                {generatingSnapshot ? '⏳ 生成中...' : '📥 生成快照 .txt'}
+                ✨ AI 快照 →
               </button>
             </div>
           </div>
@@ -1874,25 +1733,8 @@ ${rawText.slice(0,5000)}` }]
             </div>
             {(viewJob.caseTimeline||[]).length > 0 && (
               <div style={{ borderTop:'1.5px solid #e2e8f0', paddingTop:14, marginBottom:14 }}>
-                <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:10 }}>大事记</div>
-                <div style={{ position:'relative', paddingLeft:18, maxHeight:160, overflowY:'auto' }}>
-                  <div style={{ position:'absolute', left:5, top:6, bottom:6, width:2, background:'linear-gradient(to bottom,#6366f1,#e2e8f0)', borderRadius:2 }} />
-                  {(viewJob.caseTimeline||[]).map((ev,i) => {
-                    const col=ev.status==='Completed'?'#16a34a':ev.status==='Urgent'?'#d97706':ev.status==='Failed'?'#dc2626':'#6366f1';
-                    return (
-                      <div key={i} style={{ display:'flex', gap:12, marginBottom:8, alignItems:'flex-start' }}>
-                        <div style={{ width:10, height:10, borderRadius:'50%', background:col, border:'2px solid #fff', flexShrink:0, marginTop:3 }} />
-                        <div style={{ flex:1, background:'#fff', borderRadius:7, padding:'7px 11px', border:'1px solid #e5e7eb' }}>
-                          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                            <span style={{ fontSize:12, fontWeight:600, color:'#111827' }}>{ev.event}</span>
-                            <span style={{ fontSize:10, fontWeight:700, color:col, background:col+'15', padding:'2px 7px', borderRadius:10 }}>{ev.status}</span>
-                          </div>
-                          <div style={{ fontSize:11, color:'#6b7280', marginTop:2 }}>{ev.date}</div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:8 }}>大事记 <span style={{ color:'#9ca3af', fontWeight:400, fontSize:10 }}>Case Timeline</span></div>
+                <SmartCaseTimeline events={viewJob.caseTimeline||[]} maxHeight={160} />
               </div>
             )}
             {(viewJob.keyIssues||[]).length > 0 && (
@@ -2954,25 +2796,8 @@ ${rawText.slice(0,5000)}` }]
         {/* ── CASE TIMELINE ───────────────────────── */}
         {(viewJob.caseTimeline||[]).length > 0 && (
         <div style={{ borderTop:'1.5px solid #e2e8f0', paddingTop:14, marginBottom:14 }}>
-        <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:10 }}>大事记</div>
-        <div style={{ position:'relative', paddingLeft:18, maxHeight:180, overflowY:'auto' }}>
-        <div style={{ position:'absolute', left:5, top:6, bottom:6, width:2, background:'linear-gradient(to bottom,#6366f1,#e2e8f0)', borderRadius:2 }} />
-        {(viewJob.caseTimeline||[]).map((ev,i) => {
-        const col = ev.status==='Completed'?'#16a34a':ev.status==='Urgent'?'#d97706':ev.status==='Failed'?'#dc2626':'#6366f1';
-        return (
-        <div key={i} style={{ display:'flex', gap:12, marginBottom:8, alignItems:'flex-start' }}>
-        <div style={{ width:10, height:10, borderRadius:'50%', background:col, border:'2px solid #fff', boxShadow:`0 0 0 2px ${col}40`, flexShrink:0, marginTop:3 }} />
-        <div style={{ flex:1, background:'#fff', borderRadius:7, padding:'7px 11px', border:'1px solid #e5e7eb' }}>
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-        <span style={{ fontSize:12, fontWeight:600, color:'#111827' }}>{ev.event}</span>
-        <span style={{ fontSize:10, fontWeight:700, color:col, background:col+'15', padding:'2px 7px', borderRadius:10 }}>{ev.status}</span>
-        </div>
-        <div style={{ fontSize:11, color:'#6b7280', marginTop:2 }}>{ev.date}</div>
-        </div>
-        </div>
-        );
-        })}
-        </div>
+        <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:8 }}>大事记 <span style={{ color:'#9ca3af', fontWeight:400, fontSize:10 }}>Case Timeline</span></div>
+        <SmartCaseTimeline events={viewJob.caseTimeline||[]} maxHeight={180} />
         </div>
         )}
 
@@ -3375,25 +3200,8 @@ ${rawText.slice(0,5000)}` }]
       {/* ── CASE TIMELINE ───────────────────────── */}
       {(viewJob.caseTimeline||[]).length > 0 && (
       <div style={{ borderTop:'1.5px solid #e2e8f0', paddingTop:14, marginBottom:14 }}>
-      <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:10 }}>大事记</div>
-      <div style={{ position:'relative', paddingLeft:18, maxHeight:180, overflowY:'auto' }}>
-      <div style={{ position:'absolute', left:5, top:6, bottom:6, width:2, background:'linear-gradient(to bottom,#6366f1,#e2e8f0)', borderRadius:2 }} />
-      {(viewJob.caseTimeline||[]).map((ev,i) => {
-      const col = ev.status==='Completed'?'#16a34a':ev.status==='Urgent'?'#d97706':ev.status==='Failed'?'#dc2626':'#6366f1';
-      return (
-      <div key={i} style={{ display:'flex', gap:12, marginBottom:8, alignItems:'flex-start' }}>
-      <div style={{ width:10, height:10, borderRadius:'50%', background:col, border:'2px solid #fff', boxShadow:`0 0 0 2px ${col}40`, flexShrink:0, marginTop:3 }} />
-      <div style={{ flex:1, background:'#fff', borderRadius:7, padding:'7px 11px', border:'1px solid #e5e7eb' }}>
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-      <span style={{ fontSize:12, fontWeight:600, color:'#111827' }}>{ev.event}</span>
-      <span style={{ fontSize:10, fontWeight:700, color:col, background:col+'15', padding:'2px 7px', borderRadius:10 }}>{ev.status}</span>
-      </div>
-      <div style={{ fontSize:11, color:'#6b7280', marginTop:2 }}>{ev.date}</div>
-      </div>
-      </div>
-      );
-      })}
-      </div>
+      <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:8 }}>大事记 <span style={{ color:'#9ca3af', fontWeight:400, fontSize:10 }}>Case Timeline</span></div>
+      <SmartCaseTimeline events={viewJob.caseTimeline||[]} maxHeight={180} />
       </div>
       )}
 
@@ -3804,25 +3612,8 @@ function Team({ team, jobs, clients, setTeam, setJobs: setJobsOuter }) {
       {/* ── CASE TIMELINE ───────────────────────── */}
       {(viewJob.caseTimeline||[]).length > 0 && (
       <div style={{ borderTop:'1.5px solid #e2e8f0', paddingTop:14, marginBottom:14 }}>
-      <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:10 }}>大事记</div>
-      <div style={{ position:'relative', paddingLeft:18, maxHeight:180, overflowY:'auto' }}>
-      <div style={{ position:'absolute', left:5, top:6, bottom:6, width:2, background:'linear-gradient(to bottom,#6366f1,#e2e8f0)', borderRadius:2 }} />
-      {(viewJob.caseTimeline||[]).map((ev,i) => {
-      const col = ev.status==='Completed'?'#16a34a':ev.status==='Urgent'?'#d97706':ev.status==='Failed'?'#dc2626':'#6366f1';
-      return (
-      <div key={i} style={{ display:'flex', gap:12, marginBottom:8, alignItems:'flex-start' }}>
-      <div style={{ width:10, height:10, borderRadius:'50%', background:col, border:'2px solid #fff', boxShadow:`0 0 0 2px ${col}40`, flexShrink:0, marginTop:3 }} />
-      <div style={{ flex:1, background:'#fff', borderRadius:7, padding:'7px 11px', border:'1px solid #e5e7eb' }}>
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-      <span style={{ fontSize:12, fontWeight:600, color:'#111827' }}>{ev.event}</span>
-      <span style={{ fontSize:10, fontWeight:700, color:col, background:col+'15', padding:'2px 7px', borderRadius:10 }}>{ev.status}</span>
-      </div>
-      <div style={{ fontSize:11, color:'#6b7280', marginTop:2 }}>{ev.date}</div>
-      </div>
-      </div>
-      );
-      })}
-      </div>
+      <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:8 }}>大事记 <span style={{ color:'#9ca3af', fontWeight:400, fontSize:10 }}>Case Timeline</span></div>
+      <SmartCaseTimeline events={viewJob.caseTimeline||[]} maxHeight={180} />
       </div>
       )}
 
