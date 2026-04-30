@@ -338,30 +338,39 @@ export default function CaseAI({ selectedClient, selectedCase, onSaveCase }) {
       setPreviousCase({ ...selectedCase });
 
       const data = await callClaude({
-        model: 'claude-haiku-4-5-20251001', max_tokens: 800,
+        model: 'claude-haiku-4-5-20251001', max_tokens: 1200,
         messages: [{
           role: 'user',
-          content: `从以下案件简报提取信息，仅返回一个纯 JSON 对象（不含 markdown 代码块、注释或其他文字）。只填写找到的字段，找不到的用空字符串或空数组。
+          content: `Extract information from the case brief below and return ONLY a single valid JSON object.
 
+STRICT RULES:
+- Output ONLY the JSON object, nothing else — no markdown fences, no comments, no explanation
+- Use double quotes for all keys and string values
+- No trailing commas
+- No JavaScript comments (// or /* */)
+- All brackets must be properly closed
+- If a field is not found, use empty string "" or empty array []
+
+JSON schema:
 {
   "status": "",
   "snapshot": "",
-  "caseTimeline": [{ "date": "", "event": "", "status": "Completed" }],
+  "caseTimeline": [{ "date": "YYYY-MM-DD", "event": "", "status": "Completed" }],
   "docs": { "Document Name": true },
   "keyIssues": [{ "item": "", "priority": "High" }],
   "nextSteps": [""]
 }
 
-规则：
-1. status: 英文，如 "In Progress" / "Awaiting Decision"
-2. snapshot: 一句话案件摘要（中文，不超过50字）
-3. caseTimeline: status 用 Completed/In Progress/Pending/Urgent；最多保留10条最近的事件
-4. docs: true = 已收到，false = 待收集
-5. keyIssues: priority 用 High/Medium/Low；最多5条
-6. nextSteps: 每条一个字符串；最多5条
-重要：必须输出完整的合法 JSON，确保所有括号闭合。
+Field rules:
+1. status: English only, e.g. "In Progress" / "Awaiting Decision" / "Completed"
+2. snapshot: one sentence summary in Chinese, max 50 characters
+3. caseTimeline: status must be Completed/In Progress/Pending/Urgent; max 10 most recent entries
+4. docs: true = received, false = pending
+5. keyIssues: priority must be High/Medium/Low; max 5 items
+6. nextSteps: one string per step; max 5 items
 
-简报文本：\n${briefText.slice(0, 6000)}`,
+Case brief:
+${briefText.slice(0, 6000)}`,
         }],
       });
 
@@ -390,7 +399,13 @@ export default function CaseAI({ selectedClient, selectedCase, onSaveCase }) {
         return start !== -1 ? text.slice(start) : null;
       })();
       if (!jsonStr) throw new Error(`无法从 AI 响应中提取 JSON。原始响应：${text.slice(0, 200)}`);
-      const ex = repairAndParseJSON(jsonStr);
+      // Pre-process: strip JS-style comments and trailing commas before parsing
+      // This handles cases where the AI adds // comments or /* */ blocks inside the JSON
+      const cleanedJson = jsonStr
+        .replace(/\/\/[^\n]*/g, '')          // strip // line comments
+        .replace(/\/\*[\s\S]*?\*\//g, '')    // strip /* block comments */
+        .replace(/,\s*([}\]])/g, '$1');       // strip trailing commas
+      const ex = repairAndParseJSON(cleanedJson);
 
       // Merge caseTimeline — append only, dedup by trim+lowercase date AND event
       const existingTimeline = selectedCase.caseTimeline || [];
