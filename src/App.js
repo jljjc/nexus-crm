@@ -649,6 +649,18 @@ const JOB_TYPES = [
 ];
 const PRIORITIES = ['Low', 'Medium', 'High', 'Urgent'];
 const CLIENT_TYPES = ['Student', 'Visa', 'Migration', 'Multiple'];
+
+const RELATION_TYPES = [
+  { value: 'primary',    label: '主申请人',  emoji: '👑' },
+  { value: 'secondary',  label: '副申请人',  emoji: '👤' },
+  { value: 'spouse',     label: '配偶',      emoji: '💑' },
+  { value: 'child',      label: '子女',      emoji: '👧' },
+  { value: 'parent',     label: '父母',      emoji: '👨‍👩‍👦' },
+  { value: 'guardian',   label: '监护人',    emoji: '🛡️' },
+  { value: 'employer',   label: '担保雇主',  emoji: '🏢' },
+  { value: 'dependent',  label: '附属申请人', emoji: '🔗' },
+];
+
 const CLIENT_STATUSES = ['Active', 'Pending', 'Completed', 'Inactive'];
 
 const STATUS_STYLES = {
@@ -1387,10 +1399,148 @@ function Dashboard({ clients, jobs, team, onGoTo, setJobsMemberFilter, setJobsSt
 
 
 /* ─── CLIENT DETAIL MODAL (tabbed + AI import) ────────────────────────────── */
-function ClientDetailModal({ client, jobs, setJobs, team, onClose, onEdit, onSaveProfile }) {
+
+/* ─── LINKED CLIENTS SECTION ─────────────────────────────────────────────────── */
+function LinkedClientsSection({ client, allClients, onSaveProfile }) {
+  const [showAdd, setShowAdd] = useState(false);
+  const [search, setSearch] = useState('');
+  const [selectedId, setSelectedId] = useState('');
+  const [relation, setRelation] = useState('secondary');
+
+  const linked = (client.linkedClients || []).map(lc => ({
+    ...lc,
+    clientData: allClients.find(c => c.id === lc.clientId),
+  })).filter(lc => lc.clientData);
+
+  const addLink = () => {
+    if (!selectedId || !relation) return;
+    const existing = (client.linkedClients || []);
+    if (existing.find(lc => lc.clientId === selectedId)) return;
+    const updated = [...existing, { clientId: selectedId, relation, addedAt: new Date().toISOString() }];
+    onSaveProfile({ ...client, linkedClients: updated });
+    // Also add reverse link on the other client
+    const other = allClients.find(c => c.id === selectedId);
+    if (other) {
+      const reverseRelation = relation === 'primary' ? 'secondary' : relation === 'secondary' ? 'primary' : relation;
+      const otherLinked = (other.linkedClients || []).filter(lc => lc.clientId !== client.id);
+      onSaveProfile({ ...other, linkedClients: [...otherLinked, { clientId: client.id, relation: reverseRelation, addedAt: new Date().toISOString() }] });
+    }
+    setShowAdd(false);
+    setSearch('');
+    setSelectedId('');
+  };
+
+  const removeLink = (clientId) => {
+    const updated = (client.linkedClients || []).filter(lc => lc.clientId !== clientId);
+    onSaveProfile({ ...client, linkedClients: updated });
+  };
+
+  const searchResults = search.length >= 1
+    ? allClients.filter(c =>
+        c.id !== client.id &&
+        !(client.linkedClients || []).find(lc => lc.clientId === c.id) &&
+        (c.name.toLowerCase().includes(search.toLowerCase()) || c.email?.toLowerCase().includes(search.toLowerCase()))
+      ).slice(0, 6)
+    : [];
+
+  const getRelLabel = (val) => RELATION_TYPES.find(r => r.value === val) || { label: val, emoji: '🔗' };
+
+  return (
+    <div style={{ marginTop:20, borderTop:'1.5px solid #e2e8f0', paddingTop:16 }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
+        <span style={{ fontSize:12, fontWeight:700, color:'#374151', textTransform:'uppercase', letterSpacing:'0.07em' }}>
+          🔗 关联客户 {linked.length > 0 && <span style={{ background:'#6366f1', color:'#fff', borderRadius:10, padding:'1px 7px', fontSize:11, marginLeft:4 }}>{linked.length}</span>}
+        </span>
+        <button
+          onClick={() => setShowAdd(s => !s)}
+          style={{ background: showAdd ? '#e0e7ff' : '#f1f5f9', border:'1px solid #e2e8f0', borderRadius:7, padding:'4px 10px', fontSize:11, color:'#4f46e5', cursor:'pointer', fontWeight:600 }}
+        >
+          {showAdd ? '✕ 取消' : '+ 添加关联'}
+        </button>
+      </div>
+
+      {/* Add link form */}
+      {showAdd && (
+        <div style={{ background:'#f8fafc', border:'1px solid #e2e8f0', borderRadius:10, padding:12, marginBottom:12 }}>
+          <div style={{ display:'flex', gap:8, marginBottom:8 }}>
+            <div style={{ flex:1, position:'relative' }}>
+              <input
+                value={search}
+                onChange={e => { setSearch(e.target.value); setSelectedId(''); }}
+                placeholder="搜索客户姓名或邮箱..."
+                style={{ width:'100%', padding:'7px 10px', border:'1.5px solid #d1d5db', borderRadius:7, fontSize:12, outline:'none', boxSizing:'border-box' }}
+              />
+              {searchResults.length > 0 && (
+                <div style={{ position:'absolute', top:'100%', left:0, right:0, background:'#fff', border:'1px solid #e2e8f0', borderRadius:8, boxShadow:'0 4px 16px rgba(0,0,0,0.12)', zIndex:100, maxHeight:180, overflowY:'auto' }}>
+                  {searchResults.map(c => (
+                    <div
+                      key={c.id}
+                      onClick={() => { setSelectedId(c.id); setSearch(c.name); }}
+                      style={{ padding:'8px 12px', cursor:'pointer', fontSize:12, borderBottom:'1px solid #f1f5f9', background: selectedId === c.id ? '#e0e7ff' : '#fff' }}
+                    >
+                      <span style={{ fontWeight:600 }}>{c.name}</span>
+                      <span style={{ color:'#9ca3af', marginLeft:6 }}>{c.email}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <select
+              value={relation}
+              onChange={e => setRelation(e.target.value)}
+              style={{ padding:'7px 10px', border:'1.5px solid #d1d5db', borderRadius:7, fontSize:12, outline:'none', background:'#fff' }}
+            >
+              {RELATION_TYPES.map(r => (
+                <option key={r.value} value={r.value}>{r.emoji} {r.label}</option>
+              ))}
+            </select>
+          </div>
+          <button
+            onClick={addLink}
+            disabled={!selectedId}
+            style={{ background: selectedId ? 'linear-gradient(135deg,#4f46e5,#7c3aed)' : '#e5e7eb', border:'none', borderRadius:7, padding:'7px 16px', color: selectedId ? '#fff' : '#9ca3af', fontSize:12, fontWeight:600, cursor: selectedId ? 'pointer' : 'not-allowed', width:'100%' }}
+          >
+            确认关联
+          </button>
+        </div>
+      )}
+
+      {/* Linked clients list */}
+      {linked.length === 0 && !showAdd && (
+        <div style={{ color:'#9ca3af', fontSize:12, textAlign:'center', padding:'12px 0' }}>暂无关联客户</div>
+      )}
+      {linked.map(lc => {
+        const rel = getRelLabel(lc.relation);
+        return (
+          <div key={lc.clientId} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 10px', background:'#f8fafc', borderRadius:9, marginBottom:6, border:'1px solid #e9eaf3' }}>
+            <div style={{ width:32, height:32, borderRadius:'50%', background:'#e0e7ff', display:'flex', alignItems:'center', justifyContent:'center', fontSize:13, fontWeight:700, color:'#4f46e5', flexShrink:0 }}>
+              {initials(lc.clientData.name)}
+            </div>
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ fontWeight:600, fontSize:13, color:'#111827', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{lc.clientData.name}</div>
+              <div style={{ fontSize:11, color:'#6b7280' }}>{lc.clientData.email}</div>
+            </div>
+            <span style={{ background:'#e0e7ff', color:'#4f46e5', borderRadius:8, padding:'2px 8px', fontSize:11, fontWeight:600, whiteSpace:'nowrap' }}>
+              {rel.emoji} {rel.label}
+            </span>
+            <button
+              onClick={() => removeLink(lc.clientId)}
+              style={{ background:'none', border:'none', color:'#ef4444', fontSize:14, cursor:'pointer', padding:'2px 4px', lineHeight:1 }}
+              title="移除关联"
+            >✕</button>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ClientDetailModal({ client, jobs, setJobs, team, allClients, onClose, onEdit, onSaveProfile }) {
   const { t } = useLang();
   const [tab, setTab]               = useState('profile');
   const [contractBusy, setContractBusy] = useState(false);
+  const [showContractModal, setShowContractModal] = useState(false);
+  const [contractForm, setContractForm] = useState({});
   const [quickJob, setQuickJob]         = useState(false);
   const [editingJob, setEditingJob]     = useState(null);
   const [jobForm, setJobForm]           = useState({});
@@ -1409,10 +1559,73 @@ function ClientDetailModal({ client, jobs, setJobs, team, onClose, onEdit, onSav
     }
   };
 
-  const handleGenerateContract = async () => {
+  const handleGenerateContract = () => {
+    // Pre-fill form from client data
+    const activeJobs = clientJobs.filter(j => j.status !== 'Completed');
+    const visaTypes = [...new Set((clientJobs||[]).map(j=>j.type).filter(Boolean))];
+    const totalFee = parseFloat(client?.profile?.serviceAgreement?.totalFee) || 0;
+    setContractForm({
+      totalFee: totalFee || '',
+      gstIncluded: true,
+      paymentMode: 'single',
+      payment1Amount: totalFee || '',
+      payment1Desc: '专业移民服务费',
+      payment2Amount: '',
+      payment2Desc: '尾款',
+      visaTypes: visaTypes.length ? visaTypes.join(', ') : (client?.type || ''),
+      serviceDescription: activeJobs.length
+        ? activeJobs.map(j => `${j.title}${j.type ? ` (${j.type})` : ''}`).join('; ')
+        : '移民咨询及相关服务',
+    });
+    setShowContractModal(true);
+  };
+
+  const handleContractSubmit = async () => {
     try {
       setContractBusy(true);
-      await generateClientContractFile(client, clientJobs);
+      setShowContractModal(false);
+      const visaTypesArr = contractForm.visaTypes
+        ? contractForm.visaTypes.split(',').map(s => s.trim()).filter(Boolean)
+        : [client?.type || 'Migration Service'];
+      const res = await fetch('/api/generate-contract', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientName:    client?.name || '',
+          clientAddress: client?.profile?.auAddress || '',
+          clientEmail:   client?.email || '',
+          clientPhone:   client?.phone || '',
+          visaTypes:     visaTypesArr,
+          serviceDescription: contractForm.serviceDescription,
+          totalFee:      parseFloat(contractForm.totalFee) || 0,
+          gstIncluded:   contractForm.gstIncluded,
+          paymentMode:   contractForm.paymentMode,
+          payment1Amount: parseFloat(contractForm.payment1Amount) || 0,
+          payment1Desc:  contractForm.payment1Desc || '专业移民服务费',
+          payment2Amount: parseFloat(contractForm.payment2Amount) || 0,
+          payment2Desc:  contractForm.payment2Desc || '尾款',
+          contractDate:  new Date().toLocaleDateString('en-AU'),
+          consultant:    'Liang Jiang',
+          marn:          '1800784',
+          disbursements: [],
+          bankAccountName: 'Ozsky Perth Pty Ltd',
+          bankBSB:         '066166',
+          bankAccountNumber: '10895257',
+        }),
+      });
+      if (!res.ok) {
+        const msg = await res.text().catch(() => '');
+        throw new Error(msg || '合同生成失败');
+      }
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${(client?.name || 'client').trim()} Service Contract.docx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
     } catch (err) {
       window.alert('合同生成失败: ' + (err?.message || err));
     } finally {
@@ -1630,6 +1843,13 @@ const Field = ({ label, value, warn }) => (
           )}
         </div>
       )}
+
+          {/* ── LINKED CLIENTS ── */}
+          <LinkedClientsSection
+            client={client}
+            allClients={allClients || []}
+            onSaveProfile={onSaveProfile}
+          />
 
       {/* ── JOBS TAB ─────────────────────────────────────── */}
       {/* ── JOBS TAB ─────────────────────────────────────── */}
@@ -2158,6 +2378,109 @@ ${rawText.slice(0,5000)}` }]
         </div>
       )}
 
+
+      {/* ── CONTRACT CONFIG MODAL ── */}
+      {showContractModal && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.55)', zIndex:3000, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
+          <div style={{ background:'#fff', borderRadius:16, padding:28, width:'100%', maxWidth:480, boxShadow:'0 8px 40px rgba(0,0,0,0.25)', maxHeight:'90vh', overflowY:'auto' }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
+              <h3 style={{ margin:0, fontSize:17, fontWeight:700, color:'#111827' }}>📄 生成服务合同</h3>
+              <button onClick={() => setShowContractModal(false)} style={{ background:'none', border:'none', fontSize:20, cursor:'pointer', color:'#6b7280' }}>✕</button>
+            </div>
+
+            {/* Fee */}
+            <div style={{ marginBottom:14 }}>
+              <label style={{ display:'block', fontSize:12, fontWeight:600, color:'#374151', marginBottom:4 }}>服务费总额 (AUD)</label>
+              <input
+                type="number"
+                value={contractForm.totalFee}
+                onChange={e => setContractForm(f => ({ ...f, totalFee: e.target.value, payment1Amount: f.paymentMode === 'single' ? e.target.value : f.payment1Amount }))}
+                placeholder="例如：3500"
+                style={{ width:'100%', padding:'8px 12px', border:'1.5px solid #d1d5db', borderRadius:8, fontSize:13, outline:'none', boxSizing:'border-box' }}
+              />
+            </div>
+
+            {/* GST */}
+            <div style={{ marginBottom:14, display:'flex', alignItems:'center', gap:8 }}>
+              <input type="checkbox" id="gst-cb" checked={contractForm.gstIncluded} onChange={e => setContractForm(f => ({ ...f, gstIncluded: e.target.checked }))} />
+              <label htmlFor="gst-cb" style={{ fontSize:13, color:'#374151', cursor:'pointer' }}>含 GST（费用已包含 GST）</label>
+            </div>
+
+            {/* Payment mode */}
+            <div style={{ marginBottom:14 }}>
+              <label style={{ display:'block', fontSize:12, fontWeight:600, color:'#374151', marginBottom:6 }}>付款方式</label>
+              <div style={{ display:'flex', gap:8 }}>
+                {[{ v:'single', l:'一次性付清' }, { v:'two', l:'分两期付款' }].map(opt => (
+                  <button
+                    key={opt.v}
+                    onClick={() => setContractForm(f => ({ ...f, paymentMode: opt.v }))}
+                    style={{ flex:1, padding:'8px', border:`2px solid ${contractForm.paymentMode === opt.v ? '#4f46e5' : '#e2e8f0'}`, borderRadius:8, background: contractForm.paymentMode === opt.v ? '#e0e7ff' : '#f9fafb', color: contractForm.paymentMode === opt.v ? '#4f46e5' : '#374151', fontSize:12, fontWeight:600, cursor:'pointer' }}
+                  >{opt.l}</button>
+                ))}
+              </div>
+            </div>
+
+            {/* Payment 1 */}
+            <div style={{ marginBottom:10, display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+              <div>
+                <label style={{ display:'block', fontSize:11, color:'#6b7280', marginBottom:3 }}>首付金额</label>
+                <input type="number" value={contractForm.payment1Amount} onChange={e => setContractForm(f => ({ ...f, payment1Amount: e.target.value }))}
+                  style={{ width:'100%', padding:'7px 10px', border:'1.5px solid #d1d5db', borderRadius:7, fontSize:12, outline:'none', boxSizing:'border-box' }} />
+              </div>
+              <div>
+                <label style={{ display:'block', fontSize:11, color:'#6b7280', marginBottom:3 }}>首付说明</label>
+                <input value={contractForm.payment1Desc} onChange={e => setContractForm(f => ({ ...f, payment1Desc: e.target.value }))}
+                  style={{ width:'100%', padding:'7px 10px', border:'1.5px solid #d1d5db', borderRadius:7, fontSize:12, outline:'none', boxSizing:'border-box' }} />
+              </div>
+            </div>
+
+            {/* Payment 2 (only if two installments) */}
+            {contractForm.paymentMode === 'two' && (
+              <div style={{ marginBottom:10, display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+                <div>
+                  <label style={{ display:'block', fontSize:11, color:'#6b7280', marginBottom:3 }}>尾款金额</label>
+                  <input type="number" value={contractForm.payment2Amount} onChange={e => setContractForm(f => ({ ...f, payment2Amount: e.target.value }))}
+                    style={{ width:'100%', padding:'7px 10px', border:'1.5px solid #d1d5db', borderRadius:7, fontSize:12, outline:'none', boxSizing:'border-box' }} />
+                </div>
+                <div>
+                  <label style={{ display:'block', fontSize:11, color:'#6b7280', marginBottom:3 }}>尾款说明</label>
+                  <input value={contractForm.payment2Desc} onChange={e => setContractForm(f => ({ ...f, payment2Desc: e.target.value }))}
+                    style={{ width:'100%', padding:'7px 10px', border:'1.5px solid #d1d5db', borderRadius:7, fontSize:12, outline:'none', boxSizing:'border-box' }} />
+                </div>
+              </div>
+            )}
+
+            {/* Visa types */}
+            <div style={{ marginBottom:14 }}>
+              <label style={{ display:'block', fontSize:12, fontWeight:600, color:'#374151', marginBottom:4 }}>签证类型（逗号分隔）</label>
+              <input value={contractForm.visaTypes} onChange={e => setContractForm(f => ({ ...f, visaTypes: e.target.value }))}
+                placeholder="例如：Subclass 482, Subclass 186"
+                style={{ width:'100%', padding:'8px 12px', border:'1.5px solid #d1d5db', borderRadius:8, fontSize:13, outline:'none', boxSizing:'border-box' }} />
+            </div>
+
+            {/* Service description */}
+            <div style={{ marginBottom:20 }}>
+              <label style={{ display:'block', fontSize:12, fontWeight:600, color:'#374151', marginBottom:4 }}>服务说明</label>
+              <textarea value={contractForm.serviceDescription} onChange={e => setContractForm(f => ({ ...f, serviceDescription: e.target.value }))}
+                rows={2}
+                style={{ width:'100%', padding:'8px 12px', border:'1.5px solid #d1d5db', borderRadius:8, fontSize:13, outline:'none', resize:'vertical', boxSizing:'border-box', fontFamily:'inherit' }} />
+            </div>
+
+            {/* Bank account info (display only) */}
+            <div style={{ background:'#f0fdf4', border:'1px solid #bbf7d0', borderRadius:8, padding:'10px 14px', marginBottom:20, fontSize:12, color:'#166534' }}>
+              <div style={{ fontWeight:700, marginBottom:4 }}>🏦 收款账户（已预设）</div>
+              <div>Ozsky Perth Pty Ltd &nbsp;|&nbsp; BSB: 066166 &nbsp;|&nbsp; Account: 10895257</div>
+            </div>
+
+            <div style={{ display:'flex', gap:10 }}>
+              <button onClick={() => setShowContractModal(false)} style={{ flex:1, padding:'10px', background:'#f1f5f9', border:'1.5px solid #e2e8f0', borderRadius:8, fontSize:13, color:'#374151', cursor:'pointer', fontWeight:500 }}>取消</button>
+              <button onClick={handleContractSubmit} style={{ flex:2, padding:'10px', background:'linear-gradient(135deg,#0f766e,#0d9488)', border:'none', borderRadius:8, fontSize:13, color:'#fff', fontWeight:700, cursor:'pointer', boxShadow:'0 2px 8px rgba(15,118,110,0.3)' }}>
+                📄 生成并下载合同
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Footer */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:10, marginTop:18, borderTop:'1.5px solid #e2e8f0', paddingTop:16 }}>
         <button
@@ -2338,9 +2661,19 @@ function Clients({ clients, jobs, setClients, setJobs, team }) {
                   <td style={{ padding:'13px 16px', color:'#1f2937', fontFamily:"'JetBrains Mono',monospace", fontSize:13 }}>{clientJobCount(c.id)}</td>
                   <td style={{ padding:'13px 16px', color:'#1f2937', fontSize:13 }}>{c.nationality || '—'}</td>
                   <td style={{ padding:'13px 16px' }}>
-                    <span style={{ fontSize:12, color: notes.length>0?'#6366f1':'#334155', background: notes.length>0?'#38bdf815':'transparent', padding:'2px 8px', borderRadius:10, fontFamily:"'JetBrains Mono',monospace" }}>
-                      {notes.length > 0 ? `📝 ${notes.length}` : '—'}
-                    </span>
+                    <div style={{ display:'flex', gap:4, flexWrap:'wrap' }}>
+                      {notes.length > 0 && (
+                        <span style={{ fontSize:11, color:'#6366f1', background:'#38bdf815', padding:'2px 7px', borderRadius:10, fontFamily:"'JetBrains Mono',monospace" }}>
+                          📝 {notes.length}
+                        </span>
+                      )}
+                      {(c.linkedClients||[]).length > 0 && (
+                        <span style={{ fontSize:11, color:'#0891b2', background:'#e0f2fe', padding:'2px 7px', borderRadius:10 }} title={`${(c.linkedClients||[]).length} 个关联客户`}>
+                          🔗 {(c.linkedClients||[]).length}
+                        </span>
+                      )}
+                      {notes.length === 0 && (c.linkedClients||[]).length === 0 && <span style={{ color:'#9ca3af' }}>—</span>}
+                    </div>
                   </td>
                   <td style={{ padding:'13px 16px', color:'#1f2937', fontSize:13 }}>{fmtDate(c.createdAt)}</td>
                   <td style={{ padding:'13px 16px' }}>
@@ -2416,6 +2749,7 @@ function Clients({ clients, jobs, setClients, setJobs, team }) {
           jobs={jobs}
           setJobs={setJobs}
           team={team}
+          allClients={clients}
           onClose={() => setViewClient(null)}
           onEdit={() => { setViewClient(null); openEdit(viewClient); }}
           onSaveProfile={async (merged) => {

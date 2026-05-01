@@ -1,0 +1,70 @@
+[build]
+  command = "npm run build"
+  publish = "build"
+  functions = "netlify/functions"
+
+[functions]
+  node_bundler = "esbuild"
+
+[edge_functions]
+  directory = "netlify/edge-functions"
+
+# Edge function routes (streaming SSE)
+[[edge_functions]]
+  path = "/api/claude"
+  function = "claude"
+
+[[edge_functions]]
+  path = "/api/manus"
+  function = "manus"
+
+[[edge_functions]]
+  path = "/api/stats"
+  function = "stats"
+
+# Regular function routes
+[[redirects]]
+  from = "/api/gmail-auth"
+  to = "/.netlify/functions/gmail-auth"
+  status = 200
+
+[[redirects]]
+  from = "/api/gmail-sync"
+  to = "/.netlify/functions/gmail-sync"
+  status = 200
+
+[[redirects]]
+  from = "/api/drive-sync"
+  to = "/.netlify/functions/drive-sync"
+  status = 200
+
+[[redirects]]
+  from = "/api/generate-contract"
+  to = "/.netlify/functions/generate-contract"
+  status = 200
+
+[[redirects]]
+  from = "/api/parse-document"
+  to = "/.netlify/functions/parse-document"
+  status = 200
+
+[[redirects]]
+  from = "/api/manus-project"
+  to = "/.netlify/functions/manus-project"
+  status = 200
+
+[[redirects]]
+  from = "/api/cases/deadlines"
+  to = "/.netlify/functions/cases/deadlines"
+  status = 200
+
+[[redirects]]
+  from = "/api/cases/summary"
+  to = "/.netlify/functions/cases/summary"
+  status = 200
+
+# SPA fallback
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
