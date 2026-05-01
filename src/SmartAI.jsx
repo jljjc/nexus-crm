@@ -717,8 +717,14 @@ function SnapshotSection({
                     binaryNames.push(`  [✓] ${f.name}`);
                     dbg.outcome = `docx-err:${e.message}`;
                   }
-                } else if ((f.mimeType?.includes('pdf') || f.mimeType?.startsWith('image/')) && pdfBlocks.length < 3) {
-                  // PDF/image — attach directly to Claude call
+                } else if (f.mimeType?.startsWith('image/')) {
+                  // Image files (JPG/PNG/GIF) — do NOT send as image blocks to Claude
+                  // Claude's image block API fails on scanned docs/passports ("Could not process image")
+                  // Record filename in context so AI knows the file exists
+                  binaryNames.push(`  [📷] ${f.name} (图片文件)`);
+                  dbg.outcome = 'image-skipped-as-text';
+                } else if (f.mimeType?.includes('pdf') && pdfBlocks.length < 3) {
+                  // PDF only — attach as document block to Claude call
                   setStep(`📄 下载文件: ${f.name}...`);
                   try {
                     let fileBase64 = f.base64Content;
@@ -738,24 +744,21 @@ function SnapshotSection({
                       }
                     }
                     if (fileBase64) {
-                      const blockType = f.mimeType === 'application/pdf' ? 'document' : 'image';
                       // Validate PDF magic bytes before sending — invalid PDFs cause Claude API errors
-                      if (blockType === 'document') {
-                        try {
-                          const header = atob(fileBase64.slice(0, 8));
-                          if (!header.startsWith('%PDF')) {
-                            binaryNames.push(`  [✓] ${f.name}`);
-                            dbg.outcome = 'pdf-invalid-header';
-                            continue;
-                          }
-                        } catch {
+                      try {
+                        const header = atob(fileBase64.slice(0, 8));
+                        if (!header.startsWith('%PDF')) {
                           binaryNames.push(`  [✓] ${f.name}`);
-                          dbg.outcome = 'pdf-header-decode-err';
+                          dbg.outcome = 'pdf-invalid-header';
                           continue;
                         }
+                      } catch {
+                        binaryNames.push(`  [✓] ${f.name}`);
+                        dbg.outcome = 'pdf-header-decode-err';
+                        continue;
                       }
-                      pdfBlocks.push({ type: blockType, source: { type: 'base64', media_type: f.mimeType, data: fileBase64 }, _name: f.name });
-                      dbg.outcome = `pdf-block(${blockType})`;
+                      pdfBlocks.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: fileBase64 }, _name: f.name });
+                      dbg.outcome = 'pdf-block(document)';
                     } else {
                       binaryNames.push(`  [✓] ${f.name}`);
                       dbg.outcome = 'pdf-dl-failed';
