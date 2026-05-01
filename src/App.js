@@ -587,6 +587,19 @@ const GLOBAL_CSS = `
   @media (max-width: 400px) {
     .oz-kpi-grid { grid-template-columns: 1fr; }
   }
+  /* ── RESPONSIVE FORM GRIDS ──────────────────────────────────────────── */
+  /* Use className="oz-form-grid-2" on 2-col form grids to get mobile collapse */
+  .oz-form-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  @media (max-width: 600px) {
+    .oz-form-grid-2 { grid-template-columns: 1fr; }
+    .oz-modal-body { padding: 14px 14px 22px; }
+    .oz-modal-hd { padding: 14px 14px 12px; }
+    .oz-modal-title { font-size: 15px; }
+  }
 `;
 
 /* ─── CONSTANTS ─────────────────────────────────────────────────────────────── */
@@ -916,6 +929,54 @@ const inputStyle = { width:'100%', background:'#ffffff', border:'2px solid #c7d2
 const selectStyle = { ...inputStyle, cursor:'pointer' };
 const textareaStyle = { ...inputStyle, resize:'vertical', minHeight:72 };
 
+/* ─── NOTE TEXT RENDERER ────────────────────────────────────────────────────── */
+function NoteText({ text, type }) {
+  if (!text) return null;
+  // AI brief notes: render structured format
+  if (type === 'ai-brief' || text.startsWith('🤖 AI')) {
+    const lines = text.split('\n');
+    return (
+      <div style={{ fontSize:12.5, lineHeight:1.6, color:'#111827' }}>
+        {lines.map((line, i) => {
+          if (!line.trim()) return null;
+          // Section headers (emoji + colon)
+          if (/^[🤖📌📊📋⚠️🕐]/.test(line) && !line.startsWith('  ')) {
+            const isHeader = i === 0;
+            return (
+              <div key={i} style={{ fontWeight: isHeader ? 700 : 600, color: isHeader ? '#4f46e5' : '#374151', marginTop: i > 0 ? 7 : 0, marginBottom: 2, fontSize: isHeader ? 13 : 12 }}>
+                {line}
+              </div>
+            );
+          }
+          // Numbered steps: "  1. ..."
+          const numMatch = line.match(/^\s+(\d+)\. (.+)$/);
+          if (numMatch) {
+            return (
+              <div key={i} style={{ display:'flex', gap:7, alignItems:'flex-start', marginLeft:8, marginBottom:2 }}>
+                <span style={{ fontSize:10, fontWeight:800, color:'#6366f1', background:'#eef2ff', width:18, height:18, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, marginTop:1 }}>{numMatch[1]}</span>
+                <span style={{ fontSize:12, color:'#374151', flex:1 }}>{numMatch[2]}</span>
+              </div>
+            );
+          }
+          // Priority issues: "  [High/Medium/Low] ..."
+          const priMatch = line.match(/^\s+\[(High|Medium|Low)\] (.+)$/i);
+          if (priMatch) {
+            const col = priMatch[1].toLowerCase() === 'high' ? '#dc2626' : priMatch[1].toLowerCase() === 'medium' ? '#d97706' : '#16a34a';
+            return (
+              <div key={i} style={{ display:'flex', gap:7, alignItems:'flex-start', marginLeft:8, marginBottom:2 }}>
+                <span style={{ fontSize:10, fontWeight:700, color:col, background:col+'18', padding:'1px 6px', borderRadius:5, flexShrink:0, marginTop:1 }}>{priMatch[1].toUpperCase().slice(0,3)}</span>
+                <span style={{ fontSize:12, color:'#374151', flex:1 }}>{priMatch[2]}</span>
+              </div>
+            );
+          }
+          return <div key={i} style={{ fontSize:12, color:'#6b7280', marginLeft:4 }}>{line}</div>;
+        })}
+      </div>
+    );
+  }
+  // Regular notes: pre-wrap
+  return <div style={{ fontSize:13, color:'#1f2937', whiteSpace:'pre-wrap', lineHeight:1.55, wordBreak:'break-word' }}>{text}</div>;
+}
 /* ─── NOTES PANEL ────────────────────────────────────────────────────────────── */
 function NotesPanel({ notes, onAddNote, onDeleteNote }) {
   const [text, setText] = useState('');
@@ -947,7 +1008,7 @@ function NotesPanel({ notes, onAddNote, onDeleteNote }) {
         {sorted.map((n, i) => (
           <div key={n.id} style={{ background:'#ffffff', border:'1.5px solid #d1d5db', borderRadius:8, padding:'10px 12px', position:'relative' }}>
             {i === 0 && <span style={{ position:'absolute', top:8, right:36, fontSize:10, background:'#eef2ff', color:'#6366f1', borderRadius:6, padding:'1px 6px' }}>Latest</span>}
-            <div style={{ fontSize:13, color:'#1f2937', lineHeight:1.5, marginBottom:6, paddingRight:24 }}>{n.text}</div>
+            <NoteText text={n.text} type={n.type} />
             <div style={{ fontSize:11, color:'#1f2937' }}>🕐 {fmtDateTime(n.createdAt)}</div>
             <button onClick={()=>onDeleteNote(n.id)} style={{ position:'absolute', top:8, right:8, background:'none', border:'none', color:'#1f2937', fontSize:14, lineHeight:1, padding:2 }} title="Delete note">×</button>
           </div>
@@ -1143,7 +1204,7 @@ function Dashboard({ clients, jobs, team, onGoTo, setJobsMemberFilter, setJobsSt
         </div>
       </Card>
 
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))', gap:20, marginBottom:20 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20, marginBottom:20 }}>
         {/* Recent Jobs – clickable rows */}
         <Card>
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
@@ -1277,7 +1338,7 @@ function Dashboard({ clients, jobs, team, onGoTo, setJobsMemberFilter, setJobsSt
       {/* Job Quick-View Modal (from dashboard) */}
       {selectedJob && (
         <Modal title={`Case Details – ${selectedJob.title}`} onClose={()=>setSelectedJob(null)} wide>
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))', gap:20, marginBottom:20 }}>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20, marginBottom:20 }}>
             <div>
               <div style={{ fontSize:11, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:6 }}>Client</div>
               <div style={{ fontSize:14, color:'#111827', fontWeight:600 }}>{selectedClient?.name || '—'}</div>
@@ -1587,7 +1648,7 @@ const Field = ({ label, value, warn }) => (
           {quickJob && (
             <div style={{ background:'#f8fafc', border:'1.5px solid #6366f130', borderRadius:10, padding:'14px 16px', marginBottom:14 }}>
               <div style={{ fontSize:12, fontWeight:700, color:'#4f46e5', marginBottom:12, textTransform:'uppercase', letterSpacing:'0.07em' }}>新建案件</div>
-              <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))', gap:10, marginBottom:10 }}>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:10 }}>
                 <input style={{ ...inputStyle, fontSize:13 }} placeholder="案件标题 *" value={qform.title||''} onChange={e=>setQform(f=>({...f,title:e.target.value}))} />
                 <select style={{ ...selectStyle, fontSize:13 }} value={qform.type} onChange={e=>setQform(f=>({...f,type:e.target.value}))}>
                   {JOB_TYPES.map(t=><option key={t}>{t}</option>)}
@@ -1701,7 +1762,7 @@ ${rawText.slice(0,5000)}` }]
                 }}
               />
             </div>
-            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(180px,1fr))', gap:14, marginBottom:14 }}>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:14 }}>
               <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
                 <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:2 }}>案件信息</div>
                 {[['类型', viewJob.type], ['创建', fmtDate(viewJob.createdAt)]].map(([l,v]) => (
@@ -1789,7 +1850,7 @@ ${rawText.slice(0,5000)}` }]
       {/* ── INLINE CASE EDIT ── */}
       {editingJob && (
         <Modal title={`编辑案件: ${editingJob.title}`} onClose={()=>setEditingJob(null)} wide>
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(180px,1fr))', gap:14, marginBottom:14 }}>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:14 }}>
             <div><label style={{ fontSize:11, fontWeight:700, color:'#374151', textTransform:'uppercase', letterSpacing:'0.07em', display:'block', marginBottom:5 }}>状态</label>
               <select value={jobForm.status||''} onChange={e=>setJobForm(f=>({...f,status:e.target.value, progress: STATUS_PROGRESS[e.target.value] ?? f.progress ?? 0}))} style={{ width:'100%', background:'#fff', border:'2px solid #c7d2e0', borderRadius:8, padding:'8px 10px', fontSize:13, color:'#111827', outline:'none' }}>
                 {JOB_STATUSES.map(s=><option key={s}>{s}</option>)}
@@ -1879,7 +1940,7 @@ ${rawText.slice(0,5000)}` }]
             ? <div style={{ color:'#1f2937', fontSize:14, padding:20, textAlign:'center' }}>No notes yet.</div>
             : [...normalizeNotes(client.notes).filter(n => n.type !== 'gmail')].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)).map(n => (
               <div key={n.id} style={{ background:'#ffffff', borderRadius:8, padding:'12px 14px', border:'1.5px solid #cbd5e1', marginBottom:8 }}>
-                <div style={{ fontSize:13, color:'#1f2937', whiteSpace:'pre-wrap', lineHeight:1.55 }}>{n.text}</div>
+                <NoteText text={n.text} type={n.type} />
                 <div style={{ fontSize:11, color:'#1f2937', marginTop:6 }}>{fmtDateTime(n.createdAt)}</div>
               </div>
             ))
@@ -2001,7 +2062,7 @@ ${rawText.slice(0,5000)}` }]
                   <div style={{ fontSize:13.5, color:'#1f2937', lineHeight:1.6, background:'#f9fafb', padding:'10px 14px', borderRadius:9, border:'1px solid #e5e7eb' }}>{emailResult.summary}</div>
                 </div>
 
-                <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(180px,1fr))', gap:14, marginBottom:14 }}>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:14 }}>
                   {emailResult.actionItems?.length > 0 && (
                     <div>
                       <div style={{ fontSize:11, fontWeight:700, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:6 }}>🎯 Action Items</div>
@@ -2298,7 +2359,7 @@ function Clients({ clients, jobs, setClients, setJobs, team }) {
       {modal && (
         <Modal title={modal === 'add' ? 'Add New Client' : `Edit Client – ${form.name}`} onClose={closeModal} wide>
           {/* ── Personal Info ── */}
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(180px,1fr))', gap:16 }}>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
             <FormField label="Full Name" required>
               <input style={inputStyle} value={form.name||''} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="John Smith" />
             </FormField>
@@ -2324,7 +2385,7 @@ function Clients({ clients, jobs, setClients, setJobs, team }) {
             </FormField>
           </div>
           {/* ── Operational ── */}
-          <div style={{ borderTop:'1.5px solid #e2e8f0', marginTop:16, paddingTop:16, display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(180px,1fr))', gap:16 }}>
+          <div style={{ borderTop:'1.5px solid #e2e8f0', marginTop:16, paddingTop:16, display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
             <FormField label="Client Type">
               <select style={selectStyle} value={form.type||'Student'} onChange={e=>setForm(f=>({...f,type:e.target.value}))}>
                 {CLIENT_TYPES.map(t=><option key={t}>{t}</option>)}
@@ -2563,7 +2624,7 @@ function Jobs({ jobs, clients, team, setJobs, openJobId, setOpenJobId, jobsMembe
         {modal && (
           <Modal title={modal==='add'?'New Case':'Edit Case'} onClose={closeModal} wide>
                 <>
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(180px,1fr))', gap:16 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
         <FormField label="Case Title" required>
           <input style={inputStyle} value={form.title||''} onChange={e=>setForm(f=>({...f,title:e.target.value}))} placeholder="e.g. Visa Application" />
         </FormField>
@@ -2633,7 +2694,7 @@ function Jobs({ jobs, clients, team, setJobs, openJobId, setOpenJobId, jobsMembe
       {(DOC_CHECKLISTS[form.type]||[]).length > 0 && (
         <div style={{ borderTop:'1.5px solid #e2e8f0', marginTop:8, paddingTop:16 }}>
           <div style={{ fontSize:11, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:12 }}>Document Checklist – {form.type}</div>
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(140px,1fr))', gap:8 }}>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
             {(DOC_CHECKLISTS[form.type]||[]).map(doc => {
               const checked = (form.docs||{})[doc] || false;
               return (
@@ -2686,7 +2747,7 @@ function Jobs({ jobs, clients, team, setJobs, openJobId, setOpenJobId, jobsMembe
         {/* ── QUICK UPDATE PANEL ──────────────────── */}
         <div style={{ background:'#f8fafc', border:'1.5px solid #e2e8f0', borderRadius:10, padding:'12px 16px', marginBottom:16 }}>
         <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:10 }}>快速更新 <span style={{ color:'#9ca3af', fontWeight:400, textTransform:'none', letterSpacing:0, fontSize:11 }}>Quick Update</span></div>
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))', gap:10, marginBottom:10 }}>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:10 }}>
           <div>
             <div style={{ fontSize:11, color:'#374151', fontWeight:600, marginBottom:5 }}>状态 Status</div>
             <select value={viewJob.status} onChange={async e => {
@@ -2756,7 +2817,7 @@ ${rawText.slice(0,5000)}` }]
         />
         </div>
 
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(180px,1fr))', gap:14, marginBottom:14 }}>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:14 }}>
         {/* Case info */}
         <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
         <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:2 }}>案件信息</div>
@@ -2868,7 +2929,7 @@ ${rawText.slice(0,5000)}` }]
         ? <div style={{ color:'#94a3b8', fontSize:13 }}>暂无备注</div>
         : [...normalizeNotes(viewJob.notes)].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)).map(n=>(
         <div key={n.id} style={{ background:'#f8fafc', borderRadius:8, padding:'9px 12px', border:'1.5px solid #e2e8f0' }}>
-        <div style={{ fontSize:13, color:'#111827', whiteSpace:'pre-wrap', lineHeight:1.55 }}>{n.text}</div>
+        <NoteText text={n.text} type={n.type} />
         <div style={{ fontSize:11, color:'#9ca3af', marginTop:4 }}>{fmtDateTime(n.createdAt)}</div>
         </div>
         ))
@@ -2971,7 +3032,7 @@ ${rawText.slice(0,5000)}` }]
       {modal && (
         <Modal title={modal==='add'?'New Case':'Edit Case'} onClose={closeModal} wide>
               <>
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(180px,1fr))', gap:16 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
         <FormField label="Case Title" required>
           <input style={inputStyle} value={form.title||''} onChange={e=>setForm(f=>({...f,title:e.target.value}))} placeholder="e.g. Visa Application" />
         </FormField>
@@ -3041,7 +3102,7 @@ ${rawText.slice(0,5000)}` }]
       {(DOC_CHECKLISTS[form.type]||[]).length > 0 && (
         <div style={{ borderTop:'1.5px solid #e2e8f0', marginTop:8, paddingTop:16 }}>
           <div style={{ fontSize:11, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:12 }}>Document Checklist – {form.type}</div>
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(140px,1fr))', gap:8 }}>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
             {(DOC_CHECKLISTS[form.type]||[]).map(doc => {
               const checked = (form.docs||{})[doc] || false;
               return (
@@ -3160,7 +3221,7 @@ ${rawText.slice(0,5000)}` }]
       />
       </div>
 
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(180px,1fr))', gap:14, marginBottom:14 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:14 }}>
       {/* Case info */}
       <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
       <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:2 }}>案件信息</div>
@@ -3240,7 +3301,7 @@ ${rawText.slice(0,5000)}` }]
       ? <div style={{ color:'#94a3b8', fontSize:13 }}>暂无备注</div>
       : [...normalizeNotes(viewJob.notes)].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)).map(n=>(
       <div key={n.id} style={{ background:'#f8fafc', borderRadius:8, padding:'9px 12px', border:'1.5px solid #e2e8f0' }}>
-      <div style={{ fontSize:13, color:'#111827', whiteSpace:'pre-wrap', lineHeight:1.55 }}>{n.text}</div>
+      <NoteText text={n.text} type={n.type} />
       <div style={{ fontSize:11, color:'#9ca3af', marginTop:4 }}>{fmtDateTime(n.createdAt)}</div>
       </div>
       ))
@@ -3572,7 +3633,7 @@ function Team({ team, jobs, clients, setTeam, setJobs: setJobsOuter }) {
       />
       </div>
 
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(180px,1fr))', gap:14, marginBottom:14 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:14 }}>
       {/* Case info */}
       <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
       <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:2 }}>案件信息</div>
@@ -3652,7 +3713,7 @@ function Team({ team, jobs, clients, setTeam, setJobs: setJobsOuter }) {
       ? <div style={{ color:'#94a3b8', fontSize:13 }}>暂无备注</div>
       : [...normalizeNotes(viewJob.notes)].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)).map(n=>(
       <div key={n.id} style={{ background:'#f8fafc', borderRadius:8, padding:'9px 12px', border:'1.5px solid #e2e8f0' }}>
-      <div style={{ fontSize:13, color:'#111827', whiteSpace:'pre-wrap', lineHeight:1.55 }}>{n.text}</div>
+      <NoteText text={n.text} type={n.type} />
       <div style={{ fontSize:11, color:'#9ca3af', marginTop:4 }}>{fmtDateTime(n.createdAt)}</div>
       </div>
       ))
