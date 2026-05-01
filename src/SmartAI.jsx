@@ -860,7 +860,6 @@ function SnapshotSection({
       // and the browser stays connected until "done" event arrives.
       const _snapshotBody = {
           model: 'claude-haiku-4-5-20251001', max_tokens: 1500,
-          _title: `Client Snapshot — ${selectedClient?.name || 'Client'}`,
           messages: [{ role: 'user', content: messageContent }],
           ...(hasPdfs ? { _beta: 'pdfs-2024-09-25' } : {}),
         };
@@ -966,7 +965,6 @@ function SnapshotSection({
     try {
       const _applyBody = {
           _stream: false,
-          _title: `Apply Snapshot — ${selectedClient?.name || 'Client'}`,
           model: 'claude-haiku-4-5-20251001', max_tokens: 1200,
           messages: [{ role: 'user', content: `从以下客户快照提取信息，返回纯JSON（无markdown，无注释）。只填写找到的字段，找不到的字段用空字符串或空数组。数组字段如果没有数据则返回[]。
 所有日期字段必须统一格式为 YYYY-MM-DD（如 2024-03-15），不得使用中文日期、斜杠格式或其他格式。

@@ -402,7 +402,6 @@ export default function CaseAI({ selectedClient, selectedCase, onSaveCase }) {
       const prompt = buildCaseBriefPrompt(selectedClient, selectedCase, emailContext, driveContext);
       const data = await callManus({
         model: 'claude-haiku-4-5-20251001', max_tokens: 2000,
-        _title: `Case Brief — ${selectedClient?.name || 'Client'} ${selectedCase?.type || ''}`,
         messages: [{ role: 'user', content: prompt }],
       }, pid);
       const briefText = data.content?.[0]?.text || '';
@@ -434,7 +433,6 @@ export default function CaseAI({ selectedClient, selectedCase, onSaveCase }) {
       setPreviousCase({ ...selectedCase });
       const data = await callManus({
         model: 'claude-haiku-4-5-20251001', max_tokens: 1200,
-        _title: `Extract JSON — ${selectedClient?.name || 'Client'}`,
         messages: [{
           role: 'user',
           content: `Extract information from the case brief below and return ONLY a single valid JSON object.
@@ -587,7 +585,7 @@ Question: ${q}`,
 
       let fullResponse = '';
       await callManusStream(
-        { model: 'claude-haiku-4-5-20251001', max_tokens: 1000, messages, _title: `Research: ${q.slice(0, 60)}` },
+        { model: 'claude-haiku-4-5-20251001', max_tokens: 1000, messages },
         pid,
         (text) => {
           fullResponse = text;
