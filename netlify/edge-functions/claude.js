@@ -45,7 +45,11 @@ export default async function handler(req) {
   const wantStream = body._stream !== false;
   const extraHeaders = {};
   if (body._beta) { extraHeaders['anthropic-beta'] = body._beta; delete body._beta; }
+  // Strip internal/non-Anthropic fields
   delete body._stream;
+  delete body._title;
+  delete body.project_id;
+  delete body.force_skills;
 
   // ── NON-STREAMING fallback (for small/fast calls) ────────────────────────
   if (!wantStream) {
