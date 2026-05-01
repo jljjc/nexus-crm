@@ -1,6 +1,7 @@
 // src/SmartAI.jsx — Unified AI Assistant Panel v3
 // Architecture: Sources (Gmail + Docs) → Generate → Snapshot output
 import { useState, useEffect, useRef, useCallback } from 'react';
+import BriefRenderer from './BriefRenderer';
 import * as mammoth from 'mammoth';
 import {
   readSession, clearSession, sessionIsValid, getValidToken,
@@ -1142,11 +1143,7 @@ function SnapshotSection({
               <button onClick={handleSaveAsNote} style={{ ...btnStyle(C.orange), padding: '4px 10px', fontSize: 11 }}>💾 存为备注</button>
             </div>
           </div>
-          <div style={{ background: C.light, border: `1px solid ${C.border}`, borderRadius: 8,
-            padding: 12, fontSize: 12.5, color: C.text, lineHeight: 1.8, whiteSpace: 'pre-wrap',
-            maxHeight: 480, overflowY: 'auto', fontFamily: "'JetBrains Mono','Courier New',monospace" }}>
-            {snapshot}
-          </div>
+          <BriefRenderer text={snapshot} />
 
         </div>
       )}

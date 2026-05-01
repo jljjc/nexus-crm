@@ -1,5 +1,6 @@
 // src/CaseAI.jsx — Phase 2: Manus API + per-case Project + Research Chat
 import React, { useState, useCallback, useRef, useEffect } from 'react';
+import BriefRenderer from './BriefRenderer';
 import { readSession, sessionIsValid, getValidToken } from './utils/gmailSession';
 
 const C = {
@@ -187,7 +188,8 @@ VISA CONTEXT: ${visaSubclass}
 - Apply relevant DHA policy, Migration Act 1958, and PAM3 guidelines for this visa subclass
 - Reference specific criteria (e.g., Schedule 2 criteria, TSS stream requirements, skills assessment bodies)
 - Flag any compliance risks, character/health issues, or procedural deadlines proactively
-- Use Australian English spelling
+- 请以中文为主要语言输出，英文作为辅助标注（括号内）
+- Use Australian English spelling for any English content
 
 ${driveContext ? `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 PRIMARY DATA SOURCE — Google Drive Client Folder
@@ -704,29 +706,15 @@ Question: ${q}`,
                   📋 上次生成：{selectedCase.aiBriefDate}
                 </div>
               )}
-              <textarea readOnly value={brief}
-                style={{
-                  width: '100%', minHeight: 300, fontSize: 12, fontFamily: 'monospace',
-                  borderRadius: 8, border: `1.5px solid ${C.border}`, padding: '10px 12px',
-                  resize: 'vertical', boxSizing: 'border-box', background: '#fff',
-                }}
-              />
-              <button
-                onClick={() => {
+              <BriefRenderer
+                text={brief}
+                onCopy={() => {
                   navigator.clipboard.writeText(brief).then(() => {
                     setApplyMsg('📋 已复制到剪贴板');
                     setTimeout(() => setApplyMsg(''), 3000);
                   });
                 }}
-                style={{
-                  position: 'absolute', top: 8, right: 8,
-                  padding: '4px 10px', fontSize: 11, fontWeight: 600,
-                  background: '#F1F5F9', border: '1px solid #CBD5E0',
-                  borderRadius: 6, cursor: 'pointer', color: '#374151',
-                }}
-              >
-                📋 复制
-              </button>
+              />
             </div>
           )}
 
