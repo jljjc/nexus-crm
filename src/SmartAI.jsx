@@ -1022,26 +1022,48 @@ function SnapshotSection({
 
 快照文本：\n${snapshotText}` }]
         };
-      let r;
-      try {
-        r = await fetch('/api/manus', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(_applyBody),
-        });
-      } catch {
-        r = await fetch('/api/claude', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(_applyBody),
-        });
-      }
+      // Always use /api/claude with _stream:false for JSON extraction (manus returns SSE)
+      const r = await fetch('/api/claude', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(_applyBody),
+      });
       if (!r.ok) {
         const errText = await r.text().catch(()=>'');
         let errMsg = 'AI 提取失败';
         try { const errData = JSON.parse(errText); errMsg = errData?.error?.message || errData?.error || errMsg; } catch {}
         throw new Error(errMsg);
       }
-      const data = await r.json();
-      const text = data.content?.[0]?.text || '';
+      // Handle both JSON response and SSE stream (edge function fallback)
+      const contentType = r.headers.get('content-type') || '';
+      let text = '';
+      if (contentType.includes('text/event-stream')) {
+        // SSE fallback: collect all delta events
+        const reader = r.body.getReader();
+        const decoder = new TextDecoder();
+        let buf = '';
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buf += decoder.decode(value, { stream: true });
+          const lines = buf.split('\n');
+          buf = lines.pop();
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            const raw = line.slice(6).trim();
+            if (!raw) continue;
+            try {
+              const ev = JSON.parse(raw);
+              if (ev.type === 'done') text = ev.text;
+              else if (ev.type === 'delta') text += ev.text;
+            } catch { /* ignore parse errors in SSE */ }
+          }
+        }
+      } else {
+        const rawResp = await r.text();
+        let data;
+        try { data = JSON.parse(rawResp); } catch { data = {}; }
+        text = data.content?.[0]?.text || data.text || rawResp || '';
+      }
       // Extract outermost {...} using bracket counting — stops at matching }, ignores trailing text
       const jsonStr = (() => {
         const start = text.indexOf('{');
@@ -1058,7 +1080,13 @@ function SnapshotSection({
         }
         return null;
       })();
-      if (!jsonStr) throw new Error('无法解析 AI 返回的 JSON');
+      if (!jsonStr) {
+        // AI returned text but no valid JSON — show snapshot but skip profile update
+        console.warn('autoApply: no JSON found in AI response, skipping profile update');
+        setApplyMsg('✅ 快照已生成（档案字段提取跳过）');
+        setTimeout(() => setApplyMsg(''), 5000);
+        return;
+      }
       const extracted = repairAndParseJSON(jsonStr);
       // Normalise all date fields to YYYY-MM-DD before applying
       const normDate = (v) => {
