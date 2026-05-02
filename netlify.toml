@@ -60,6 +60,11 @@
   to = "/.netlify/functions/cases/summary"
   status = 200
 
+[[redirects]]
+  from = "/api/webhook-messages"
+  to = "/.netlify/functions/webhook-messages"
+  status = 200
+
 # SPA fallback
 [[redirects]]
   from = "/*"
