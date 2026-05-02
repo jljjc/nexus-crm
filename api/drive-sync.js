@@ -1,10 +1,18 @@
 // api/drive-sync.js
 // Read client documents from Google Drive: ozsky-clients/<clientName>/
-// Returns file metadata + text content (for text/gdocs) or base64 (for PDF/images).
 //
-// Requires the access token to have scope: https://www.googleapis.com/auth/drive.readonly
-// (Add this scope to gmail-auth.js and have users re-authorise.)
-
+// Strategy (v2 — server-side text extraction):
+//   • Google Docs/Sheets/Slides → Drive Export API → plain text (fast, no binary)
+//   • PDF files                 → Drive Export API → plain text (Google OCR)
+//   • DOCX / XLSX files         → Drive Export API → plain text
+//   • Plain text / CSV          → direct download
+//   • Images                    → filename only (OCR unreliable for scanned docs)
+//
+// This avoids sending large base64 blobs to Claude and removes the 3-PDF cap.
+// Up to 15 files are read; highest-scoring immigration docs are read first.
+// Files are read in parallel batches of 5 for speed.
+//
+// Requires scope: https://www.googleapis.com/auth/drive.readonly
 export const config = {
   api: {
     bodyParser: { sizeLimit: '2mb' },
@@ -13,12 +21,11 @@ export const config = {
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-
   const { accessToken, clientName, confirmedFolderId, confirmedFolderName } = req.body || {};
   if (!accessToken) return res.status(400).json({ error: 'Missing accessToken' });
   if (!clientName)  return res.status(400).json({ error: 'Missing clientName' });
 
-  // Helper: call Drive API v3 with shared-drive support
+  // ── Helper: call Drive API v3 ──────────────────────────────────────────────
   const driveApi = async (path, params = {}) => {
     const url = new URL(`https://www.googleapis.com/drive/v3/${path}`);
     url.searchParams.set('supportsAllDrives', 'true');
@@ -34,7 +41,23 @@ export default async function handler(req, res) {
     return r.json();
   };
 
-  // Helper: download file bytes
+  // ── Helper: export file as plain text via Drive Export API ────────────────
+  // Works for: Google Docs, PDF (with OCR), DOCX, XLSX, PPTX, etc.
+  const exportAsText = async (fileId) => {
+    const exportUrl = new URL(`https://www.googleapis.com/drive/v3/files/${fileId}/export`);
+    exportUrl.searchParams.set('mimeType', 'text/plain');
+    exportUrl.searchParams.set('supportsAllDrives', 'true');
+    const r = await fetch(exportUrl.toString(), {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!r.ok) {
+      const errText = await r.text().catch(() => '');
+      throw new Error(`Export failed ${r.status}: ${errText.slice(0, 200)}`);
+    }
+    return await r.text();
+  };
+
+  // ── Helper: download raw file bytes (for plain text files) ────────────────
   const driveDownload = async (fileId) => {
     const r = await fetch(
       `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&supportsAllDrives=true`,
@@ -45,32 +68,25 @@ export default async function handler(req, res) {
   };
 
   try {
-    // ── 1. Find the ozsky-clients root folder ───────────────────────────────
+    // ── 1. Find the ozsky-clients root folder ──────────────────────────────
     const rootSearch = await driveApi('files', {
       q: "name = 'ozsky-clients' and mimeType = 'application/vnd.google-apps.folder' and trashed = false",
       fields: 'files(id,name)',
       pageSize: '5',
     });
-
     if (!rootSearch.files?.length) {
-      return res.json({ folderFound: false, files: [], message: 'ozsky-clients 文件夹未找到。请确认 Google Drive 中存在该文件夹。' });
+      return res.json({
+        folderFound: false, files: [],
+        message: 'ozsky-clients 文件夹未找到。请确认 Google Drive 中存在该文件夹。',
+      });
     }
-
     const rootId = rootSearch.files[0].id;
 
-    // ── 2. Find the client subfolder ────────────────────────────────────────
-    const escape  = (s) => s.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    // ── 2. Find the client subfolder ──────────────────────────────────────
+    const escape   = (s) => s.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
     const normalize = (s) => s.trim().toLowerCase();
+    const tokens   = (s) => normalize(s).split(/[\s,.\-_]+/).filter(w => w.length > 0);
 
-    // Splits a name into tokens, stripping punctuation/separators.
-    // E.g. "CHEN, Fengmei" → ["chen", "fengmei"]
-    const tokens = (s) => normalize(s).split(/[\s,.\-_]+/).filter(w => w.length > 0);
-
-    // A folder name is a VALID match for a client when:
-    //   • The folder contains the client's FIRST word (first name) as a whole token, AND
-    //   • The folder contains the client's LAST word (last name / surname) as a whole token.
-    // Middle names in either direction are ignored.
-    // This prevents "chen" from matching "Chencho" because token equality is used, not substring.
     const clientParts = tokens(clientName);
     const firstName   = clientParts[0];
     const lastName    = clientParts[clientParts.length - 1];
@@ -78,23 +94,17 @@ export default async function handler(req, res) {
     const isValidMatch = (folderName) => {
       const ft = tokens(folderName);
       const hasFirst = ft.includes(firstName);
-      const hasLast  = clientParts.length === 1
-        ? hasFirst
-        : ft.includes(lastName);
+      const hasLast  = clientParts.length === 1 ? hasFirst : ft.includes(lastName);
       return hasFirst && hasLast;
     };
 
     let clientFolder = null;
 
-    // If user already confirmed a specific folder, skip searching.
     if (confirmedFolderId) {
       clientFolder = { id: confirmedFolderId, name: confirmedFolderName || clientName };
     } else {
-      // Search: exact match first, then first-name-contains (broader net),
-      // then last-name-contains — collect ALL results and validate strictly.
-      const seen   = new Set();
+      const seen = new Set();
       const candidates = [];
-
       const searchAndCollect = async (q) => {
         const r = await driveApi('files', {
           q: `'${rootId}' in parents and mimeType = 'application/vnd.google-apps.folder' and ${q} and trashed = false`,
@@ -121,12 +131,9 @@ export default async function handler(req, res) {
           message: `未找到客户文件夹 "${clientName}"。请检查 ozsky-clients 下是否存在对应文件夹。`,
         });
       }
-
       if (candidates.length === 1) {
-        // Exactly one match — use it directly.
         clientFolder = candidates[0];
       } else {
-        // Multiple matches — ask the user to confirm before reading any files.
         return res.json({
           folderFound: false,
           needsConfirmation: true,
@@ -136,14 +143,13 @@ export default async function handler(req, res) {
       }
     }
 
-    // ── 3. List all files in the client folder (recurse into subfolders) ───────
+    // ── 3. List all files (recurse into subfolders) ────────────────────────
     const listing = await driveApi('files', {
       q: `'${clientFolder.id}' in parents and trashed = false`,
       fields: 'files(id,name,mimeType,size,modifiedTime)',
       orderBy: 'modifiedTime desc',
       pageSize: '50',
     });
-
     const topLevel = listing.files || [];
     const subfolders = topLevel.filter(f => f.mimeType === 'application/vnd.google-apps.folder');
     const directFiles = topLevel.filter(f => f.mimeType !== 'application/vnd.google-apps.folder');
@@ -158,36 +164,29 @@ export default async function handler(req, res) {
           orderBy: 'modifiedTime desc',
           pageSize: '20',
         });
-        // Prefix name with folder so context is clear
         (sub.files || []).forEach(f => subFiles.push({ ...f, name: `${folder.name}/${f.name}` }));
       } catch { /* skip inaccessible subfolder */ }
     }
 
-    // ── Immigration document relevance scorer ───────────────────────────────
-    // Scores a file by how important it is for an Australian immigration case.
-    // Higher = read first. Returns -1 to skip the file entirely.
+    // ── Immigration document relevance scorer ─────────────────────────────
     const scoreFile = (name) => {
       const n = (name || '').toLowerCase().replace(/[_\-\.]/g, ' ');
-
-      // ── Skip entirely: design/marketing/internal work files ──────────────
+      // Skip design/marketing files
       if (/\.(psd|ai|sketch|fig|xd)$/.test(name.toLowerCase())) return -1;
       if (/canva|brochure|flyer|poster|price.?list|template\b/.test(n) &&
           !/application|visa|immi/.test(n)) return -1;
-
-      // ── Tier 1 (100-90): Identity & visa status — must-read ──────────────
+      // Tier 1 (100-90): Identity & visa status
       if (/passport|travel.?doc/.test(n))                               return 100;
       if (/visa.?grant|grant.?letter|approval.?letter|vevo|immicard/.test(n)) return 98;
-      if (/refusal|cancellation|decision.?record/.test(n))              return 95; // critical to understand
+      if (/refusal|cancellation|decision.?record/.test(n))              return 95;
       if (/bridging.?visa|bva|bvb|bvc/.test(n))                        return 92;
       if (/birth.?cert|national.?id|china.?id|chinese.?id|id.?card/.test(n)) return 90;
-
-      // ── Tier 2 (89-75): English & skills — core assessment docs ──────────
+      // Tier 2 (89-75): English & skills
       if (/ielts|pte\b|toefl|oet\b|cambridge.?english|english.?(test|result|score|certificate)/.test(n)) return 88;
       if (/skills?.?assessment/.test(n))                                return 87;
       if (/\b(acs|vetassess|engineers?.?australia|aitsl|ahpra|anmac|naati)\b/.test(n)) return 86;
       if (/\btra\b|trades.?recognition|cpa.?australia|caanz|cfa\b|icaa/.test(n)) return 85;
-
-      // ── Tier 3 (74-60): Qualifications & employment ──────────────────────
+      // Tier 3 (74-60): Qualifications & employment
       if (/degree|bachelor|master|phd|doctorate/.test(n))              return 74;
       if (/transcript|academic.?record|graduation|diploma|qualification/.test(n)) return 72;
       if (/employment.?(letter|contract|reference)|work.?(letter|reference)/.test(n)) return 70;
@@ -196,8 +195,7 @@ export default async function handler(req, res) {
       if (/reference.?letter|employer.?letter/.test(n))                return 65;
       if (/work.?contract|contract.?of.?employment/.test(n))           return 63;
       if (/resume|curriculum.?vitae|\bcv\b/.test(n))                   return 60;
-
-      // ── Tier 4 (59-45): Relationship & sponsor ───────────────────────────
+      // Tier 4 (59-45): Relationship & sponsor
       if (/marriage.?cert|wedding.?cert/.test(n))                      return 58;
       if (/de.?facto|defacto|relationship.?(statement|evidence|declaration)/.test(n)) return 56;
       if (/sponsor(ship)?|nomination|labour.?market|lmt\b/.test(n))    return 54;
@@ -206,45 +204,73 @@ export default async function handler(req, res) {
       if (/police.?clear|character.?clear|criminal.?record/.test(n))   return 48;
       if (/health.?assess|medical.?exam|\bhap\b|chest.?x.?ray/.test(n)) return 47;
       if (/service.?agreement|agent.?nom|form.?956|pow?er.?of.?attorney/.test(n)) return 45;
-
-      // ── Tier 5 (44-30): Financial & supporting ───────────────────────────
+      // Tier 5 (44-30): Financial & supporting
       if (/bank.?statement|financial.?evidence|savings|funds/.test(n)) return 44;
       if (/lease|rental.?agreement|utility.?bill|address.?evidence/.test(n)) return 38;
       if (/insurance|ovhc|oshc/.test(n))                               return 35;
       if (/enrol(l?ment)?|coe\b|confirmation.?of.?enrol/.test(n))      return 33;
-
-      // ── Tier 6 (29-15): Communication & notes — future WeChat / meeting notes
+      // Tier 6 (29-15): Communication & notes
       if (/\bnote[s]?\b|meeting.?note|consult(ation)?|summary/.test(n)) return 29;
       if (/wechat|chat.?log|message|communication/.test(n))            return 28;
       if (/email.?log|email.?summary/.test(n))                         return 26;
-
-      // ── Everything else (low relevance) ──────────────────────────────────
       return 10;
     };
 
-    // Score, filter, then sort: highest-score files first.
-    // Files scoring -1 are excluded from both reading AND the filename list.
     const allFiles = [...directFiles, ...subFiles]
       .map(f => ({ ...f, _score: scoreFile(f.name) }))
       .filter(f => f._score >= 0)
-      .sort((a, b) => b._score - a._score);   // highest immigration relevance first
+      .sort((a, b) => b._score - a._score);
 
-    const processed = [];
+    // ── 4. Classify files by read method ──────────────────────────────────
+    //
+    // gdrive-export: Drive Export API → plain text
+    //   Works for: Google Docs/Sheets/Slides, PDF (OCR), DOCX, XLSX, PPTX
+    // direct-download: raw bytes → text
+    //   Works for: .txt, .csv
+    // filename-only: no content read, just list the name
+    //   For: images, unknown binary formats
+    //
+    const READ_LIMIT = 15;       // Max files to extract text from
+    const CHARS_PER_FILE = 3000; // Max chars per file (keeps total ~45k chars)
+    const CONCURRENCY = 5;       // Parallel requests per batch
 
-    // ── 4. Read text-readable files (up to 12); list all others by filename ──
-    // Only Google Docs and plain-text files are downloaded (fast, no binary).
-    // DOCX / PDF / images → filename only — Claude infers content from the name.
-    // Timeout budget: each Google Doc export ≈ 0.3-0.5 s → 12 reads ≈ 4-6 s safe.
-    const TEXT_READ_LIMIT = 12;
-    let textReadCount = 0;
-
-    for (const file of allFiles) {
+    const classified = allFiles.map(file => {
       const mime = file.mimeType || '';
-      const isTextReadable = (
-        mime === 'application/vnd.google-apps.document' ||
-        mime === 'text/plain'
-      );
+      const name = (file.name || '').toLowerCase();
+      let method = 'filename-only';
 
+      if (
+        mime === 'application/vnd.google-apps.document' ||
+        mime === 'application/vnd.google-apps.spreadsheet' ||
+        mime === 'application/vnd.google-apps.presentation'
+      ) {
+        method = 'gdrive-export';
+      } else if (mime === 'application/pdf') {
+        method = 'gdrive-export'; // Drive OCR for PDFs
+      } else if (
+        mime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+        mime === 'application/msword'
+      ) {
+        method = 'gdrive-export';
+      } else if (
+        mime === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+        mime === 'application/vnd.ms-excel'
+      ) {
+        method = 'gdrive-export';
+      } else if (mime === 'text/plain' || name.endsWith('.txt') || name.endsWith('.csv')) {
+        method = 'direct-download';
+      }
+      // Images and other binary → filename-only
+
+      return { ...file, _method: method };
+    });
+
+    const toRead = classified.filter(f => f._method !== 'filename-only').slice(0, READ_LIMIT);
+    const filenameOnly = classified.filter(f => f._method === 'filename-only');
+    const overflow = classified.filter(f => f._method !== 'filename-only').slice(READ_LIMIT);
+
+    // ── 5. Read files in parallel batches ────────────────────────────────
+    const readFile = async (file) => {
       const entry = {
         id: file.id,
         name: file.name,
@@ -254,40 +280,63 @@ export default async function handler(req, res) {
         textContent: null,
         base64Content: null,
         skipped: false,
+        extractMethod: file._method,
       };
-
       try {
-        if (isTextReadable && textReadCount < TEXT_READ_LIMIT) {
-          if (mime === 'application/vnd.google-apps.document') {
-            // Google Doc → export as plain text (no binary download, very fast)
-            const r = await fetch(
-              `https://www.googleapis.com/drive/v3/files/${file.id}/export?mimeType=text%2Fplain&supportsAllDrives=true`,
-              { headers: { Authorization: `Bearer ${accessToken}` } }
-            );
-            if (r.ok) {
-              entry.textContent = (await r.text()).slice(0, 8000);
-              textReadCount++;
-            } else {
-              entry.skipped = true;
-            }
-          } else {
-            // Plain text file — small, fast download
-            const r = await driveDownload(file.id);
-            entry.textContent = (await r.text()).slice(0, 8000);
-            textReadCount++;
+        if (file._method === 'gdrive-export') {
+          const text = await exportAsText(file.id);
+          const trimmed = text.replace(/\s+/g, ' ').trim();
+          entry.textContent = trimmed.slice(0, CHARS_PER_FILE);
+          if (!entry.textContent) {
+            entry.skipped = true;
+            entry.error = 'export-empty';
           }
-        } else {
-          // Binary (PDF/DOCX/image) or text-read budget exhausted →
-          // filename-only context. Claude uses the name to infer the document.
-          entry.skipped = true;
+        } else if (file._method === 'direct-download') {
+          const r = await driveDownload(file.id);
+          const text = await r.text();
+          entry.textContent = text.slice(0, CHARS_PER_FILE);
         }
       } catch (e) {
         entry.skipped = true;
-        entry.error = e.message;
+        entry.error = e.message.slice(0, 200);
       }
+      return entry;
+    };
 
-      processed.push(entry);
+    const processed = [];
+
+    // Process in batches of CONCURRENCY
+    for (let i = 0; i < toRead.length; i += CONCURRENCY) {
+      const batch = toRead.slice(i, i + CONCURRENCY);
+      const results = await Promise.allSettled(batch.map(readFile));
+      for (let j = 0; j < results.length; j++) {
+        const r = results[j];
+        if (r.status === 'fulfilled') {
+          processed.push(r.value);
+        } else {
+          const file = batch[j];
+          processed.push({
+            id: file.id, name: file.name, mimeType: file.mimeType,
+            modifiedTime: file.modifiedTime, relevanceScore: file._score,
+            textContent: null, base64Content: null, skipped: true,
+            error: r.reason?.message?.slice(0, 200) || 'unknown',
+          });
+        }
+      }
     }
+
+    // Add filename-only entries (images, overflow, unreadable)
+    for (const file of [...filenameOnly, ...overflow]) {
+      processed.push({
+        id: file.id, name: file.name, mimeType: file.mimeType,
+        modifiedTime: file.modifiedTime, relevanceScore: file._score,
+        textContent: null, base64Content: null, skipped: true,
+        extractMethod: file._method,
+      });
+    }
+
+    // Sort final list by relevance score (highest first)
+    processed.sort((a, b) => (b.relevanceScore || 0) - (a.relevanceScore || 0));
 
     return res.json({
       folderFound: true,
@@ -296,7 +345,6 @@ export default async function handler(req, res) {
       totalFiles: allFiles.length,
       processed,
     });
-
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }

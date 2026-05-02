@@ -669,9 +669,11 @@ function SnapshotSection({
     if (!selectedClient) { setError('请先选择客户'); return; }
     setLoading(true); setError(''); setSnapshot(''); setDriveStatus(null);
 
-    // ── Step 1: Fetch Drive files ──────────────────────────────────────────
+    // ── Step 1: Fetch Drive files (v2 — server-side text extraction) ──────────
+    // drive-sync API now extracts text from PDFs/DOCX server-side via Google Drive
+    // Export API. No base64 blobs sent to Claude — just extracted text strings.
+    // Up to 15 files read; highest-priority immigration docs read first.
     let driveContext = '';
-    let pdfBlocks = []; // PDF/image blocks to attach to Claude snapshot call
     if (sessionIsValid(gmail)) {
       setStep('📁 读取 Drive 文件夹...');
       try {
@@ -684,107 +686,55 @@ function SnapshotSection({
           if (r.ok) {
             const driveData = await r.json();
             if (!driveData.folderFound) {
-              // Case 1: folder genuinely missing
               setDriveStatus({ found: false, message: driveData.message });
             } else if (!driveData.processed?.length) {
-              // Case 2: folder found but empty (new client, no files yet)
               setDriveStatus({ found: true, folderName: driveData.folderName, fileCount: driveData.totalFiles || 0, readCount: 0, fileDebug: [] });
             } else {
-              // Case 3: folder found with files
+              // Build context from server-extracted text
               const textParts = [];
-              const binaryNames = [];
-              const fileDebug = []; // diagnostic: track what happened to each file
+              const skippedNames = [];
+              const fileDebug = [];
               for (const f of driveData.processed) {
-                const dbg = { name: f.name, mime: f.mimeType || 'null', hasB64: !!f.base64Content, hasTxt: !!f.textContent, skipped: !!f.skipped, err: f.error || null, outcome: '' };
-                if (f.textContent) {
-                  textParts.push(`[文件: ${f.name}]\n${f.textContent.slice(0, 4000)}`);
-                  dbg.outcome = 'text';
-                } else if (f.base64Content && f.mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
-                  // DOCX — extract text client-side with mammoth
-                  try {
-                    const binary = atob(f.base64Content);
-                    const bytes = new Uint8Array(binary.length);
-                    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-                    const { value: docxText } = await mammoth.extractRawText({ arrayBuffer: bytes.buffer });
-                    if (docxText?.trim()) {
-                      textParts.push(`[文件: ${f.name}]\n${docxText.slice(0, 4000)}`);
-                      dbg.outcome = 'docx-text';
-                    } else {
-                      binaryNames.push(`  [✓] ${f.name}`);
-                      dbg.outcome = 'docx-empty';
-                    }
-                  } catch (e) {
-                    binaryNames.push(`  [✓] ${f.name}`);
-                    dbg.outcome = `docx-err:${e.message}`;
-                  }
+                const dbg = {
+                  name: f.name,
+                  mime: f.mimeType || 'null',
+                  hasTxt: !!f.textContent,
+                  skipped: !!f.skipped,
+                  err: f.error || null,
+                  method: f.extractMethod || 'unknown',
+                  outcome: '',
+                };
+                if (f.textContent && !f.skipped) {
+                  // Server successfully extracted text (Google Doc, PDF OCR, DOCX, etc.)
+                  textParts.push(`[文件: ${f.name}]\n${f.textContent}`);
+                  dbg.outcome = `text-ok(${f.extractMethod || 'gdrive-export'})`;
+                } else if (f.skipped && f.error) {
+                  // Server tried but failed (e.g. PDF not OCR-able, export error)
+                  skippedNames.push(`  [⚠️] ${f.name} (提取失败: ${f.error.slice(0, 60)})`);
+                  dbg.outcome = `skip-err:${f.error.slice(0, 40)}`;
                 } else if (f.mimeType?.startsWith('image/')) {
-                  // Image files (JPG/PNG/GIF) — do NOT send as image blocks to Claude
-                  // Claude's image block API fails on scanned docs/passports ("Could not process image")
-                  // Record filename in context so AI knows the file exists
-                  binaryNames.push(`  [📷] ${f.name} (图片文件)`);
-                  dbg.outcome = 'image-skipped-as-text';
-                } else if (f.mimeType?.includes('pdf') && pdfBlocks.length < 3) {
-                  // PDF only — attach as document block to Claude call
-                  setStep(`📄 下载文件: ${f.name}...`);
-                  try {
-                    let fileBase64 = f.base64Content;
-                    if (!fileBase64) {
-                      const dlRes = await fetch(
-                        `https://www.googleapis.com/drive/v3/files/${f.id}?alt=media&supportsAllDrives=true`,
-                        { headers: { Authorization: `Bearer ${token}` } }
-                      );
-                      dbg.dlStatus = dlRes.status;
-                      if (dlRes.ok) {
-                        const blob = await dlRes.blob();
-                        fileBase64 = await new Promise(resolve => {
-                          const reader = new FileReader();
-                          reader.onload = () => resolve(reader.result.split(',')[1]);
-                          reader.readAsDataURL(blob);
-                        });
-                      }
-                    }
-                    if (fileBase64) {
-                      // Validate PDF magic bytes before sending — invalid PDFs cause Claude API errors
-                      try {
-                        const header = atob(fileBase64.slice(0, 8));
-                        if (!header.startsWith('%PDF')) {
-                          binaryNames.push(`  [✓] ${f.name}`);
-                          dbg.outcome = 'pdf-invalid-header';
-                          continue;
-                        }
-                      } catch {
-                        binaryNames.push(`  [✓] ${f.name}`);
-                        dbg.outcome = 'pdf-header-decode-err';
-                        continue;
-                      }
-                      pdfBlocks.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: fileBase64 }, _name: f.name });
-                      dbg.outcome = 'pdf-block(document)';
-                    } else {
-                      binaryNames.push(`  [✓] ${f.name}`);
-                      dbg.outcome = 'pdf-dl-failed';
-                    }
-                  } catch (e) {
-                    binaryNames.push(`  [✓] ${f.name}`);
-                    dbg.outcome = `pdf-err:${e.message}`;
-                  }
+                  skippedNames.push(`  [📷] ${f.name} (图片文件)`);
+                  dbg.outcome = 'image-filename-only';
                 } else {
-                  binaryNames.push(`  [✓] ${f.name}`);
-                  dbg.outcome = 'unhandled-mime';
+                  skippedNames.push(`  [✓] ${f.name}`);
+                  dbg.outcome = 'filename-only';
                 }
                 fileDebug.push(dbg);
               }
-              // Build drive context: text content + PDF note + binary file list
               const parts = [...textParts];
-              if (pdfBlocks.length) {
-                parts.push(`以下 PDF/图片文件已附加至消息供 AI 直接阅读：\n${pdfBlocks.map(b => `  [📄] ${b._name}`).join('\n')}`);
-              }
-              if (binaryNames.length) {
-                parts.push(`已存档（未读取）：\n${binaryNames.join('\n')}`);
+              if (skippedNames.length) {
+                parts.push(`已存档（仅文件名）：\n${skippedNames.join('\n')}`);
               }
               if (parts.length) {
-                driveContext = `Google Drive 文件夹: ${driveData.folderName} (共${driveData.totalFiles}个文件)\n\n` + parts.join('\n\n---\n\n');
+                driveContext = `Google Drive 文件夹: ${driveData.folderName} (共${driveData.totalFiles}个文件，已读取${textParts.length}个)\n\n` + parts.join('\n\n---\n\n');
               }
-              setDriveStatus({ found: true, folderName: driveData.folderName, fileCount: driveData.totalFiles, readCount: textParts.length + pdfBlocks.length, fileDebug });
+              setDriveStatus({
+                found: true,
+                folderName: driveData.folderName,
+                fileCount: driveData.totalFiles,
+                readCount: textParts.length,
+                fileDebug,
+              });
             }
           } else {
             const errData = await r.json().catch(() => ({}));
@@ -795,7 +745,6 @@ function SnapshotSection({
         setDriveStatus({ found: false, message: `Drive 连接失败: ${driveErr.message}` });
       }
     }
-
     // ── Step 2: Fetch Gmail emails ─────────────────────────────────────────
     let emailContext = '';
     if (sessionIsValid(gmail) && (selectedClient.email || selectedClient.name)) {
@@ -833,27 +782,10 @@ function SnapshotSection({
     try {
       const existingSnap = selectedClient?.profile?.snapshot || '';
       const prompt = buildSnapshotPrompt(selectedClient, selectedCase, emailContext, sessionDocs, driveContext, existingSnap);
-      // Vercel body limit ~4.5MB — cap total base64 PDF payload to ~3MB to stay safe
-      const MAX_PDF_BYTES = 3 * 1024 * 1024;
-      let totalPdfBytes = 0;
-      const safePdfBlocks = [];
-      const skippedPdfNames = [];
-      for (const block of pdfBlocks) {
-        const sz = (block.source?.data?.length || 0) * 0.75; // base64 → approx bytes
-        if (totalPdfBytes + sz <= MAX_PDF_BYTES) {
-          safePdfBlocks.push(block);
-          totalPdfBytes += sz;
-        } else {
-          skippedPdfNames.push(block._name);
-        }
-      }
-      const hasPdfs = safePdfBlocks.length > 0;
-      const finalPrompt = skippedPdfNames.length
-        ? prompt + `\n\n（以下文件因超过大小限制未能附加，请人工查阅：${skippedPdfNames.join('、')}）`
-        : prompt;
-      const messageContent = hasPdfs
-        ? [{ type: 'text', text: finalPrompt }, ...safePdfBlocks.map(({ type, source }) => ({ type, source }))]
-        : finalPrompt;
+      // v2: No PDF base64 blocks — text is extracted server-side by drive-sync API.
+      // driveContext already contains extracted text from PDFs/DOCX/Google Docs.
+      // Just send the text prompt directly to Claude.
+      const messageContent = prompt;
 
       // ── Streaming fetch: read SSE events, build text incrementally ──────────
       // This avoids Vercel 504 timeout — the Edge function pipes tokens in real-time
@@ -861,7 +793,7 @@ function SnapshotSection({
       const _snapshotBody = {
           model: 'claude-haiku-4-5-20251001', max_tokens: 1500,
           messages: [{ role: 'user', content: messageContent }],
-          ...(hasPdfs ? { _beta: 'pdfs-2024-09-25' } : {}),
+          // No PDF blocks — text extracted server-side
         };
       let r;
       try {
@@ -1154,7 +1086,7 @@ function SnapshotSection({
           </div>
           {driveStatus.fileDebug?.map((d, i) => (
             <div key={i} style={{ marginTop: 2, fontSize: 11, opacity: 0.85, fontFamily: 'monospace' }}>
-              [{d.outcome}] {d.name} | mime={d.mime} | b64={String(d.hasB64)} txt={String(d.hasTxt)} skip={String(d.skipped)}{d.err ? ` err=${d.err}` : ''}{d.dlStatus ? ` dl=${d.dlStatus}` : ''}
+              [{d.outcome}] {d.name} | method={d.method} txt={String(d.hasTxt)} skip={String(d.skipped)}{d.err ? ` err=${d.err}` : ''}
             </div>
           ))}
         </div>
