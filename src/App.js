@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import Inbox from './Inbox';
+import Meetings from './Meetings';
 import BriefRenderer from './BriefRenderer';
 import { createPortal } from "react-dom";
 import * as mammoth from 'mammoth';
@@ -12,7 +13,7 @@ import { mergeClientData } from './utils/mergeProfile';
 const LANG_ZH = {
   // Nav
   'Dashboard':'仪表板','Clients':'客户','Cases':'案件','Leads':'潜在客户',
-  'Calendar':'日历','Invoices':'发票','Agents':'推荐代理','Team':'团队','Reports':'报告','Inbox':'收件箱',
+  'Calendar':'日历','Invoices':'发票','Agents':'推荐代理','Team':'团队','Reports':'报告','Inbox':'收件箱','Meetings':'沟通记录',
   // Top bar / auth
   'Sign out':'退出登录','Staff':'员工','Manager':'经理',
   // Clients page
@@ -5317,6 +5318,7 @@ function App() {
     { id:'leads',     icon:'🎯', label: t('Leads'),    count: leads.filter(l=>l.stage!=='Converted'&&l.stage!=='Lost').length },
     { id:'calendar',  icon:'📅', label: t('Calendar'), count: appointments.filter(a=>a.date===today()).length || undefined },
     { id:'inbox',     icon:'💬', label: t('Inbox'),    count: messages.filter(m=>m.status==='unread'||m.status==='draft_ready').length || undefined },
+    { id:'meetings',  icon:'🎙', label: t('Meetings') },
     { id:'invoices',  icon:'💰', label: t('Invoices'), count: invoices.filter(i=>i.status==='Overdue'||i.status==='Sent').length || undefined },
     { id:'agents',    icon:'🤝', label: t('Agents') },
     ...(isManager ? [
@@ -5431,6 +5433,7 @@ function App() {
             {view === 'invoices'  && <Invoices   invoices={invoices} setInvoices={setInvoices} clients={clients} jobs={jobs} />}
             {view === 'agents'    && <AgentsPage agents={agents} setAgents={setAgents} leads={leads} jobs={jobs} invoices={invoices} />}
             {view === 'inbox'     && <Inbox clients={clients} messages={messages} setMessages={setMessages} />}
+            {view === 'meetings'  && <Meetings />}
             {view === 'reports'   && isManager && <Reports clients={clients} jobs={jobs} leads={leads} invoices={invoices} team={team} />}
             {view === 'reports'   && !isManager && (
               <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', minHeight:400, gap:14 }}>

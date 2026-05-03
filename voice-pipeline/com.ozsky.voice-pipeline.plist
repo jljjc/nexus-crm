@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  macOS 守护进程配置
+  安装方式（在 voice-pipeline 目录里运行）：
+    cp com.ozsky.voice-pipeline.plist ~/Library/LaunchAgents/
+    launchctl load ~/Library/LaunchAgents/com.ozsky.voice-pipeline.plist
+
+  之后电脑开机就自动启动，无需手动运行。
+
+  查看日志：
+    tail -f /tmp/ozsky-voice-pipeline.log
+
+  停止/重启：
+    launchctl unload ~/Library/LaunchAgents/com.ozsky.voice-pipeline.plist
+    launchctl load   ~/Library/LaunchAgents/com.ozsky.voice-pipeline.plist
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.ozsky.voice-pipeline</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/local/bin/node</string>
+    <!-- 修改为你的实际路径 -->
+    <string>/Users/你的用户名/voice-pipeline/watch.js</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <!-- 修改为你的实际路径 -->
+  <string>/Users/你的用户名/voice-pipeline</string>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>NODE_ENV</key>
+    <string>production</string>
+  </dict>
+
+  <!-- 崩溃后自动重启 -->
+  <key>KeepAlive</key>
+  <true/>
+
+  <!-- 登录后启动 -->
+  <key>RunAtLoad</key>
+  <true/>
+
+  <!-- 日志文件 -->
+  <key>StandardOutPath</key>
+  <string>/tmp/ozsky-voice-pipeline.log</string>
+
+  <key>StandardErrorPath</key>
+  <string>/tmp/ozsky-voice-pipeline-error.log</string>
+</dict>
+</plist>

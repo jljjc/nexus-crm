@@ -65,6 +65,11 @@
   to = "/.netlify/functions/webhook-messages"
   status = 200
 
+[[redirects]]
+  from = "/api/meetings"
+  to = "/.netlify/functions/meetings"
+  status = 200
+
 # SPA fallback
 [[redirects]]
   from = "/*"
