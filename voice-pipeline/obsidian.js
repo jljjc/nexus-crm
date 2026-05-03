@@ -5,7 +5,7 @@
 import fs from "fs";
 import path from "path";
 
-const VAULT_DIR    = process.env.VAULT_DIR    || path.join(process.env.HOME, "Liang-Brain");
+const VAULT_DIR    = process.env.VAULT_DIR    || path.join(process.env.HOME, "Documents/J-Brain");
 const MEETINGS_DIR = process.env.MEETINGS_DIR || path.join(VAULT_DIR, "03-Meetings");
 
 export async function writeObsidianNote(data, transcript) {

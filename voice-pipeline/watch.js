@@ -16,7 +16,10 @@ import { pushToCRM } from "./crm.js";
 import { log, logError, playNotification } from "./utils.js";
 
 // ── 配置 ─────────────────────────────────────────────────────────────────────
-const WATCH_DIR  = process.env.WATCH_DIR  || path.join(process.env.HOME, "Dropbox/OzskyVoice");
+// Obsidian 录音默认存在 Vault/Attachments/，Obsidian Sync 自动同步手机录音到这里
+const VAULT_DIR  = process.env.VAULT_DIR  || path.join(process.env.HOME, "Documents/J-Brain");
+const WATCH_DIR  = process.env.WATCH_DIR  || path.join(VAULT_DIR, "Attachments");
+// 处理完的录音归档到 Vault/Attachments/_processed/（不影响 Obsidian Sync）
 const DONE_DIR   = process.env.DONE_DIR   || path.join(WATCH_DIR, "_processed");
 const FAILED_DIR = process.env.FAILED_DIR || path.join(WATCH_DIR, "_failed");
 const AUDIO_EXTS = new Set([".m4a", ".mp3", ".wav", ".ogg", ".webm", ".mp4"]);
