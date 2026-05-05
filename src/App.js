@@ -249,6 +249,12 @@ const GLOBAL_CSS = `
 
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+  html, body {
+    height: 100%;
+    /* Prevent iOS Safari from hiding content when keyboard opens */
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+  }
   body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     background: var(--surface-1);
@@ -276,7 +282,7 @@ const GLOBAL_CSS = `
 
   /* ── SIDEBAR / NAV ──────────────────────────────────────────────────────── */
   .oz-sidebar {
-    width: 240px; min-height: 100vh;
+    width: 240px; min-height: 100vh; min-height: 100dvh;
     background: var(--nav-bg);
     display: flex; flex-direction: column;
     border-right: 1px solid var(--nav-border);
@@ -558,7 +564,7 @@ const GLOBAL_CSS = `
 
   /* ── RESPONSIVE ─────────────────────────────────────────────────────────── */
   @media (max-width: 880px) {
-    .oz-sidebar { position: fixed; left: 0; top: 0; height: 100vh; transform: translateX(-100%); z-index: 50; }
+    .oz-sidebar { position: fixed; left: 0; top: 0; height: 100vh; height: 100dvh; transform: translateX(-100%); z-index: 50; }
     .oz-sidebar.open { transform: translateX(0); animation: drawIn 0.3s cubic-bezier(.16,1,.3,1); }
     .oz-mob-overlay.open { display: block; }
     .oz-hamburger { display: block; }
@@ -877,8 +883,11 @@ function Card({ children, style, onClick }) {
 }
 
 function Modal({ title, onClose, children, wide }) {
-  // Lock body scroll while modal open
+  // Lock body scroll while modal open — use padding trick to avoid layout shift
+  // Note: we do NOT set body overflow:hidden on mobile as it causes blank page when keyboard opens
   useEffect(() => {
+    const isMobile = window.innerWidth <= 880;
+    if (isMobile) return; // skip on mobile — keyboard + overflow:hidden = blank page bug
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => { document.body.style.overflow = prev; };
@@ -5349,7 +5358,7 @@ function App() {
       {/* ── SIDEBAR MOBILE OVERLAY ── */}
       <div className={`oz-mob-overlay${sidebarOpen?' open':''}`} onClick={()=>setSidebarOpen(false)} />
 
-      <div style={{ display:'flex', height:'100vh', overflow:'hidden' }}>
+      <div style={{ display:'flex', height:'100vh', height:'100dvh', overflow:'hidden' }}>
 
         {/* ── SIDEBAR ── */}
         <aside className={`oz-sidebar${sidebarOpen?' open':''}`}>
@@ -5394,7 +5403,7 @@ function App() {
         </aside>
 
         {/* ── MAIN COLUMN ── */}
-        <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden', minWidth:0 }}>
+        <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'auto', minWidth:0 }}>
 
           {/* ── TOP BAR ── */}
           <header className="oz-topbar">
