@@ -955,6 +955,63 @@ const textareaStyle = { ...inputStyle, resize:'vertical', minHeight:72 };
 /* ─── NOTE TEXT RENDERER ────────────────────────────────────────────────────── */
 function NoteText({ text, type }) {
   if (!text) return null;
+
+  // ── Email Import notes: rich card layout ──────────────────────────────────
+  if (type === 'email-import' || text.startsWith('📧 Email Import')) {
+    const lines = text.split('\n');
+    const title = lines[0] || '';
+    const dateLine = lines.find(l => l.startsWith('📅'));
+    // Parse sections: lines starting with emoji (not indented) are section headers
+    const sections = [];
+    let current = null;
+    for (let i = 1; i < lines.length; i++) {
+      const l = lines[i];
+      if (!l.trim()) continue;
+      if (/^[📝✅💬🗓📅]/.test(l) && !l.startsWith('  ')) {
+        current = { header: l, items: [] };
+        sections.push(current);
+      } else if (l.startsWith('  • ') && current) {
+        current.items.push(l.replace(/^\s+•\s*/, ''));
+      } else if (current && current.items.length === 0 && !l.startsWith('📅')) {
+        // Plain text under a header (e.g. Summary paragraph)
+        current.items.push(l);
+      }
+    }
+    const sectionColors = {
+      '📝': { bg:'#f0f9ff', border:'#bae6fd', head:'#0369a1' },
+      '✅': { bg:'#f0fdf4', border:'#bbf7d0', head:'#15803d' },
+      '💬': { bg:'#fdf4ff', border:'#e9d5ff', head:'#7e22ce' },
+      '🗓': { bg:'#fff7ed', border:'#fed7aa', head:'#c2410c' },
+    };
+    return (
+      <div style={{ fontSize:13, lineHeight:1.55, color:'#111827' }}>
+        {/* Title */}
+        <div style={{ fontWeight:700, fontSize:13.5, color:'#1e40af', marginBottom: dateLine ? 2 : 8 }}>{title}</div>
+        {dateLine && <div style={{ fontSize:11, color:'#6b7280', marginBottom:8 }}>{dateLine}</div>}
+        {/* Sections */}
+        <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
+          {sections.map((sec, si) => {
+            const emoji = sec.header[0];
+            const col = sectionColors[emoji] || { bg:'#f9fafb', border:'#e5e7eb', head:'#374151' };
+            return (
+              <div key={si} style={{ background:col.bg, border:`1px solid ${col.border}`, borderRadius:8, padding:'8px 11px' }}>
+                <div style={{ fontSize:11, fontWeight:700, color:col.head, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom: sec.items.length ? 5 : 0 }}>{sec.header}</div>
+                {sec.items.map((item, ii) => (
+                  sec.items.length === 1 && !item.startsWith('•')
+                    ? <div key={ii} style={{ fontSize:12.5, color:'#374151', lineHeight:1.6 }}>{item}</div>
+                    : <div key={ii} style={{ display:'flex', gap:6, alignItems:'flex-start', marginBottom:3 }}>
+                        <span style={{ color:col.head, fontWeight:700, flexShrink:0, marginTop:1 }}>•</span>
+                        <span style={{ fontSize:12.5, color:'#374151', flex:1 }}>{item}</span>
+                      </div>
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
   // AI brief notes: render structured format
   if (type === 'ai-brief' || text.startsWith('🤖 AI')) {
     const lines = text.split('\n');
@@ -1708,15 +1765,27 @@ Return ONLY valid JSON (no markdown, no preamble):
 
   const saveEmailNote = () => {
     if (!emailResult) return;
-    const noteText = [
+    const lines = [
       `📧 Email Import${emailResult.subject ? ` — ${emailResult.subject}` : ''}`,
-      `Summary: ${emailResult.summary}`,
-      emailResult.actionItems?.length ? `Action Items: ${emailResult.actionItems.join('; ')}` : '',
-      emailResult.clientRequests?.length ? `Client Requests: ${emailResult.clientRequests.join('; ')}` : '',
-      emailResult.importantDates?.length ? `Key Dates: ${emailResult.importantDates.join(', ')}` : '',
-      emailResult.dateRange ? `Email Date: ${emailResult.dateRange}` : '',
-    ].filter(Boolean).join('\n');
-    onSaveProfile({ ...client, notes: [makeNote(noteText), ...normalizeNotes(client.notes)] });
+      emailResult.dateRange ? `📅 ${emailResult.dateRange}` : '',
+      '',
+      `📝 Summary`,
+      emailResult.summary || '',
+      '',
+      emailResult.actionItems?.length ? `✅ Action Items` : '',
+      ...(emailResult.actionItems || []).map(a => `  • ${a}`),
+      '',
+      emailResult.clientRequests?.length ? `💬 Client Requests` : '',
+      ...(emailResult.clientRequests || []).map(r => `  • ${r}`),
+      '',
+      emailResult.importantDates?.length ? `🗓 Key Dates` : '',
+      ...(emailResult.importantDates || []).map(d => `  • ${d}`),
+    ].filter(l => l !== undefined);
+    // Trim trailing blank lines
+    while (lines.length && !lines[lines.length - 1]) lines.pop();
+    const noteText = lines.join('\n');
+    const note = { ...makeNote(noteText), type: 'email-import' };
+    onSaveProfile({ ...client, notes: [note, ...normalizeNotes(client.notes)] });
     setEmailSaved(true);
   };
 
