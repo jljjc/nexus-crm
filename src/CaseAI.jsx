@@ -152,23 +152,88 @@ async function ensureManusProject(caseObj, client, onSaveCase) {
 }
 
 /* ── Deep case brief prompt ──────────────────────────────────────────────── */
+// DOC_CHECKLISTS duplicated here so CaseAI can build full checklist without importing from App.js
+const DOC_CHECKLISTS_AI = {
+  'Subclass 500 – Student Visa':               ['Offer Letter / CoE', 'Passport', 'English Test Results', 'Financial Evidence', 'Overseas Student Health Cover (OSHC)', 'Genuine Temporary Entrant (GTE) Statement'],
+  'Subclass 500 – Student (School)':           ['Offer Letter / CoE', 'Passport', 'Financial Evidence', 'OSHC', 'GTE Statement', 'Parent/Guardian Consent (if under 18)'],
+  'Subclass 590 – Student Guardian':           ['Passport', 'Student Visa Grant (child)', 'Financial Evidence', 'OSHC', 'Relationship Evidence'],
+  'Subclass 190 – Skilled (Nominated)':        ['Skills Assessment', 'State/Territory Nomination', 'English Test Results', 'EOI via SkillSelect', 'Passport', 'Health & Character Checks'],
+  'Subclass 491 – Skilled Regional (State)':   ['Skills Assessment', 'State/Territory Nomination', 'English Test Results', 'EOI via SkillSelect', 'Passport', 'Health & Character Checks', 'Employment References'],
+  'Subclass 491 – Skilled Regional (Family)':  ['Skills Assessment', 'Eligible Relative Sponsorship', 'English Test Results', 'EOI via SkillSelect', 'Passport', 'Health & Character Checks'],
+  'Subclass 494 – Employer Sponsored Regional':['Employer Sponsorship Approval', 'Skills Assessment', 'Passport', 'Labour Market Testing Evidence', 'English Evidence', 'Health & Character Checks'],
+  'Subclass 887 – Skilled (Residence)':        ['491/494 Grant Letter', 'Passport', 'Evidence of Regional Living/Working (2 yrs)', 'Health & Character Checks'],
+  'Subclass 482 – TSS (Short-term)':           ['Approved Sponsorship', 'Job Offer / Contract', 'Passport', 'Skills Assessment (if required)', 'English Evidence', 'Health & Character Checks'],
+  'Subclass 482 – TSS (Medium-term)':          ['Approved Sponsorship', 'Job Offer / Contract', 'Passport', 'Skills Assessment', 'English Evidence', 'Health & Character Checks', 'Labour Market Testing'],
+  'Subclass 186 – ENS (Direct Entry)':         ['Employer Nomination Approval', 'Skills Assessment', 'Passport', 'English Evidence', 'Health & Character Checks', 'Employment References (3 yrs)'],
+  'Subclass 186 – ENS (TRT)':                  ['Employer Nomination Approval', 'Passport', 'Evidence of 2 Years Employment with Sponsor', 'English Evidence', 'Health & Character Checks'],
+  'Subclass 407 – Training Visa':              ['Training Plan', 'Sponsor Approval', 'Passport', 'English Evidence', 'Health & Character Checks'],
+  'Subclass 820/801 – Partner (Onshore)':      ['Relationship Evidence (photos/comms/finance)', 'Joint Bank Statements', 'Statutory Declarations (x2)', 'Both Passports', 'Health Examination', 'Police Clearance'],
+  'Subclass 309/100 – Partner (Offshore)':     ['Relationship Evidence', 'Joint Financial Evidence', 'Statutory Declarations', 'Both Passports', 'Health Examination', 'Police Clearance'],
+  'Subclass 300 – Prospective Marriage':       ['Proof of Genuine Relationship', 'Passports', 'Evidence of Meeting in Person', 'Health & Character Checks'],
+  'Subclass 600 – Visitor':                    ['Passport', 'Travel Itinerary', 'Financial Evidence', 'Ties to Home Country Evidence', 'Travel Insurance (recommended)'],
+  'Subclass 408 – Temp Activity':              ['Passport', 'Sponsor Approval or Event Invitation', 'Activity Evidence', 'Health & Character Checks'],
+  'Bridging Visa A':                           ['Current Visa Copy', 'Substantive Visa Application Receipt', 'Passport'],
+  'Bridging Visa B':                           ['Current BVA Grant Letter', 'Passport', 'Evidence of Compelling Reason to Travel'],
+  'Bridging Visa C':                           ['Current Application Reference', 'Passport'],
+  'Enrollment Support':                        ['Offer Letter', 'Academic Transcripts', 'English Test Results', 'Passport Copy'],
+  'Scholarship Application':                   ['Academic Transcripts', 'English Test Results', 'Research Proposal / Personal Statement', 'Referee Letters (2-3)', 'Passport', 'CV/Resume'],
+  'Other':                                     ['Passport', 'Supporting Documents'],
+};
+
 function buildCaseBriefPrompt(client, caseObj, emailContext, driveContext) {
   const c = caseObj || {};
+  const p = client?.profile || {};
   const today = new Date().toLocaleDateString('en-AU', { year: 'numeric', month: 'long', day: 'numeric' });
   const visaSubclass = c.type || 'Unknown Visa Subclass';
+  const na = '待确认 (unconfirmed)';
+
+  // ── Build full document checklist (standard list + any custom docs in c.docs) ──
+  const standardDocs = DOC_CHECKLISTS_AI[c.type] || [];
+  const receivedDocs = c.docs || {};
+  // Merge standard checklist with any extra docs already in c.docs
+  const allDocKeys = [...new Set([...standardDocs, ...Object.keys(receivedDocs)])];
+  const docChecklistText = allDocKeys.length
+    ? `Document Checklist (${allDocKeys.filter(k => receivedDocs[k]).length}/${allDocKeys.length} received):\n` +
+      allDocKeys.map(k => `  [${receivedDocs[k] ? '✓' : '✗'}] ${k}`).join('\n')
+    : '';
+
+  // ── Build visa history text ──
+  const visaHistoryText = (p.visaHistory || []).length
+    ? `Visa History:\n${p.visaHistory.map(v =>
+        `  ${v.visaType || ''}${v.applicationNo ? ' (App# ' + v.applicationNo + ')' : ''} | Lodged: ${v.lodged || '—'} | Granted: ${v.granted || '—'} | Expiry: ${v.expiry || '—'} | Status: ${v.status || '—'}`
+      ).join('\n')}`
+    : '';
+
+  // ── Build skills assessments text ──
+  const skillsText = (p.skillsAssessments || []).length
+    ? `Skills Assessments:\n${p.skillsAssessments.map(s =>
+        `  Occupation: ${s.occupation || '—'} | Body: ${s.body || '—'} | App ID: ${s.appId || '—'} | Submitted: ${s.submitted || '—'} | Outcome: ${s.outcome || 'Pending'}`
+      ).join('\n')}`
+    : '';
 
   const crmData = [
-    client?.name        && `Client Name: ${client.name}`,
-    client?.email       && `Email: ${client.email}`,
-    client?.phone       && `Phone: ${client.phone}`,
-    client?.profile?.dob && `DOB: ${client.profile.dob}`,
-    client?.profile?.nationality && `Nationality: ${client.profile.nationality}`,
-    client?.profile?.occupation && `Occupation: ${client.profile.occupation}`,
-    c.type              && `Case Type: ${c.type}`,
-    c.status            && `Current Status: ${c.status}`,
-    c.priority          && `Priority: ${c.priority}`,
-    c.dueDate           && `Due Date: ${c.dueDate}`,
-    c.assignedTo        && `Assigned Agent: ${c.assignedTo}`,
+    `Client Name (EN): ${client?.name || na}`,
+    `Client Name (ZH): ${p.nameZh || p.nameChinese || na}`,
+    `Email: ${client?.email || na}`,
+    `Phone: ${client?.phone || na}`,
+    `Sex: ${p.sex || na}`,
+    `Date of Birth: ${p.dob || na}`,
+    `Birthplace: ${p.birthplace || na}`,
+    `Nationality: ${client?.nationality || na}`,
+    `Passport No: ${p.passportNo || na}`,
+    `Passport Expiry: ${p.passportExpiry || na}`,
+    `China ID: ${p.chinaId || na}`,
+    `Marital Status: ${p.maritalStatus || na}`,
+    `AU Address: ${p.auAddress || na}`,
+    `Consultant: ${p.consultant || c.assignedTo || na}`,
+    `Visa Target: ${p.visaTarget || c.type || na}`,
+    visaHistoryText,
+    skillsText,
+    `Case Type: ${c.type || na}`,
+    `Current Status: ${c.status || na}`,
+    `Priority: ${c.priority || na}`,
+    `Due Date: ${c.dueDate || na}`,
+    `Assigned Agent: ${c.assignedTo || na}`,
     c.snapshot          && `Case Summary: ${c.snapshot}`,
     c.caseTimeline?.length && `Timeline:\n${c.caseTimeline.map(t =>
       `  [${t.date || ''}] ${t.event || ''} — ${t.status || ''}`).join('\n')}`,
@@ -176,8 +241,7 @@ function buildCaseBriefPrompt(client, caseObj, emailContext, driveContext) {
       `  [${i.priority || ''}] ${i.item || ''}`).join('\n')}`,
     c.nextSteps?.length && `Next Steps:\n${c.nextSteps.map((s, i) =>
       `  ${i + 1}. ${s}`).join('\n')}`,
-    c.docs && Object.keys(c.docs).length && `Document Checklist:\n${Object.entries(c.docs).map(([k, v]) =>
-      `  [${v ? '✓' : ' '}] ${k}`).join('\n')}`,
+    docChecklistText,
   ].filter(Boolean).join('\n');
 
   return `You are an expert Australian migration AI assistant for Ozsky International, Perth WA.
@@ -210,7 +274,7 @@ OUTPUT FORMAT — produce a bilingual (English/Chinese) case brief using EXACTLY
 
 ================================================================================
   CASE PROGRESS BRIEF  |  案件进度简报
-  ${client?.name || '[Client Name]'} — ${visaSubclass}
+  ${client?.name || '[Client Name]'}${(p.nameZh || p.nameChinese) ? ' (' + (p.nameZh || p.nameChinese) + ')' : ''} — ${visaSubclass}
   Generated: ${today} | Agent: ${caseObj?.assignedTo || 'Ozsky Migration'} | CONFIDENTIAL
 ================================================================================
 
@@ -219,9 +283,10 @@ Visa subclass, current status, priority, key dates, assigned agent.
 Include relevant visa stream/pathway (e.g., ENS Direct Entry, TSS Short-term).
 
 ━━━ 2. DOCUMENT STATUS  文件进度 ━━━
-List ALL documents with status. Format: [✓] Received / [✗] Missing / [?] Unverified
-Group by category: Identity / Qualification / Employment / Health & Character / Sponsor
-Cross-reference Drive files with CRM checklist.
+Use the Document Checklist provided in CRM CASE DATA above as the definitive list.
+[✓] = already received in CRM | [✗] = still missing — do NOT mark as received unless CRM shows ✓
+If a field shows 待确认 (unconfirmed), mark it as [?] Unverified — do NOT fabricate a value.
+Group by: Identity / Qualification / Employment / Health & Character / Sponsor
 
 ━━━ 3. CURRENT PROGRESS  当前进展 ━━━
 Completed milestones, in-progress items, blocked items.
@@ -250,8 +315,11 @@ Mention relevant ANZSCO codes, skills assessment bodies, or state nomination req
   本简报由 AI 辅助整理，仅供内部参考，不构成法律意见。
 ================================================================================
 
-IMPORTANT: If information is unavailable, write "Information pending" — do NOT fabricate details.
-Keep each section concise (3-6 lines). Total length: 800-1200 words.`;
+CRITICAL RULES:
+1. NEVER fabricate client details. If a field shows 待确认 (unconfirmed), write 待确认 or "unconfirmed" — do not guess.
+2. The Chinese name MUST come from the CRM data field 'Client Name (ZH)'. Do not transliterate or invent a Chinese name.
+3. Document checklist MUST reflect the CRM checklist exactly — [✓] only if CRM shows ✓, [✗] if missing.
+4. Keep each section concise (3-6 lines). Total length: 800-1200 words.`;
 }
 
 /* ── Main component ─────────────────────────────────────────────────────── */
