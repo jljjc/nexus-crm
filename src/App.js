@@ -4254,6 +4254,87 @@ function Leads({ leads, setLeads, clients, setClients, jobs, setJobs, team, agen
   const [showForm, setShowForm] = useState(false);
   const [editLead, setEditLead] = useState(null);
   const [filter, setFilter] = useState('');
+  const [showImport, setShowImport] = useState(false);
+  const [importText, setImportText] = useState('');
+  const [importStatus, setImportStatus] = useState(null);
+  const [importMsg, setImportMsg] = useState('');
+  const importFileRef = useRef(null);
+
+  const mapStudentFormToLead = (data) => {
+    const courseTypeMap = {
+      school: 'Subclass 500 - Student (School)',
+      vet: 'Subclass 500 - Student (VET)',
+      university: 'Subclass 500 - Student (University)',
+      postgraduate: 'Subclass 500 - Student (Postgraduate)',
+      phd: 'Subclass 500 - Student (PhD/Research)',
+    };
+    const fullName = [data.givenName, data.familyName].filter(Boolean).join(' ') || data.name || 'Unknown';
+    const phone = data.mobileAustralia || data.mobileHome || data.phone || '';
+    const visaInterest = courseTypeMap[data.courseType] || 'Subclass 500 - Student';
+    const notesParts = [
+      data.dob ? 'DOB: ' + data.dob : '',
+      data.nationality ? 'Nationality: ' + data.nationality : '',
+      data.location === 'onshore' ? 'Location: Onshore (in Australia)' : data.location === 'offshore' ? 'Location: Offshore (overseas)' : '',
+      data.notes || '',
+    ].filter(Boolean);
+    return {
+      id: 'ld' + Date.now() + Math.random().toString(36).slice(2, 6),
+      name: fullName,
+      email: data.email || '',
+      phone,
+      nationality: data.nationality || '',
+      visaInterest,
+      stage: 'New Enquiry',
+      source: 'Online Form',
+      notes: notesParts.join(' | '),
+      assignedTo: '',
+      referralId: '',
+      createdAt: new Date().toISOString(),
+    };
+  };
+
+  const handleImport = async () => {
+    setImportStatus('loading');
+    setImportMsg('');
+    try {
+      let parsed;
+      try { parsed = JSON.parse(importText.trim()); } catch(e) { throw new Error('Invalid JSON. Please paste valid JSON content.'); }
+      const items = Array.isArray(parsed) ? parsed : [parsed];
+      if (!items.length) throw new Error('No data found in JSON.');
+      const newLeads = items.map(mapStudentFormToLead);
+      let successCount = 0;
+      const failed = [];
+      for (const nl of newLeads) {
+        try {
+          await sbInsert('leads', { id: nl.id, data: nl });
+          setLeads(ls => [...ls, nl]);
+          successCount++;
+        } catch(e) {
+          failed.push(nl.name);
+        }
+      }
+      if (failed.length) {
+        setImportStatus('error');
+        setImportMsg('Imported ' + successCount + ' lead(s). Failed: ' + failed.join(', '));
+      } else {
+        setImportStatus('success');
+        setImportMsg('Successfully imported ' + successCount + ' lead(s) into the pipeline!');
+        setTimeout(() => { setShowImport(false); setImportText(''); setImportStatus(null); setImportMsg(''); }, 2500);
+      }
+    } catch(e) {
+      setImportStatus('error');
+      setImportMsg(e.message || 'Import failed.');
+    }
+  };
+
+  const handleImportFile = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => setImportText(ev.target.result);
+    reader.readAsText(file);
+    e.target.value = '';
+  };
 
   const empty = { name:'', email:'', phone:'', nationality:'', visaInterest:'', stage:'New Enquiry', source:'Website', referralId:'', notes:'', assignedTo:'' };
   const [form, setForm] = useState(empty);
@@ -4304,6 +4385,7 @@ function Leads({ leads, setLeads, clients, setClients, jobs, setJobs, team, agen
         </div>
         <div style={{ display:'flex', gap:10 }}>
           <input value={filter} onChange={e=>setFilter(e.target.value)} placeholder="Search leads…" style={{ background:'#ffffff', border:'1.5px solid #d1d5db', borderRadius:8, padding:'8px 12px', color:'#111827', fontSize:13, width:200, outline:'none' }}/>
+          <button onClick={() => { setShowImport(true); setImportText(''); setImportStatus(null); setImportMsg(''); }} style={{ background:'linear-gradient(135deg,#0ea5e9,#38bdf8)', color:'#ffffff', border:'none', borderRadius:8, padding:'9px 18px', fontWeight:700, fontSize:13 }}>Import JSON</button>
           <button onClick={openAdd} style={{ background:'linear-gradient(135deg,#ff158a,#ff5fae)', color:'#ffffff', border:'none', borderRadius:8, padding:'9px 18px', fontWeight:700, fontSize:13 }}>+ Add Lead</button>
         </div>
       </div>
@@ -4349,6 +4431,30 @@ function Leads({ leads, setLeads, clients, setClients, jobs, setJobs, team, agen
       </div>
 
       {/* Add/Edit Modal */}
+      {showImport && (
+        <Modal title="Import Student Form JSON" onClose={() => { setShowImport(false); setImportText(''); setImportStatus(null); setImportMsg(''); }}>
+          <div style={{ fontSize:13, color:'#6b7280', marginBottom:12 }}>Paste the CRM JSON exported from the Ozsky Student Form, or upload the <code>.json</code> file. Each submission will be created as a <strong>New Enquiry</strong> lead.</div>
+          <div style={{ display:'flex', gap:10, marginBottom:10, alignItems:'center' }}>
+            <button onClick={() => importFileRef.current && importFileRef.current.click()} style={{ background:'#f3f4f6', border:'1.5px solid #d1d5db', borderRadius:7, padding:'7px 14px', fontSize:12, color:'#374151', fontWeight:600, cursor:'pointer' }}>Upload .json file</button>
+            <input ref={importFileRef} type="file" accept=".json,application/json" style={{ display:'none' }} onChange={handleImportFile} />
+            {importText ? <span style={{ fontSize:12, color:'#16a34a' }}>File loaded ({importText.length} chars)</span> : null}
+          </div>
+          <textarea
+            value={importText}
+            onChange={e => setImportText(e.target.value)}
+            placeholder={'Paste JSON here...\n\nExample:\n{"familyName":"Wang","givenName":"Fang","email":"wang@example.com","courseType":"university",...}'}
+            rows={10}
+            style={{ width:'100%', background:'#f9fafb', border:'1.5px solid #d1d5db', borderRadius:8, padding:'10px 12px', fontSize:12, fontFamily:'monospace', color:'#111827', resize:'vertical', boxSizing:'border-box' }}
+          />
+          {importMsg ? (
+            <div style={{ marginTop:10, padding:'8px 12px', borderRadius:7, background: importStatus==='success' ? '#f0fdf4' : '#fef2f2', color: importStatus==='success' ? '#16a34a' : '#dc2626', fontSize:13, fontWeight:500 }}>{importStatus==='success' ? '✅ ' : '❌ '}{importMsg}</div>
+          ) : null}
+          <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:16 }}>
+            <button onClick={() => { setShowImport(false); setImportText(''); setImportStatus(null); setImportMsg(''); }} style={{ background:'#e5e7eb', border:'none', borderRadius:8, padding:'9px 18px', color:'#1f2937', fontSize:13, cursor:'pointer' }}>Cancel</button>
+            <button onClick={handleImport} disabled={!importText.trim() || importStatus==='loading'} style={{ background: importText.trim() ? 'linear-gradient(135deg,#0ea5e9,#38bdf8)' : '#d1d5db', border:'none', borderRadius:8, padding:'9px 18px', color:'#fff', fontWeight:700, fontSize:13, cursor: importText.trim() ? 'pointer' : 'not-allowed' }}>{importStatus==='loading' ? 'Importing...' : 'Import Leads'}</button>
+          </div>
+        </Modal>
+      )}
       {showForm && (
         <Modal title={editLead ? 'Edit Lead' : 'New Lead'} onClose={()=>setShowForm(false)}>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14 }}>
