@@ -5358,7 +5358,7 @@ function App() {
       {/* ── SIDEBAR MOBILE OVERLAY ── */}
       <div className={`oz-mob-overlay${sidebarOpen?' open':''}`} onClick={()=>setSidebarOpen(false)} />
 
-      <div style={{ display:'flex', height:'100vh', height:'100dvh', overflow:'hidden' }}>
+      <div style={{ display:'flex', minHeight:'100dvh', overflow:'auto' }}>
 
         {/* ── SIDEBAR ── */}
         <aside className={`oz-sidebar${sidebarOpen?' open':''}`}>
