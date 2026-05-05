@@ -1,0 +1,1527 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NexusCRM 使用指南 — Ozsky International</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --brand: #E91E8C;
+      --brand-light: #fdf0f8;
+      --brand-mid: rgba(233,30,140,0.12);
+      --ink-900: #0B0F1A;
+      --ink-700: #2D3650;
+      --ink-600: #4A5568;
+      --ink-400: #A0AEC0;
+      --ink-200: #E2E8F0;
+      --ink-100: #F1F5F9;
+      --surface-0: #FFFFFF;
+      --surface-1: #F8FAFC;
+      --success: #10B981;
+      --warning: #F59E0B;
+      --danger: #EF4444;
+      --info: #3B82F6;
+      --nav-bg: #0B1120;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--surface-1);
+      color: var(--ink-700);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    /* ── TOP HEADER ── */
+    .site-header {
+      background: var(--nav-bg);
+      padding: 0 32px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .site-header .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .site-header .logo-icon {
+      width: 32px; height: 32px;
+      background: linear-gradient(135deg, var(--brand), #FF6EC7);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px; font-weight: 800; color: #fff;
+    }
+    .site-header .logo-text { font-size: 15px; font-weight: 700; color: #F8FAFC; }
+    .site-header .logo-sub { font-size: 10px; color: #94A3B8; }
+    .lang-btn {
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 20px;
+      padding: 4px 14px;
+      color: #94A3B8;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .lang-btn:hover { background: rgba(255,255,255,0.14); color: #fff; }
+
+    /* ── HERO ── */
+    .hero {
+      background: linear-gradient(135deg, #0B1120 0%, #1a1040 50%, #0B1120 100%);
+      padding: 60px 32px 50px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: -40%; left: 50%;
+      transform: translateX(-50%);
+      width: 600px; height: 600px;
+      background: radial-gradient(circle, rgba(233,30,140,0.15) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .hero h1 {
+      font-size: 36px;
+      font-weight: 800;
+      color: #F8FAFC;
+      margin-bottom: 12px;
+      position: relative;
+    }
+    .hero h1 span { color: var(--brand); }
+    .hero p {
+      font-size: 15px;
+      color: #94A3B8;
+      max-width: 520px;
+      margin: 0 auto 28px;
+      position: relative;
+    }
+    .hero-badges {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+      position: relative;
+    }
+    .badge {
+      padding: 5px 14px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .badge-pink { background: rgba(233,30,140,0.15); color: #F472B6; border: 1px solid rgba(233,30,140,0.25); }
+    .badge-blue { background: rgba(59,130,246,0.15); color: #60A5FA; border: 1px solid rgba(59,130,246,0.25); }
+    .badge-green { background: rgba(16,185,129,0.15); color: #34D399; border: 1px solid rgba(16,185,129,0.25); }
+
+    /* ── LAYOUT ── */
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* ── QUICK NAV ── */
+    .quick-nav {
+      background: var(--surface-0);
+      border-bottom: 1px solid var(--ink-200);
+      padding: 0 32px;
+      display: flex;
+      gap: 0;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .quick-nav::-webkit-scrollbar { display: none; }
+    .quick-nav a {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 14px 18px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--ink-600);
+      text-decoration: none;
+      border-bottom: 2px solid transparent;
+      white-space: nowrap;
+      transition: all 0.15s;
+    }
+    .quick-nav a:hover, .quick-nav a.active {
+      color: var(--brand);
+      border-bottom-color: var(--brand);
+    }
+
+    /* ── MAIN CONTENT ── */
+    .main { padding: 40px 32px 80px; max-width: 1100px; margin: 0 auto; }
+
+    /* ── SECTION ── */
+    .section {
+      margin-bottom: 56px;
+      scroll-margin-top: 120px;
+    }
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 24px;
+      padding-bottom: 14px;
+      border-bottom: 2px solid var(--ink-200);
+    }
+    .section-icon {
+      width: 40px; height: 40px;
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+    .section-icon.pink { background: rgba(233,30,140,0.1); }
+    .section-icon.blue { background: rgba(59,130,246,0.1); }
+    .section-icon.green { background: rgba(16,185,129,0.1); }
+    .section-icon.purple { background: rgba(139,92,246,0.1); }
+    .section-icon.orange { background: rgba(245,158,11,0.1); }
+    .section-icon.teal { background: rgba(20,184,166,0.1); }
+    .section-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--ink-900);
+    }
+    .section-subtitle {
+      font-size: 13px;
+      color: var(--ink-400);
+      margin-top: 2px;
+    }
+
+    /* ── CARDS ── */
+    .card {
+      background: var(--surface-0);
+      border: 1px solid var(--ink-200);
+      border-radius: 14px;
+      padding: 22px 24px;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+      margin-bottom: 16px;
+    }
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    .card-mini {
+      background: var(--surface-0);
+      border: 1px solid var(--ink-200);
+      border-radius: 12px;
+      padding: 18px 20px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+    }
+    .card-mini h4 {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--ink-900);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .card-mini p, .card-mini li {
+      font-size: 12.5px;
+      color: var(--ink-600);
+      line-height: 1.6;
+    }
+    .card-mini ul { padding-left: 16px; }
+    .card-mini li { margin-bottom: 4px; }
+
+    /* ── STEPS ── */
+    .steps { display: flex; flex-direction: column; gap: 14px; }
+    .step {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      background: var(--surface-0);
+      border: 1px solid var(--ink-200);
+      border-radius: 12px;
+      padding: 16px 18px;
+      transition: border-color 0.15s, box-shadow 0.15s;
+      cursor: default;
+    }
+    .step:hover {
+      border-color: rgba(233,30,140,0.3);
+      box-shadow: 0 2px 12px rgba(233,30,140,0.08);
+    }
+    .step-num {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--brand), #FF6EC7);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+    .step-content h4 {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--ink-900);
+      margin-bottom: 4px;
+    }
+    .step-content p {
+      font-size: 12.5px;
+      color: var(--ink-600);
+      line-height: 1.6;
+    }
+
+    /* ── ACCORDION ── */
+    .accordion { border: 1px solid var(--ink-200); border-radius: 12px; overflow: hidden; margin-bottom: 12px; }
+    .accordion-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px 18px;
+      background: var(--surface-0);
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.15s;
+    }
+    .accordion-header:hover { background: var(--ink-100); }
+    .accordion-header h4 {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--ink-900);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .accordion-arrow {
+      font-size: 12px;
+      color: var(--ink-400);
+      transition: transform 0.2s;
+    }
+    .accordion.open .accordion-arrow { transform: rotate(180deg); }
+    .accordion-body {
+      display: none;
+      padding: 16px 18px;
+      background: var(--surface-1);
+      border-top: 1px solid var(--ink-200);
+      font-size: 13px;
+      color: var(--ink-600);
+      line-height: 1.7;
+    }
+    .accordion.open .accordion-body { display: block; }
+
+    /* ── TIPS ── */
+    .tip {
+      display: flex;
+      gap: 10px;
+      padding: 12px 16px;
+      border-radius: 10px;
+      margin: 12px 0;
+      font-size: 12.5px;
+      line-height: 1.6;
+    }
+    .tip-info { background: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8; }
+    .tip-warn { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; }
+    .tip-success { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; }
+    .tip-icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+
+    /* ── TABLE ── */
+    .guide-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      margin: 12px 0;
+    }
+    .guide-table th {
+      background: var(--ink-100);
+      padding: 10px 14px;
+      text-align: left;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--ink-600);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .guide-table td {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--ink-200);
+      color: var(--ink-700);
+      vertical-align: top;
+    }
+    .guide-table tr:last-child td { border-bottom: none; }
+    .guide-table tr:hover td { background: var(--ink-100); }
+
+    /* ── STATUS BADGES ── */
+    .status { display: inline-flex; align-items: center; gap: 5px; padding: 2px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+    .status-active { background: #d1fae5; color: #065f46; }
+    .status-pending { background: #fef3c7; color: #92400e; }
+    .status-completed { background: #dbeafe; color: #1e40af; }
+    .status-inactive { background: #f3f4f6; color: #6b7280; }
+    .status-new { background: #ffd6ee; color: #c11569; }
+    .status-progress { background: #e0e7ff; color: #3730a3; }
+    .status-urgent { background: #fef3c7; color: #92400e; }
+    .status-manager { background: rgba(168,85,247,0.15); color: #7c3aed; }
+    .status-staff { background: rgba(99,102,241,0.12); color: #4338ca; }
+
+    /* ── ROLE COMPARISON ── */
+    .role-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    .role-card {
+      border-radius: 12px;
+      padding: 20px;
+      border: 2px solid;
+    }
+    .role-card.manager { border-color: rgba(168,85,247,0.3); background: rgba(168,85,247,0.05); }
+    .role-card.staff { border-color: rgba(99,102,241,0.3); background: rgba(99,102,241,0.05); }
+    .role-card h4 { font-size: 14px; font-weight: 700; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+    .role-card.manager h4 { color: #7c3aed; }
+    .role-card.staff h4 { color: #4338ca; }
+    .role-card ul { padding-left: 16px; }
+    .role-card li { font-size: 12.5px; color: var(--ink-600); margin-bottom: 5px; }
+
+    /* ── INTERACTIVE DEMO ── */
+    .demo-box {
+      background: var(--nav-bg);
+      border-radius: 14px;
+      padding: 24px;
+      margin: 16px 0;
+      position: relative;
+      overflow: hidden;
+    }
+    .demo-box::before {
+      content: '';
+      position: absolute;
+      top: -50%; right: -20%;
+      width: 300px; height: 300px;
+      background: radial-gradient(circle, rgba(233,30,140,0.1) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .demo-box h4 { color: #F8FAFC; font-size: 14px; font-weight: 700; margin-bottom: 14px; position: relative; }
+    .demo-search {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      position: relative;
+    }
+    .demo-input {
+      flex: 1;
+      min-width: 200px;
+      background: rgba(255,255,255,0.08);
+      border: 1.5px solid rgba(255,255,255,0.15);
+      border-radius: 9px;
+      padding: 9px 14px;
+      color: #F8FAFC;
+      font-size: 13px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .demo-input:focus { border-color: var(--brand); }
+    .demo-input::placeholder { color: #64748B; }
+    .demo-select {
+      background: rgba(255,255,255,0.08);
+      border: 1.5px solid rgba(255,255,255,0.15);
+      border-radius: 9px;
+      padding: 9px 12px;
+      color: #94A3B8;
+      font-size: 13px;
+      font-family: inherit;
+      outline: none;
+      cursor: pointer;
+    }
+    .demo-results {
+      margin-top: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      position: relative;
+    }
+    .demo-row {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 8px;
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: background 0.15s;
+    }
+    .demo-row:hover { background: rgba(255,255,255,0.09); }
+    .demo-avatar {
+      width: 30px; height: 30px;
+      border-radius: 50%;
+      background: rgba(233,30,140,0.2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700; color: #F472B6;
+      flex-shrink: 0;
+    }
+    .demo-name { font-size: 13px; font-weight: 600; color: #F472B6; flex: 1; }
+    .demo-type { font-size: 11px; color: #34D399; background: rgba(52,211,153,0.1); padding: 2px 8px; border-radius: 20px; }
+    .demo-status { font-size: 11px; color: #94A3B8; }
+    .demo-hidden { display: none; }
+
+    /* ── KEYBOARD SHORTCUT ── */
+    .kbd {
+      display: inline-block;
+      background: var(--ink-100);
+      border: 1px solid var(--ink-200);
+      border-radius: 4px;
+      padding: 1px 6px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--ink-700);
+      font-family: monospace;
+    }
+
+    /* ── FOOTER ── */
+    .footer {
+      background: var(--nav-bg);
+      padding: 28px 32px;
+      text-align: center;
+      margin-top: 40px;
+    }
+    .footer p { font-size: 12px; color: #475569; }
+    .footer a { color: var(--brand); text-decoration: none; }
+
+    /* ── PROGRESS INDICATOR ── */
+    .reading-progress {
+      position: fixed;
+      top: 60px;
+      left: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--brand), #FF6EC7);
+      z-index: 99;
+      transition: width 0.1s;
+    }
+
+    /* ── BACK TO TOP ── */
+    .back-top {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      width: 40px; height: 40px;
+      background: var(--brand);
+      border: none;
+      border-radius: 50%;
+      color: #fff;
+      font-size: 18px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 4px 16px rgba(233,30,140,0.4);
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity 0.2s, transform 0.2s;
+      z-index: 50;
+    }
+    .back-top.visible { opacity: 1; transform: translateY(0); }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 768px) {
+      .hero { padding: 40px 20px 36px; }
+      .hero h1 { font-size: 26px; }
+      .main { padding: 28px 16px 60px; }
+      .quick-nav { padding: 0 16px; }
+      .role-grid { grid-template-columns: 1fr; }
+      .card-grid { grid-template-columns: 1fr; }
+      .site-header { padding: 0 16px; }
+    }
+
+    /* ── LANG SWITCH ── */
+    [data-lang="en"] .zh { display: none; }
+    [data-lang="zh"] .en { display: none; }
+
+    /* ── SEARCH HIGHLIGHT ── */
+    mark { background: rgba(233,30,140,0.2); color: var(--brand); border-radius: 2px; padding: 0 2px; }
+  </style>
+</head>
+<body data-lang="zh">
+
+  <!-- Reading Progress Bar -->
+  <div class="reading-progress" id="readingProgress"></div>
+
+  <!-- Header -->
+  <header class="site-header">
+    <div class="logo">
+      <div class="logo-icon">N</div>
+      <div>
+        <div class="logo-text">NexusCRM</div>
+        <div class="logo-sub">Ozsky International</div>
+      </div>
+    </div>
+    <button class="lang-btn" onclick="toggleLang()" id="langBtn">English</button>
+  </header>
+
+  <!-- Hero -->
+  <div class="hero">
+    <h1 class="zh"><span>NexusCRM</span> 使用指南</h1>
+    <h1 class="en" style="display:none"><span>NexusCRM</span> User Guide</h1>
+    <p class="zh">Ozsky International 内部客户关系管理系统 — 团队操作手册</p>
+    <p class="en" style="display:none">Ozsky International Internal CRM — Team Operations Manual</p>
+    <div class="hero-badges">
+      <span class="badge badge-pink">👤 客户管理 / Clients</span>
+      <span class="badge badge-blue">📋 案件追踪 / Cases</span>
+      <span class="badge badge-green">🎯 潜客转化 / Leads</span>
+      <span class="badge badge-pink">💰 发票管理 / Invoices</span>
+      <span class="badge badge-blue">📊 报告分析 / Reports</span>
+    </div>
+  </div>
+
+  <!-- Quick Nav -->
+  <nav class="quick-nav" id="quickNav">
+    <a href="#login" onclick="setActive(this)">🔐 <span class="zh">登录</span><span class="en">Login</span></a>
+    <a href="#dashboard" onclick="setActive(this)">🏠 <span class="zh">仪表板</span><span class="en">Dashboard</span></a>
+    <a href="#clients" onclick="setActive(this)">👤 <span class="zh">客户</span><span class="en">Clients</span></a>
+    <a href="#cases" onclick="setActive(this)">📋 <span class="zh">案件</span><span class="en">Cases</span></a>
+    <a href="#leads" onclick="setActive(this)">🎯 <span class="zh">潜客</span><span class="en">Leads</span></a>
+    <a href="#calendar" onclick="setActive(this)">📅 <span class="zh">日历</span><span class="en">Calendar</span></a>
+    <a href="#invoices" onclick="setActive(this)">💰 <span class="zh">发票</span><span class="en">Invoices</span></a>
+    <a href="#inbox" onclick="setActive(this)">💬 <span class="zh">收件箱</span><span class="en">Inbox</span></a>
+    <a href="#reports" onclick="setActive(this)">📊 <span class="zh">报告</span><span class="en">Reports</span></a>
+    <a href="#roles" onclick="setActive(this)">👥 <span class="zh">权限</span><span class="en">Roles</span></a>
+    <a href="#tips" onclick="setActive(this)">💡 <span class="zh">技巧</span><span class="en">Tips</span></a>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="main">
+
+    <!-- ── LOGIN ── -->
+    <section class="section" id="login">
+      <div class="section-header">
+        <div class="section-icon pink">🔐</div>
+        <div>
+          <div class="section-title zh">登录系统</div>
+          <div class="section-title en" style="display:none">Login</div>
+          <div class="section-subtitle zh">使用 Ozsky Google 账户登录</div>
+          <div class="section-subtitle en" style="display:none">Sign in with your Ozsky Google account</div>
+        </div>
+      </div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <h4 class="zh">打开系统网址</h4>
+            <h4 class="en" style="display:none">Open the CRM URL</h4>
+            <p class="zh">在浏览器中访问 NexusCRM 网址（由经理提供）。建议使用 Chrome 或 Safari。</p>
+            <p class="en" style="display:none">Open the NexusCRM URL in your browser (provided by your manager). Chrome or Safari recommended.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <h4 class="zh">点击 "Continue with Google"</h4>
+            <h4 class="en" style="display:none">Click "Continue with Google"</h4>
+            <p class="zh">系统使用 Google OAuth 认证，点击按钮后会跳转到 Google 登录页面。</p>
+            <p class="en" style="display:none">The system uses Google OAuth. You will be redirected to Google's login page.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <h4 class="zh">选择 Ozsky 邮箱账户</h4>
+            <h4 class="en" style="display:none">Select your Ozsky email account</h4>
+            <p class="zh">必须使用已授权的 <code>@ozs.com.au</code> 或指定 Gmail 账户登录，其他账户会被拒绝。</p>
+            <p class="en" style="display:none">You must use an authorised <code>@ozs.com.au</code> or designated Gmail account. Other accounts will be rejected.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-content">
+            <h4 class="zh">进入系统</h4>
+            <h4 class="en" style="display:none">Enter the system</h4>
+            <p class="zh">登录成功后自动跳转到仪表板。右上角显示你的角色（👑 经理 / 👤 员工）。</p>
+            <p class="en" style="display:none">After successful login you are redirected to the Dashboard. Your role is shown top-right (👑 Manager / 👤 Staff).</p>
+          </div>
+        </div>
+      </div>
+      <div class="tip tip-warn">
+        <span class="tip-icon">⚠️</span>
+        <span class="zh">如登录失败，请确认你的账户已由经理添加到授权名单。联系 l.jiang@ozs.com.au。</span>
+        <span class="en" style="display:none">If login fails, confirm your account has been added to the authorised list by the manager. Contact l.jiang@ozs.com.au.</span>
+      </div>
+    </section>
+
+    <!-- ── DASHBOARD ── -->
+    <section class="section" id="dashboard">
+      <div class="section-header">
+        <div class="section-icon blue">🏠</div>
+        <div>
+          <div class="section-title zh">仪表板</div>
+          <div class="section-title en" style="display:none">Dashboard</div>
+          <div class="section-subtitle zh">业务概览与关键指标</div>
+          <div class="section-subtitle en" style="display:none">Business overview and key metrics</div>
+        </div>
+      </div>
+      <div class="card-grid">
+        <div class="card-mini">
+          <h4>📊 <span class="zh">KPI 卡片</span><span class="en" style="display:none">KPI Cards</span></h4>
+          <ul>
+            <li class="zh">活跃客户总数</li>
+            <li class="en" style="display:none">Total active clients</li>
+            <li class="zh">进行中案件数</li>
+            <li class="en" style="display:none">Cases in progress</li>
+            <li class="zh">紧急案件数</li>
+            <li class="en" style="display:none">Urgent cases</li>
+            <li class="zh">本月完成案件</li>
+            <li class="en" style="display:none">Cases completed this month</li>
+          </ul>
+        </div>
+        <div class="card-mini">
+          <h4>⏰ <span class="zh">截止日期提醒</span><span class="en" style="display:none">Deadline Alerts</span></h4>
+          <p class="zh">页面顶部会自动显示 7 天内到期的案件和预约，点击可直接跳转。</p>
+          <p class="en" style="display:none">Cases and appointments due within 7 days are shown at the top. Click to jump directly.</p>
+        </div>
+        <div class="card-mini">
+          <h4>📋 <span class="zh">近期动态</span><span class="en" style="display:none">Recent Activity</span></h4>
+          <p class="zh">显示最新添加的客户和案件，点击 "查看全部 →" 跳转到对应页面。</p>
+          <p class="en" style="display:none">Shows recently added clients and cases. Click "View all →" to navigate.</p>
+        </div>
+        <div class="card-mini">
+          <h4>👥 <span class="zh">团队工作量</span><span class="en" style="display:none">Team Workload</span></h4>
+          <p class="zh">显示每位团队成员的案件数量和进度，点击成员名可筛选其案件。</p>
+          <p class="en" style="display:none">Shows each team member's case count and progress. Click a name to filter their cases.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── CLIENTS ── -->
+    <section class="section" id="clients">
+      <div class="section-header">
+        <div class="section-icon pink">👤</div>
+        <div>
+          <div class="section-title zh">客户管理</div>
+          <div class="section-title en" style="display:none">Client Management</div>
+          <div class="section-subtitle zh">搜索、添加、编辑、查看客户档案</div>
+          <div class="section-subtitle en" style="display:none">Search, add, edit and view client profiles</div>
+        </div>
+      </div>
+
+      <!-- Interactive Search Demo -->
+      <div class="demo-box">
+        <h4>🔍 <span class="zh">搜索栏演示（互动）</span><span class="en" style="display:none">Search Bar Demo (Interactive)</span></h4>
+        <div class="demo-search">
+          <input class="demo-input" id="demoSearch" placeholder="🔍  Search clients..." oninput="filterDemo()" />
+          <select class="demo-select" id="demoType" onchange="filterDemo()">
+            <option value="">All Types</option>
+            <option value="Student">Student</option>
+            <option value="Visa">Visa</option>
+            <option value="Migration">Migration</option>
+          </select>
+          <select class="demo-select" id="demoStatus" onchange="filterDemo()">
+            <option value="">All Status</option>
+            <option value="Active">Active</option>
+            <option value="Pending">Pending</option>
+            <option value="Completed">Completed</option>
+          </select>
+        </div>
+        <div class="demo-results" id="demoResults">
+          <div class="demo-row" data-name="Ye Yuan" data-type="Visa" data-status="Active">
+            <div class="demo-avatar">YY</div>
+            <div class="demo-name">Ye Yuan</div>
+            <div class="demo-type">Visa</div>
+            <div class="demo-status">• Active</div>
+          </div>
+          <div class="demo-row" data-name="Li Wei" data-type="Student" data-status="Active">
+            <div class="demo-avatar">LW</div>
+            <div class="demo-name">Li Wei</div>
+            <div class="demo-type">Student</div>
+            <div class="demo-status">• Active</div>
+          </div>
+          <div class="demo-row" data-name="Zhang Ming" data-type="Migration" data-status="Pending">
+            <div class="demo-avatar">ZM</div>
+            <div class="demo-name">Zhang Ming</div>
+            <div class="demo-type">Migration</div>
+            <div class="demo-status">• Pending</div>
+          </div>
+          <div class="demo-row" data-name="Wang Fang" data-type="Student" data-status="Completed">
+            <div class="demo-avatar">WF</div>
+            <div class="demo-name">Wang Fang</div>
+            <div class="demo-type">Student</div>
+            <div class="demo-status">• Completed</div>
+          </div>
+          <div class="demo-row" data-name="Chen Jing" data-type="Visa" data-status="Active">
+            <div class="demo-avatar">CJ</div>
+            <div class="demo-name">Chen Jing</div>
+            <div class="demo-type">Visa</div>
+            <div class="demo-status">• Active</div>
+          </div>
+        </div>
+        <p style="color:#475569;font-size:11.5px;margin-top:10px;position:relative;">
+          <span class="zh">↑ 在上方搜索框输入姓名，或用下拉菜单筛选类型和状态，体验实时搜索效果</span>
+          <span class="en" style="display:none">↑ Type a name above, or use dropdowns to filter by type and status — live search demo</span>
+        </p>
+      </div>
+
+      <!-- How to add client -->
+      <div class="card">
+        <h3 style="font-size:15px;font-weight:700;color:var(--ink-900);margin-bottom:16px;">
+          <span class="zh">➕ 如何添加新客户</span>
+          <span class="en" style="display:none">➕ How to Add a New Client</span>
+        </h3>
+        <div class="steps">
+          <div class="step">
+            <div class="step-num">1</div>
+            <div class="step-content">
+              <h4 class="zh">点击右上角 "+ 添加客户" 按钮</h4>
+              <h4 class="en" style="display:none">Click "+ Add Client" button (top right)</h4>
+              <p class="zh">粉色渐变按钮，位于客户列表页右上角。</p>
+              <p class="en" style="display:none">Pink gradient button in the top-right of the Clients page.</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">2</div>
+            <div class="step-content">
+              <h4 class="zh">填写基本信息</h4>
+              <h4 class="en" style="display:none">Fill in basic information</h4>
+              <p class="zh"><strong>必填：</strong>姓名（Full Name）。其他字段：性别、出生日期、国籍、手机、邮箱。</p>
+              <p class="en" style="display:none"><strong>Required:</strong> Full Name. Optional: Sex, Date of Birth, Nationality, Mobile, Email.</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">3</div>
+            <div class="step-content">
+              <h4 class="zh">设置客户类型和状态</h4>
+              <h4 class="en" style="display:none">Set client type and status</h4>
+              <p class="zh">类型：Student / Visa / Migration / Multiple。状态：Active / Pending / Completed / Inactive。</p>
+              <p class="en" style="display:none">Type: Student / Visa / Migration / Multiple. Status: Active / Pending / Completed / Inactive.</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">4</div>
+            <div class="step-content">
+              <h4 class="zh">点击 "保存客户"</h4>
+              <h4 class="en" style="display:none">Click "Save Client"</h4>
+              <p class="zh">数据自动同步到 Supabase 数据库，所有团队成员实时可见。</p>
+              <p class="en" style="display:none">Data is automatically synced to Supabase. All team members see it in real time.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Client detail tabs -->
+      <div class="card">
+        <h3 style="font-size:15px;font-weight:700;color:var(--ink-900);margin-bottom:16px;">
+          <span class="zh">📁 客户详情页面（点击客户名称进入）</span>
+          <span class="en" style="display:none">📁 Client Detail Page (click client name to open)</span>
+        </h3>
+        <table class="guide-table">
+          <thead>
+            <tr>
+              <th class="zh">标签页</th>
+              <th class="en" style="display:none">Tab</th>
+              <th class="zh">功能说明</th>
+              <th class="en" style="display:none">Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>👤 <span class="zh">档案</span><span class="en" style="display:none">Profile</span></strong></td>
+              <td class="zh">完整客户档案：护照、签证历史、职业评估、合同信息、地址/工作经历</td>
+              <td class="en" style="display:none">Full client profile: passport, visa history, skills assessment, contract info, address/employment history</td>
+            </tr>
+            <tr>
+              <td><strong>📋 <span class="zh">案件</span><span class="en" style="display:none">Cases</span></strong></td>
+              <td class="zh">查看该客户所有关联案件，可直接新建案件</td>
+              <td class="en" style="display:none">View all cases linked to this client; create new cases directly</td>
+            </tr>
+            <tr>
+              <td><strong>📝 <span class="zh">备注</span><span class="en" style="display:none">Notes</span></strong></td>
+              <td class="zh">添加、查看、删除备注记录（支持 Gmail 同步备注）</td>
+              <td class="en" style="display:none">Add, view and delete notes (Gmail-synced notes also appear here)</td>
+            </tr>
+            <tr>
+              <td><strong>💬 <span class="zh">微信导入</span><span class="en" style="display:none">WeChat Import</span></strong></td>
+              <td class="zh">粘贴微信聊天记录，AI 自动分析提取摘要和待办事项</td>
+              <td class="en" style="display:none">Paste WeChat chat export; AI analyses and extracts summary and action items</td>
+            </tr>
+            <tr>
+              <td><strong>📥 <span class="zh">导入文档</span><span class="en" style="display:none">Import Doc</span></strong></td>
+              <td class="zh">上传 Word/PDF 文件，AI 自动解析并填充客户档案字段</td>
+              <td class="en" style="display:none">Upload Word/PDF; AI parses and auto-fills profile fields</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="tip tip-success">
+        <span class="tip-icon">✅</span>
+        <span class="zh">悬停在客户列表的某一行上，会弹出该客户的快速预览卡片（包含签证状态、案件进度等关键信息）。</span>
+        <span class="en" style="display:none">Hover over any client row to see a quick-preview card with visa status, case progress and key info.</span>
+      </div>
+    </section>
+
+    <!-- ── CASES ── -->
+    <section class="section" id="cases">
+      <div class="section-header">
+        <div class="section-icon blue">📋</div>
+        <div>
+          <div class="section-title zh">案件管理</div>
+          <div class="section-title en" style="display:none">Case Management</div>
+          <div class="section-subtitle zh">追踪签证申请进度、分配任务、管理文件清单</div>
+          <div class="section-subtitle en" style="display:none">Track visa application progress, assign tasks, manage document checklists</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 style="font-size:15px;font-weight:700;color:var(--ink-900);margin-bottom:14px;">
+          <span class="zh">案件状态流程</span>
+          <span class="en" style="display:none">Case Status Flow</span>
+        </h3>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;">
+          <span class="status status-new">New</span>
+          <span style="color:var(--ink-400);align-self:center;">→</span>
+          <span class="status status-progress">In Progress</span>
+          <span style="color:var(--ink-400);align-self:center;">→</span>
+          <span class="status" style="background:#fce7f3;color:#9d174d;">Awaiting Docs</span>
+          <span style="color:var(--ink-400);align-self:center;">→</span>
+          <span class="status" style="background:#ede9fe;color:#5b21b6;">Under Review</span>
+          <span style="color:var(--ink-400);align-self:center;">→</span>
+          <span class="status" style="background:#d1fae5;color:#065f46;">Awaiting Decision</span>
+          <span style="color:var(--ink-400);align-self:center;">→</span>
+          <span class="status status-completed">Completed</span>
+        </div>
+        <div class="tip tip-info">
+          <span class="tip-icon">ℹ️</span>
+          <span class="zh">特殊状态：<strong>S56 Request</strong>（移民局追加材料请求）、<strong>State Nomination</strong>（州担保中）、<strong>On Hold</strong>（暂停）。</span>
+          <span class="en" style="display:none">Special statuses: <strong>S56 Request</strong> (DHA further info request), <strong>State Nomination</strong> (pending state nomination), <strong>On Hold</strong>.</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 style="font-size:15px;font-weight:700;color:var(--ink-900);margin-bottom:16px;">
+          <span class="zh">📋 新建案件步骤</span>
+          <span class="en" style="display:none">📋 Create a New Case</span>
+        </h3>
+        <div class="steps">
+          <div class="step">
+            <div class="step-num">1</div>
+            <div class="step-content">
+              <h4 class="zh">点击 "新案件" 按钮</h4>
+              <h4 class="en" style="display:none">Click "New Case"</h4>
+              <p class="zh">在案件页面右上角，或在客户详情页的案件标签中点击。</p>
+              <p class="en" style="display:none">Top-right of the Cases page, or within the Cases tab of a client detail page.</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">2</div>
+            <div class="step-content">
+              <h4 class="zh">填写案件信息</h4>
+              <h4 class="en" style="display:none">Fill in case details</h4>
+              <p class="zh">案件标题、类型（签证子类）、关联客户、分配给、优先级、截止日期、进度百分比。</p>
+              <p class="en" style="display:none">Case title, type (visa subclass), linked client, assigned to, priority, due date, progress %.</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">3</div>
+            <div class="step-content">
+              <h4 class="zh">管理文件清单</h4>
+              <h4 class="en" style="display:none">Manage document checklist</h4>
+              <p class="zh">在案件详情中勾选已收到的文件，系统自动计算文件完成率。</p>
+              <p class="en" style="display:none">Tick off received documents in the case detail; the system auto-calculates completion rate.</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">4</div>
+            <div class="step-content">
+              <h4 class="zh">使用 AI 助手</h4>
+              <h4 class="en" style="display:none">Use the AI Assistant</h4>
+              <p class="zh">案件详情页内置 AI 功能，可生成案件摘要、分析文件缺口、起草客户邮件。</p>
+              <p class="en" style="display:none">Built-in AI in case detail can generate summaries, analyse document gaps, and draft client emails.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Case types accordion -->
+      <div class="accordion" onclick="toggleAccordion(this)">
+        <div class="accordion-header">
+          <h4>📂 <span class="zh">支持的签证类型列表</span><span class="en" style="display:none">Supported Visa Types</span></h4>
+          <span class="accordion-arrow">▼</span>
+        </div>
+        <div class="accordion-body">
+          <table class="guide-table">
+            <thead>
+              <tr>
+                <th class="zh">类别</th><th class="en" style="display:none">Category</th>
+                <th class="zh">签证类型</th><th class="en" style="display:none">Visa Types</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td class="zh">技术移民</td><td class="en" style="display:none">Skilled Migration</td><td>189 · 190 · 491 · 494 · 887</td></tr>
+              <tr><td class="zh">雇主担保</td><td class="en" style="display:none">Employer Sponsored</td><td>482 TSS · 186 ENS · 407 Training</td></tr>
+              <tr><td class="zh">学生/毕业</td><td class="en" style="display:none">Student / Graduate</td><td>500 Student · 485 Graduate Temp</td></tr>
+              <tr><td class="zh">家庭/配偶</td><td class="en" style="display:none">Family / Partner</td><td>820/801 · 309/100 · 300</td></tr>
+              <tr><td class="zh">临时/访客</td><td class="en" style="display:none">Temporary / Visitor</td><td>600 Visitor · 408 Temp Activity</td></tr>
+              <tr><td class="zh">桥接签证</td><td class="en" style="display:none">Bridging Visas</td><td>BVA · BVB · BVC</td></tr>
+              <tr><td class="zh">职业评估</td><td class="en" style="display:none">Skills Assessments</td><td>ACS · EA · VETASSESS · ANMAC · CPA · NAATI · TRA · AITSL</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── LEADS ── -->
+    <section class="section" id="leads">
+      <div class="section-header">
+        <div class="section-icon green">🎯</div>
+        <div>
+          <div class="section-title zh">潜在客户管理</div>
+          <div class="section-title en" style="display:none">Leads Pipeline</div>
+          <div class="section-subtitle zh">从咨询到转化的全流程追踪</div>
+          <div class="section-subtitle en" style="display:none">Track prospects from enquiry to conversion</div>
+        </div>
+      </div>
+      <div class="card">
+        <h3 style="font-size:15px;font-weight:700;color:var(--ink-900);margin-bottom:14px;">
+          <span class="zh">潜客阶段流程</span>
+          <span class="en" style="display:none">Lead Stage Flow</span>
+        </h3>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;">
+          <span class="status status-new">New Enquiry</span>
+          <span style="color:var(--ink-400);align-self:center;">→</span>
+          <span class="status status-progress">Contacted</span>
+          <span style="color:var(--ink-400);align-self:center;">→</span>
+          <span class="status status-urgent">Consultation</span>
+          <span style="color:var(--ink-400);align-self:center;">→</span>
+          <span class="status" style="background:#ede9fe;color:#5b21b6;">Proposal Sent</span>
+          <span style="color:var(--ink-400);align-self:center;">→</span>
+          <span class="status status-completed">Converted</span>
+        </div>
+        <div class="tip tip-success">
+          <span class="tip-icon">🎉</span>
+          <span class="zh">潜客转化为正式客户后，点击 <strong>"转化为客户"</strong> 按钮，系统自动在客户页面创建档案，并可同时创建关联案件。</span>
+          <span class="en" style="display:none">When a lead is ready to convert, click <strong>"Convert to Client"</strong>. The system automatically creates a client profile and optionally a linked case.</span>
+        </div>
+      </div>
+      <div class="card-grid">
+        <div class="card-mini">
+          <h4>📝 <span class="zh">记录潜客信息</span><span class="en" style="display:none">Record Lead Info</span></h4>
+          <ul>
+            <li class="zh">姓名、联系方式、来源渠道</li>
+            <li class="en" style="display:none">Name, contact details, source channel</li>
+            <li class="zh">感兴趣的签证类型</li>
+            <li class="en" style="display:none">Visa type of interest</li>
+            <li class="zh">分配给哪位顾问</li>
+            <li class="en" style="display:none">Assigned consultant</li>
+            <li class="zh">跟进备注</li>
+            <li class="en" style="display:none">Follow-up notes</li>
+          </ul>
+        </div>
+        <div class="card-mini">
+          <h4>🤝 <span class="zh">推荐代理关联</span><span class="en" style="display:none">Referral Agent Link</span></h4>
+          <p class="zh">可将潜客关联到推荐代理（Agents 页面），系统自动统计代理转化率和佣金。</p>
+          <p class="en" style="display:none">Link leads to referral agents (Agents page). The system auto-tracks conversion rates and commissions.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── CALENDAR ── -->
+    <section class="section" id="calendar">
+      <div class="section-header">
+        <div class="section-icon orange">📅</div>
+        <div>
+          <div class="section-title zh">日历与预约</div>
+          <div class="section-title en" style="display:none">Calendar & Appointments</div>
+          <div class="section-subtitle zh">管理面谈、截止日期和团队日程</div>
+          <div class="section-subtitle en" style="display:none">Manage consultations, deadlines and team schedules</div>
+        </div>
+      </div>
+      <div class="card-grid">
+        <div class="card-mini">
+          <h4>📅 <span class="zh">新建预约</span><span class="en" style="display:none">New Appointment</span></h4>
+          <ul>
+            <li class="zh">点击 "+ 新建预约"</li>
+            <li class="en" style="display:none">Click "+ New Appointment"</li>
+            <li class="zh">填写标题、日期、时间、类型</li>
+            <li class="en" style="display:none">Fill in title, date, time, type</li>
+            <li class="zh">关联客户或案件</li>
+            <li class="en" style="display:none">Link to a client or case</li>
+            <li class="zh">分配给团队成员</li>
+            <li class="en" style="display:none">Assign to a team member</li>
+          </ul>
+        </div>
+        <div class="card-mini">
+          <h4>⏰ <span class="zh">截止日期提醒</span><span class="en" style="display:none">Deadline Alerts</span></h4>
+          <p class="zh">系统自动在仪表板顶部显示 7 天内到期的案件截止日，点击可直接跳转到该案件。</p>
+          <p class="en" style="display:none">The system auto-displays case deadlines due within 7 days at the top of the Dashboard. Click to jump to the case.</p>
+        </div>
+        <div class="card-mini">
+          <h4>📆 <span class="zh">日历视图</span><span class="en" style="display:none">Calendar View</span></h4>
+          <p class="zh">月视图显示所有预约，点击日期格可快速新建预约，点击已有预约可查看详情。</p>
+          <p class="en" style="display:none">Monthly view shows all appointments. Click a date to quickly create one; click an existing appointment for details.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── INVOICES ── -->
+    <section class="section" id="invoices">
+      <div class="section-header">
+        <div class="section-icon teal">💰</div>
+        <div>
+          <div class="section-title zh">发票管理</div>
+          <div class="section-title en" style="display:none">Invoice Management</div>
+          <div class="section-subtitle zh">创建、发送、追踪服务费发票</div>
+          <div class="section-subtitle en" style="display:none">Create, send and track service fee invoices</div>
+        </div>
+      </div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <h4 class="zh">新建发票</h4>
+            <h4 class="en" style="display:none">Create Invoice</h4>
+            <p class="zh">点击 "+ 新建发票"，关联客户，填写服务项目和金额。</p>
+            <p class="en" style="display:none">Click "+ New Invoice", link to a client, fill in service items and amounts.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <h4 class="zh">设置付款状态</h4>
+            <h4 class="en" style="display:none">Set Payment Status</h4>
+            <p class="zh">状态：Draft（草稿）→ Sent（已发送）→ Paid（已付款）/ Overdue（逾期）。</p>
+            <p class="en" style="display:none">Status: Draft → Sent → Paid / Overdue.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <h4 class="zh">追踪逾期发票</h4>
+            <h4 class="en" style="display:none">Track Overdue Invoices</h4>
+            <p class="zh">侧边栏发票图标会显示逾期或待付发票数量，方便快速识别。</p>
+            <p class="en" style="display:none">The sidebar Invoices icon shows the count of overdue or pending invoices for quick identification.</p>
+          </div>
+        </div>
+      </div>
+      <div class="tip tip-info">
+        <span class="tip-icon">🏦</span>
+        <span class="zh">系统预设收款账户：<strong>Ozsky Perth Pty Ltd</strong> · BSB: 066166 · Account: 10895257。合同生成时自动填入。</span>
+        <span class="en" style="display:none">Pre-set bank account: <strong>Ozsky Perth Pty Ltd</strong> · BSB: 066166 · Account: 10895257. Auto-filled in generated contracts.</span>
+      </div>
+    </section>
+
+    <!-- ── INBOX ── -->
+    <section class="section" id="inbox">
+      <div class="section-header">
+        <div class="section-icon purple">💬</div>
+        <div>
+          <div class="section-title zh">收件箱 / 沟通记录</div>
+          <div class="section-title en" style="display:none">Inbox / Communications</div>
+          <div class="section-subtitle zh">微信、WhatsApp 消息管理与 AI 回复起草</div>
+          <div class="section-subtitle en" style="display:none">WeChat, WhatsApp message management with AI reply drafting</div>
+        </div>
+      </div>
+      <div class="card-grid">
+        <div class="card-mini">
+          <h4>💬 <span class="zh">收件箱功能</span><span class="en" style="display:none">Inbox Features</span></h4>
+          <ul>
+            <li class="zh">接收来自微信/WhatsApp 的消息</li>
+            <li class="en" style="display:none">Receive messages from WeChat/WhatsApp</li>
+            <li class="zh">AI 自动起草回复（中英双语）</li>
+            <li class="en" style="display:none">AI auto-drafts replies (bilingual)</li>
+            <li class="zh">人工审核后一键发送</li>
+            <li class="en" style="display:none">One-click send after human review</li>
+            <li class="zh">消息自动关联客户档案</li>
+            <li class="en" style="display:none">Messages auto-linked to client profiles</li>
+          </ul>
+        </div>
+        <div class="card-mini">
+          <h4>🎙 <span class="zh">沟通记录</span><span class="en" style="display:none">Meeting Records</span></h4>
+          <p class="zh">在 "沟通记录" 页面录制或上传语音，AI 自动转录并生成会议摘要和待办事项。</p>
+          <p class="en" style="display:none">In the Meetings page, record or upload audio. AI auto-transcribes and generates meeting summaries and action items.</p>
+        </div>
+      </div>
+      <div class="tip tip-warn">
+        <span class="tip-icon">⚙️</span>
+        <span class="zh">收件箱需要通过 Make/n8n 配置 Webhook 才能接收微信/WhatsApp 消息。详见技术文档。</span>
+        <span class="en" style="display:none">The Inbox requires a Make/n8n Webhook configuration to receive WeChat/WhatsApp messages. See technical docs.</span>
+      </div>
+    </section>
+
+    <!-- ── REPORTS ── -->
+    <section class="section" id="reports">
+      <div class="section-header">
+        <div class="section-icon purple">📊</div>
+        <div>
+          <div class="section-title zh">报告与分析 <span class="status status-manager" style="font-size:11px;vertical-align:middle;">👑 经理专属</span></div>
+          <div class="section-title en" style="display:none">Reports & Analytics <span class="status status-manager" style="font-size:11px;vertical-align:middle;">👑 Manager Only</span></div>
+          <div class="section-subtitle zh">业务数据分析、团队绩效、收入报告</div>
+          <div class="section-subtitle en" style="display:none">Business analytics, team performance, revenue reports</div>
+        </div>
+      </div>
+      <div class="card-grid">
+        <div class="card-mini">
+          <h4>📈 <span class="zh">客户分析</span><span class="en" style="display:none">Client Analytics</span></h4>
+          <ul>
+            <li class="zh">客户类型分布</li>
+            <li class="en" style="display:none">Client type distribution</li>
+            <li class="zh">新客户增长趋势</li>
+            <li class="en" style="display:none">New client growth trend</li>
+            <li class="zh">国籍分布统计</li>
+            <li class="en" style="display:none">Nationality distribution</li>
+          </ul>
+        </div>
+        <div class="card-mini">
+          <h4>💼 <span class="zh">案件分析</span><span class="en" style="display:none">Case Analytics</span></h4>
+          <ul>
+            <li class="zh">各签证类型案件数量</li>
+            <li class="en" style="display:none">Cases by visa type</li>
+            <li class="zh">案件完成率</li>
+            <li class="en" style="display:none">Case completion rate</li>
+            <li class="zh">平均处理时长</li>
+            <li class="en" style="display:none">Average processing time</li>
+          </ul>
+        </div>
+        <div class="card-mini">
+          <h4>💰 <span class="zh">收入报告</span><span class="en" style="display:none">Revenue Report</span></h4>
+          <ul>
+            <li class="zh">月度收入趋势</li>
+            <li class="en" style="display:none">Monthly revenue trend</li>
+            <li class="zh">未收款金额</li>
+            <li class="en" style="display:none">Outstanding receivables</li>
+            <li class="zh">推荐代理佣金统计</li>
+            <li class="en" style="display:none">Referral agent commission stats</li>
+          </ul>
+        </div>
+        <div class="card-mini">
+          <h4>👥 <span class="zh">团队绩效</span><span class="en" style="display:none">Team Performance</span></h4>
+          <ul>
+            <li class="zh">每人案件数量和完成率</li>
+            <li class="en" style="display:none">Cases per person and completion rate</li>
+            <li class="zh">工作量分布</li>
+            <li class="en" style="display:none">Workload distribution</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── ROLES ── -->
+    <section class="section" id="roles">
+      <div class="section-header">
+        <div class="section-icon purple">👥</div>
+        <div>
+          <div class="section-title zh">权限说明</div>
+          <div class="section-title en" style="display:none">User Roles</div>
+          <div class="section-subtitle zh">经理与员工的功能权限对比</div>
+          <div class="section-subtitle en" style="display:none">Manager vs Staff permission comparison</div>
+        </div>
+      </div>
+      <div class="role-grid">
+        <div class="role-card manager">
+          <h4>👑 <span class="zh">经理（Manager）</span><span class="en" style="display:none">Manager</span></h4>
+          <ul>
+            <li class="zh">✅ 所有功能完整访问</li>
+            <li class="en" style="display:none">✅ Full access to all features</li>
+            <li class="zh">✅ 查看报告与分析</li>
+            <li class="en" style="display:none">✅ View Reports & Analytics</li>
+            <li class="zh">✅ 管理团队成员</li>
+            <li class="en" style="display:none">✅ Manage team members</li>
+            <li class="zh">✅ 添加/删除团队账户</li>
+            <li class="en" style="display:none">✅ Add/remove team accounts</li>
+            <li class="zh">✅ 查看所有客户和案件</li>
+            <li class="en" style="display:none">✅ View all clients and cases</li>
+          </ul>
+        </div>
+        <div class="role-card staff">
+          <h4>👤 <span class="zh">员工（Staff）</span><span class="en" style="display:none">Staff</span></h4>
+          <ul>
+            <li class="zh">✅ 客户、案件、潜客、日历、发票</li>
+            <li class="en" style="display:none">✅ Clients, Cases, Leads, Calendar, Invoices</li>
+            <li class="zh">✅ 收件箱、沟通记录</li>
+            <li class="en" style="display:none">✅ Inbox, Meetings</li>
+            <li class="zh">✅ 推荐代理管理</li>
+            <li class="en" style="display:none">✅ Referral Agents</li>
+            <li class="zh">❌ 报告与分析（经理专属）</li>
+            <li class="en" style="display:none">❌ Reports & Analytics (Manager only)</li>
+            <li class="zh">❌ 团队管理（经理专属）</li>
+            <li class="en" style="display:none">❌ Team Management (Manager only)</li>
+          </ul>
+        </div>
+      </div>
+      <div class="tip tip-info">
+        <span class="tip-icon">ℹ️</span>
+        <span class="zh">语言切换按钮（右上角 EN/中文）对所有用户可用，切换后界面即时变更，设置保存在浏览器中。</span>
+        <span class="en" style="display:none">The language toggle (top-right EN/中文) is available to all users. Changes take effect immediately and are saved in the browser.</span>
+      </div>
+    </section>
+
+    <!-- ── TIPS ── -->
+    <section class="section" id="tips">
+      <div class="section-header">
+        <div class="section-icon orange">💡</div>
+        <div>
+          <div class="section-title zh">使用技巧 & 常见问题</div>
+          <div class="section-title en" style="display:none">Tips & FAQ</div>
+          <div class="section-subtitle zh">提高效率的实用建议</div>
+          <div class="section-subtitle en" style="display:none">Practical tips to boost efficiency</div>
+        </div>
+      </div>
+
+      <div class="accordion" onclick="toggleAccordion(this)">
+        <div class="accordion-header">
+          <h4>🔍 <span class="zh">搜索栏在手机上变空白怎么办？</span><span class="en" style="display:none">Search bar shows blank on mobile?</span></h4>
+          <span class="accordion-arrow">▼</span>
+        </div>
+        <div class="accordion-body">
+          <p class="zh">此问题已在最新版本修复（2026年5月）。原因是手机键盘弹出时压缩了页面高度导致内容消失。现在使用动态视口高度（dvh）技术，键盘弹出后页面内容保持正常显示。如仍有问题，请强制刷新页面（Ctrl+Shift+R / Cmd+Shift+R）。</p>
+          <p class="en" style="display:none">This issue was fixed in the latest version (May 2026). The cause was the mobile keyboard shrinking the viewport height, hiding the content. The fix uses dynamic viewport height (dvh) so content remains visible when the keyboard opens. If the issue persists, force-refresh the page (Ctrl+Shift+R / Cmd+Shift+R).</p>
+        </div>
+      </div>
+
+      <div class="accordion" onclick="toggleAccordion(this)">
+        <div class="accordion-header">
+          <h4>💾 <span class="zh">数据是实时同步的吗？</span><span class="en" style="display:none">Is data synced in real time?</span></h4>
+          <span class="accordion-arrow">▼</span>
+        </div>
+        <div class="accordion-body">
+          <p class="zh">是的。所有客户、案件、备注等数据通过 Supabase 云数据库实时同步。任何团队成员的修改，其他人刷新页面后即可看到。建议定期刷新页面以获取最新数据。</p>
+          <p class="en" style="display:none">Yes. All client, case and note data is synced via Supabase cloud database in real time. Changes by any team member are visible to others after a page refresh. We recommend refreshing periodically for the latest data.</p>
+        </div>
+      </div>
+
+      <div class="accordion" onclick="toggleAccordion(this)">
+        <div class="accordion-header">
+          <h4>🤖 <span class="zh">AI 功能如何使用？</span><span class="en" style="display:none">How to use AI features?</span></h4>
+          <span class="accordion-arrow">▼</span>
+        </div>
+        <div class="accordion-body">
+          <p class="zh">系统内置多个 AI 功能：</p>
+          <p class="en" style="display:none">The system has multiple built-in AI features:</p>
+          <ul style="margin-top:8px;padding-left:16px;">
+            <li class="zh" style="margin-bottom:6px;"><strong>微信分析：</strong>在客户详情 → 微信标签，粘贴聊天记录，AI 提取摘要和待办</li>
+            <li class="en" style="display:none;margin-bottom:6px;"><strong>WeChat Analysis:</strong> Client detail → WeChat tab, paste chat export, AI extracts summary and action items</li>
+            <li class="zh" style="margin-bottom:6px;"><strong>文档解析：</strong>在客户详情 → 导入文档，上传 Word/PDF，AI 自动填充档案字段</li>
+            <li class="en" style="display:none;margin-bottom:6px;"><strong>Document Parsing:</strong> Client detail → Import Doc, upload Word/PDF, AI auto-fills profile fields</li>
+            <li class="zh" style="margin-bottom:6px;"><strong>案件 AI：</strong>在案件详情页点击 AI 助手，可生成摘要、分析文件缺口、起草邮件</li>
+            <li class="en" style="display:none;margin-bottom:6px;"><strong>Case AI:</strong> In case detail, click the AI assistant to generate summaries, analyse document gaps, draft emails</li>
+            <li class="zh"><strong>收件箱 AI：</strong>收到消息后 AI 自动起草回复，人工审核后发送</li>
+            <li class="en" style="display:none"><strong>Inbox AI:</strong> AI auto-drafts replies to incoming messages; send after human review</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="accordion" onclick="toggleAccordion(this)">
+        <div class="accordion-header">
+          <h4>📄 <span class="zh">如何生成服务合同？</span><span class="en" style="display:none">How to generate a service contract?</span></h4>
+          <span class="accordion-arrow">▼</span>
+        </div>
+        <div class="accordion-body">
+          <p class="zh">在客户详情页（或编辑客户弹窗底部），点击 <strong>"📄 生成合同"</strong> 按钮。系统会根据客户档案和关联案件自动生成 Word 格式合同，包含 Ozsky 预设银行账户信息。</p>
+          <p class="en" style="display:none">In the client detail page (or at the bottom of the Edit Client modal), click <strong>"📄 Generate Contract"</strong>. The system auto-generates a Word contract based on the client profile and linked cases, including Ozsky's pre-set bank account details.</p>
+        </div>
+      </div>
+
+      <div class="accordion" onclick="toggleAccordion(this)">
+        <div class="accordion-header">
+          <h4>📱 <span class="zh">手机端使用注意事项</span><span class="en" style="display:none">Mobile usage tips</span></h4>
+          <span class="accordion-arrow">▼</span>
+        </div>
+        <div class="accordion-body">
+          <ul style="padding-left:16px;">
+            <li class="zh" style="margin-bottom:6px;">手机底部有快捷导航栏，显示仪表板、客户、案件、潜客、日历 5 个常用入口</li>
+            <li class="en" style="display:none;margin-bottom:6px;">Mobile has a bottom navigation bar with 5 quick-access items: Dashboard, Clients, Cases, Leads, Calendar</li>
+            <li class="zh" style="margin-bottom:6px;">点击左上角 ☰ 汉堡菜单可展开完整侧边栏</li>
+            <li class="en" style="display:none;margin-bottom:6px;">Tap ☰ (hamburger) top-left to expand the full sidebar</li>
+            <li class="zh" style="margin-bottom:6px;">表格在小屏幕上会自动转为卡片式布局</li>
+            <li class="en" style="display:none;margin-bottom:6px;">Tables automatically switch to card layout on small screens</li>
+            <li class="zh">建议将网址添加到手机主屏幕，像 App 一样使用</li>
+            <li class="en" style="display:none">Recommend adding the URL to your home screen for an app-like experience</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="accordion" onclick="toggleAccordion(this)">
+        <div class="accordion-header">
+          <h4>🔄 <span class="zh">如何关联家庭成员（副申请人）？</span><span class="en" style="display:none">How to link family members (secondary applicants)?</span></h4>
+          <span class="accordion-arrow">▼</span>
+        </div>
+        <div class="accordion-body">
+          <p class="zh">在客户详情页的 <strong>"档案"</strong> 标签中，找到 <strong>"关联客户"</strong> 部分。可将配偶、子女、父母等关联到主申请人，支持的关系类型：主申请人、副申请人、配偶、子女、父母、监护人、担保雇主、附属申请人。</p>
+          <p class="en" style="display:none">In the client detail <strong>Profile</strong> tab, find the <strong>Linked Clients</strong> section. Link spouses, children, parents etc. to the primary applicant. Supported relation types: Primary, Secondary, Spouse, Child, Parent, Guardian, Employer, Dependent.</p>
+        </div>
+      </div>
+
+      <!-- Quick tips grid -->
+      <div class="card" style="margin-top:20px;">
+        <h3 style="font-size:15px;font-weight:700;color:var(--ink-900);margin-bottom:16px;">
+          <span class="zh">⚡ 快速技巧</span>
+          <span class="en" style="display:none">⚡ Quick Tips</span>
+        </h3>
+        <table class="guide-table">
+          <thead>
+            <tr>
+              <th class="zh">操作</th><th class="en" style="display:none">Action</th>
+              <th class="zh">方法</th><th class="en" style="display:none">How</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="zh">快速查看客户信息</td>
+              <td class="en" style="display:none">Quick client preview</td>
+              <td class="zh">鼠标悬停在客户行上 1 秒</td>
+              <td class="en" style="display:none">Hover over a client row for 1 second</td>
+            </tr>
+            <tr>
+              <td class="zh">添加备注</td>
+              <td class="en" style="display:none">Add a note</td>
+              <td class="zh">输入后按 <kbd class="kbd">Ctrl</kbd>+<kbd class="kbd">Enter</kbd> 保存</td>
+              <td class="en" style="display:none">Type then press <kbd class="kbd">Ctrl</kbd>+<kbd class="kbd">Enter</kbd> to save</td>
+            </tr>
+            <tr>
+              <td class="zh">切换语言</td>
+              <td class="en" style="display:none">Switch language</td>
+              <td class="zh">点击右上角 EN / 中文 按钮</td>
+              <td class="en" style="display:none">Click EN / 中文 button top-right</td>
+            </tr>
+            <tr>
+              <td class="zh">按团队成员筛选案件</td>
+              <td class="en" style="display:none">Filter cases by team member</td>
+              <td class="zh">仪表板 → 点击团队成员名字</td>
+              <td class="en" style="display:none">Dashboard → click a team member's name</td>
+            </tr>
+            <tr>
+              <td class="zh">查看案件详情</td>
+              <td class="en" style="display:none">View case details</td>
+              <td class="zh">点击案件标题 → 弹出详情弹窗</td>
+              <td class="en" style="display:none">Click the case title → detail modal opens</td>
+            </tr>
+            <tr>
+              <td class="zh">退出登录</td>
+              <td class="en" style="display:none">Sign out</td>
+              <td class="zh">右上角 "退出登录" 按钮，或侧边栏底部</td>
+              <td class="en" style="display:none">Top-right "Sign out" button, or bottom of sidebar</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <p class="zh">NexusCRM · Ozsky International · Perth, Western Australia · 内部使用文件</p>
+    <p class="en" style="display:none">NexusCRM · Ozsky International · Perth, Western Australia · Internal Use Only</p>
+    <p style="margin-top:6px;">
+      <span class="zh">如有问题请联系 </span>
+      <span class="en" style="display:none">For support contact </span>
+      <a href="mailto:l.jiang@ozs.com.au">l.jiang@ozs.com.au</a>
+    </p>
+  </footer>
+
+  <!-- Back to Top -->
+  <button class="back-top" id="backTop" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
+
+  <script>
+    // ── Language Toggle ──
+    function toggleLang() {
+      const body = document.body;
+      const btn = document.getElementById('langBtn');
+      if (body.dataset.lang === 'zh') {
+        body.dataset.lang = 'en';
+        btn.textContent = '中文';
+        document.querySelectorAll('.zh').forEach(el => el.style.display = 'none');
+        document.querySelectorAll('.en').forEach(el => el.style.display = '');
+      } else {
+        body.dataset.lang = 'zh';
+        btn.textContent = 'English';
+        document.querySelectorAll('.zh').forEach(el => el.style.display = '');
+        document.querySelectorAll('.en').forEach(el => el.style.display = 'none');
+      }
+    }
+
+    // ── Accordion ──
+    function toggleAccordion(el) {
+      el.classList.toggle('open');
+    }
+
+    // ── Quick Nav Active ──
+    function setActive(el) {
+      document.querySelectorAll('.quick-nav a').forEach(a => a.classList.remove('active'));
+      el.classList.add('active');
+    }
+
+    // ── Reading Progress ──
+    window.addEventListener('scroll', () => {
+      const scrollTop = document.documentElement.scrollTop;
+      const docHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+      const pct = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+      document.getElementById('readingProgress').style.width = pct + '%';
+
+      // Back to top button
+      const btn = document.getElementById('backTop');
+      if (scrollTop > 300) {
+        btn.classList.add('visible');
+      } else {
+        btn.classList.remove('visible');
+      }
+
+      // Update quick nav active based on scroll position
+      const sections = document.querySelectorAll('.section');
+      let current = '';
+      sections.forEach(s => {
+        const top = s.getBoundingClientRect().top;
+        if (top <= 130) current = s.id;
+      });
+      if (current) {
+        document.querySelectorAll('.quick-nav a').forEach(a => {
+          a.classList.toggle('active', a.getAttribute('href') === '#' + current);
+        });
+      }
+    });
+
+    // ── Demo Search ──
+    function filterDemo() {
+      const q = document.getElementById('demoSearch').value.toLowerCase();
+      const type = document.getElementById('demoType').value;
+      const status = document.getElementById('demoStatus').value;
+      const rows = document.querySelectorAll('.demo-row');
+      let visible = 0;
+      rows.forEach(row => {
+        const name = row.dataset.name.toLowerCase();
+        const rtype = row.dataset.type;
+        const rstatus = row.dataset.status;
+        const match = (!q || name.includes(q)) &&
+                      (!type || rtype === type) &&
+                      (!status || rstatus === status);
+        row.style.display = match ? '' : 'none';
+        if (match) visible++;
+      });
+      // Show empty state
+      let empty = document.getElementById('demoEmpty');
+      if (!empty) {
+        empty = document.createElement('div');
+        empty.id = 'demoEmpty';
+        empty.style.cssText = 'color:#64748B;font-size:13px;text-align:center;padding:16px;';
+        empty.textContent = 'No clients found';
+        document.getElementById('demoResults').appendChild(empty);
+      }
+      empty.style.display = visible === 0 ? '' : 'none';
+    }
+
+    // ── Smooth scroll offset for sticky header ──
+    document.querySelectorAll('a[href^="#"]').forEach(a => {
+      a.addEventListener('click', e => {
+        const target = document.querySelector(a.getAttribute('href'));
+        if (target) {
+          e.preventDefault();
+          const offset = 130;
+          const top = target.getBoundingClientRect().top + window.scrollY - offset;
+          window.scrollTo({ top, behavior: 'smooth' });
+        }
+      });
+    });
+  </script>
+</body>
+</html>

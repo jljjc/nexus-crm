@@ -70,6 +70,12 @@
   to = "/.netlify/functions/meetings"
   status = 200
 
+# Usage Guide
+[[redirects]]
+  from = "/guide"
+  to = "/guide.html"
+  status = 200
+
 # SPA fallback
 [[redirects]]
   from = "/*"
