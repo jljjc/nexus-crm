@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Inbox from './Inbox';
 import Meetings from './Meetings';
 import BriefRenderer from './BriefRenderer';
@@ -765,7 +765,7 @@ const INIT_JOBS = [];
 /* ─── HELPERS ────────────────────────────────────────────────────────────────── */
 const uid = () => Math.random().toString(36).slice(2, 9);
 const today = () => new Date().toISOString().split('T')[0];
-const initials = (name) => name.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2);
+const initials = (name) => (name||'?').split(' ').filter(Boolean).map(n=>n[0]).join('').toUpperCase().slice(0,2) || '?';
 const fmtDate = (d) => { if (!d) return '—'; const s = String(d); const dt = new Date(s.includes('T') ? s : s+'T00:00:00'); return isNaN(dt) ? '—' : dt.toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'}); };
 const fmtDateTime = (iso) => {
   if (!iso) return '—';
@@ -1146,7 +1146,7 @@ function ClientSnapshot({ client, jobs, visible, anchorRef }) {
       {latestNote && (
         <div style={{ background:'#ffffff', borderRadius:8, padding:'8px 10px', borderLeft:'3px solid #38bdf840', marginBottom:8 }}>
           <div style={{ fontSize:11, color:'#1f2937', marginBottom:4 }}>📝 Latest note · {fmtDateTime(latestNote.createdAt)}</div>
-          <div style={{ fontSize:12, color:'#1f2937', lineHeight:1.4 }}>{latestNote.text.length > 90 ? latestNote.text.slice(0,90)+'…' : latestNote.text}</div>
+          <div style={{ fontSize:12, color:'#1f2937', lineHeight:1.4 }}>{(latestNote.text||'').length > 90 ? (latestNote.text||'').slice(0,90)+'…' : (latestNote.text||'')}</div>
         </div>
       )}
       {/* AI Snapshot preview */}
@@ -2582,6 +2582,25 @@ ${rawText.slice(0,5000)}` }]
   );
 }
 
+/* ─── ERROR BOUNDARY ────────────────────────────────────────────────────────── */
+class ErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { hasError: false, error: null }; }
+  static getDerivedStateFromError(error) { return { hasError: true, error }; }
+  componentDidCatch(error, info) { console.error('ErrorBoundary caught:', error, info); }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding:32, textAlign:'center', color:'#ef4444' }}>
+          <div style={{ fontSize:32, marginBottom:12 }}>⚠️</div>
+          <div style={{ fontWeight:700, fontSize:16, marginBottom:8 }}>Something went wrong rendering this section.</div>
+          <div style={{ fontSize:13, color:'#6b7280', marginBottom:16 }}>{String(this.state.error?.message || this.state.error)}</div>
+          <button onClick={()=>this.setState({hasError:false,error:null})} style={{ padding:'8px 18px', background:'#4f46e5', color:'#fff', border:'none', borderRadius:8, cursor:'pointer', fontWeight:600 }}>Retry</button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 /* ─── CLIENTS ────────────────────────────────────────────────────────────────── */
 function Clients({ clients, jobs, setClients, setJobs, team }) {
   const { t } = useLang(); // eslint-disable-line no-unused-vars
@@ -2599,16 +2618,18 @@ function Clients({ clients, jobs, setClients, setJobs, team }) {
   const filtered = clients.filter(c => {
     const q = search.toLowerCase();
     return (
-      (!q || c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q) || c.nationality?.toLowerCase().includes(q)) &&
+      (!q || (c.name||'').toLowerCase().includes(q) || (c.email||'').toLowerCase().includes(q) || (c.nationality||'').toLowerCase().includes(q)) &&
       (filterType === 'All' || c.type === filterType) &&
       (filterStatus === 'All' || c.status === filterStatus)
     );
   }).sort((a, b) => {
-    if (sortBy === 'newest') return (b.createdAt||'').localeCompare(a.createdAt||'');
-    if (sortBy === 'oldest') return (a.createdAt||'').localeCompare(b.createdAt||'');
-    if (sortBy === 'name_az') return (a.name||'').localeCompare(b.name||'');
-    if (sortBy === 'name_za') return (b.name||'').localeCompare(a.name||'');
-    return (b.createdAt||'').localeCompare(a.createdAt||'');
+    try {
+      if (sortBy === 'newest') return (b.createdAt||'').localeCompare(a.createdAt||'');
+      if (sortBy === 'oldest') return (a.createdAt||'').localeCompare(b.createdAt||'');
+      if (sortBy === 'name_az') return (a.name||'').localeCompare(b.name||'');
+      if (sortBy === 'name_za') return (b.name||'').localeCompare(a.name||'');
+      return (b.createdAt||'').localeCompare(a.createdAt||'');
+    } catch(e) { return 0; }
   });
 
   const openAdd = () => {
@@ -5612,7 +5633,7 @@ function App() {
                 <Dashboard clients={clients} jobs={jobs} team={team} onGoTo={setView} setJobsMemberFilter={setJobsMemberFilter} setJobsStatusFilter={setJobsStatusFilter} />
               </>
             )}
-            {view === 'clients'   && <Clients   clients={clients} jobs={jobs} setClients={setClients} setJobs={setJobs} team={team} />}
+            {view === 'clients'   && <ErrorBoundary><Clients   clients={clients} jobs={jobs} setClients={setClients} setJobs={setJobs} team={team} /></ErrorBoundary>}
             {view === 'jobs'      && <Jobs       jobs={jobs} clients={clients} team={team} setJobs={setJobs} openJobId={openJobId} setOpenJobId={setOpenJobId} jobsMemberFilter={jobsMemberFilter} setJobsMemberFilter={setJobsMemberFilter} jobsStatusFilter={jobsStatusFilter} setJobsStatusFilter={setJobsStatusFilter} />}
             {view === 'team'      && isManager && <Team       team={team} jobs={jobs} clients={clients} setTeam={setTeam} setJobs={setJobs} />}
             {view === 'leads'     && <Leads      leads={leads} setLeads={setLeads} clients={clients} setClients={setClients} jobs={jobs} setJobs={setJobs} team={team} agents={agents} />}
