@@ -1827,12 +1827,6 @@ ${noteImportText.slice(0,4000)}`
   const p                           = client.profile || {};
 
   // generateSnapshot moved to SmartAI tab
-const Field = ({ label, value, warn }) => (
-    <div style={{ background:'#f9fafb', borderRadius:8, padding:'9px 13px', border: warn ? '1px solid #f59e0b60' : '1px solid #e5e7eb' }}>
-      <div style={{ fontSize:10, color:'#1f2937', textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:3 }}>{label}</div>
-      <div style={{ fontSize:13, color: warn ? '#d97706' : '#111827', fontWeight:500, wordBreak:'break-word' }}>{value || '—'}</div>
-    </div>
-  );
 
   const allNotes = normalizeNotes(client.notes);
   const gmailNoteCount = allNotes.filter(n => n.type === 'gmail').length;
