@@ -1855,79 +1855,231 @@ const Field = ({ label, value, warn }) => (
       </div>
 
       {/* ── PROFILE TAB ──────────────────────────────────── */}
-      {tab === 'profile' && (
+      {tab === 'profile' && (() => {
+        // ── Risk calculations ──────────────────────────────────────────
+        const today_d = new Date();
+        const daysUntil = (dateStr) => {
+          if (!dateStr) return null;
+          const d = new Date(dateStr);
+          if (isNaN(d)) return null;
+          return Math.ceil((d - today_d) / (1000 * 60 * 60 * 24));
+        };
+        const passportDays  = daysUntil(p.passportExpiry);
+        const currentVisa   = (p.visaHistory||[]).find(v => v.current || v.isCurrent)
+                           || (p.visaHistory||[]).slice(-1)[0] || null;
+        const visaExpiry    = currentVisa?.expiryDate || null;
+        const visaDays      = daysUntil(visaExpiry);
+        const latestAssess  = (p.skillsAssessments||[]).slice(-1)[0];
+        const assessExpiry  = latestAssess?.expiryDate || null;
+        const assessDays    = daysUntil(assessExpiry);
+        const risks = [];
+        if (passportDays !== null && passportDays < 180)
+          risks.push({ level: passportDays < 30 ? 'high':'med', msg: `护照将在 ${passportDays} 天后到期`, icon:'🛂' });
+        if (visaDays !== null && visaDays < 90)
+          risks.push({ level: visaDays < 14 ? 'high':'med', msg: `签证将在 ${visaDays} 天后到期`, icon:'📋' });
+        if (assessDays !== null && assessDays < 90)
+          risks.push({ level: assessDays < 30 ? 'high':'med', msg: `职业评估将在 ${assessDays} 天后到期`, icon:'💼' });
+        const activeJobs = clientJobs.filter(j => j.status !== 'Completed' && j.status !== 'On Hold');
+        const latestJob  = [...clientJobs].sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''))[0];
+        const SectionTitle = ({ icon, label }) => (
+          <div style={{ fontSize:10, fontWeight:700, color:'#6b7280', textTransform:'uppercase', letterSpacing:'0.09em', marginBottom:10, display:'flex', alignItems:'center', gap:5 }}>
+            <span>{icon}</span>{label}
+          </div>
+        );
+        const InfoRow = ({ label, value, highlight, warn }) => (
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:6, gap:8 }}>
+            <span style={{ fontSize:11, color:'#9ca3af', flexShrink:0, minWidth:86 }}>{label}</span>
+            <span style={{ fontSize:12, fontWeight:600, color: warn ? '#dc2626' : highlight ? '#4f46e5' : '#111827', textAlign:'right', wordBreak:'break-word' }}>{value || '—'}</span>
+          </div>
+        );
+        return (
         <div style={{ paddingRight:2 }}>
-
-          {/* ── SNAPSHOT HEADER CARD ─────────────────────── */}
-          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', flexWrap:'wrap', gap:10, marginBottom:20, padding:'16px 20px', background:'linear-gradient(135deg,#1c1f3a,#2d3563)', borderRadius:14, color:'#fff' }}>
+          {/* ── HEADER BANNER ── */}
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', flexWrap:'wrap', gap:10, marginBottom:16, padding:'16px 20px', background:'linear-gradient(135deg,#1c1f3a,#2d3563)', borderRadius:14, color:'#fff' }}>
             <div style={{ display:'flex', alignItems:'center', gap:14 }}>
               <div style={{ width:56, height:56, borderRadius:'50%', background:'rgba(255,255,255,0.15)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:22, fontWeight:800, color:'#fff', flexShrink:0, border:'2px solid rgba(255,255,255,0.3)' }}>{initials(client.name)}</div>
               <div>
-                <div style={{ fontSize:10, color:'rgba(255,255,255,0.6)', textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:2 }}>CLIENT SNAPSHOT CARD</div>
-                <div style={{ fontSize:20, fontWeight:800, letterSpacing:'0.02em' }}>{client.name}</div>
-                {(p.nameZh || p.nameChinese) && <div style={{ fontSize:14, color:'rgba(255,255,255,0.7)', marginTop:1 }}>{p.nameZh || p.nameChinese}</div>}
-                {p.dob && <div style={{ fontSize:12, color:'rgba(255,255,255,0.6)', marginTop:3 }}>DOB: {p.dob}</div>}
+                <div style={{ fontSize:10, color:'rgba(255,255,255,0.5)', textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:2 }}>CLIENT PROFILE</div>
+                <div style={{ fontSize:20, fontWeight:800 }}>{client.name}</div>
+                {(p.nameZh||p.nameChinese) && <div style={{ fontSize:14, color:'rgba(255,255,255,0.75)', marginTop:1 }}>{p.nameZh||p.nameChinese}</div>}
+                <div style={{ display:'flex', gap:6, marginTop:5, flexWrap:'wrap' }}>
+                  {p.dob && <span style={{ fontSize:11, color:'rgba(255,255,255,0.65)', background:'rgba(255,255,255,0.1)', padding:'2px 8px', borderRadius:6 }}>DOB: {p.dob}</span>}
+                  {p.sex && <span style={{ fontSize:11, color:'rgba(255,255,255,0.65)', background:'rgba(255,255,255,0.1)', padding:'2px 8px', borderRadius:6 }}>{p.sex}</span>}
+                  {client.nationality && <span style={{ fontSize:11, color:'rgba(255,255,255,0.65)', background:'rgba(255,255,255,0.1)', padding:'2px 8px', borderRadius:6 }}>{client.nationality}</span>}
+                  {p.maritalStatus && <span style={{ fontSize:11, color:'rgba(255,255,255,0.65)', background:'rgba(255,255,255,0.1)', padding:'2px 8px', borderRadius:6 }}>{p.maritalStatus}</span>}
+                </div>
               </div>
             </div>
             <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:6 }}>
               <StatusBadge status={client.status} />
-              <button onClick={onEdit} style={{ background:'rgba(255,255,255,0.15)', border:'1px solid rgba(255,255,255,0.3)', borderRadius:8, padding:'5px 12px', color:'#fff', fontSize:11, fontWeight:600, cursor:'pointer' }}>✏️ {t('Edit Profile')}</button>
-              <button
-                onClick={() => setTab('ai')}
-                style={{ background:'rgba(99,102,241,0.85)', border:'1px solid rgba(255,255,255,0.3)', borderRadius:8, padding:'5px 12px', color:'#fff', fontSize:11, fontWeight:600, cursor:'pointer', whiteSpace:'nowrap' }}
-              >
-                ✨ AI 快照 →
-              </button>
+              <span style={{ fontSize:11, color:'rgba(255,255,255,0.65)', background:'rgba(255,255,255,0.1)', padding:'2px 10px', borderRadius:6 }}>{client.type}</span>
+              <button onClick={onEdit} style={{ background:'rgba(255,255,255,0.15)', border:'1px solid rgba(255,255,255,0.3)', borderRadius:8, padding:'5px 12px', color:'#fff', fontSize:11, fontWeight:600, cursor:'pointer' }}>✏️ Edit Profile</button>
+              <button onClick={() => setTab('ai')} style={{ background:'rgba(99,102,241,0.85)', border:'none', borderRadius:8, padding:'5px 12px', color:'#fff', fontSize:11, fontWeight:600, cursor:'pointer' }}>✨ AI 快照 →</button>
             </div>
           </div>
 
-          {/* ── 6-field summary grid ── */}
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:12, marginTop:16 }}>
-            <Field label={t('Full Name')||'Full Name'}         value={client.name} />
-            <Field label={t('Gender')||'Sex'}               value={p.sex} />
-            <Field label={t('Date of Birth')||'Date of Birth'} value={p.dob} />
-            <Field label={t('Nationality')||'Nationality'}  value={client.nationality} />
-            <Field label={t('Mobile')||'Mobile'}            value={client.phone} />
-            <Field label={t('Email')||'Email'}              value={client.email} />
+          {/* ── RISK ALERTS ── */}
+          {risks.length > 0 && (
+            <div style={{ marginBottom:14, display:'flex', flexDirection:'column', gap:6 }}>
+              {risks.map((r,i) => (
+                <div key={i} style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', borderRadius:9, background: r.level==='high'?'#fef2f2':'#fffbeb', border:`1px solid ${r.level==='high'?'#fecaca':'#fde68a'}` }}>
+                  <span style={{ fontSize:16 }}>{r.icon}</span>
+                  <span style={{ fontSize:12, fontWeight:600, color: r.level==='high'?'#dc2626':'#d97706' }}>⚠️ {r.msg}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* ── ROW 1: Passport | Visa | Cases ── */}
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:12, marginBottom:12 }}>
+            {/* Passport */}
+            <div style={{ background:'#f8fafc', border:'1.5px solid #e2e8f0', borderRadius:11, padding:'13px 14px' }}>
+              <SectionTitle icon="🛂" label="护照 Passport" />
+              <InfoRow label="护照号" value={p.passportNo} highlight />
+              <InfoRow label="有效期至" value={p.passportExpiry} warn={passportDays !== null && passportDays < 180} />
+              <InfoRow label="签发国" value={p.birthplace || client.nationality} />
+              <InfoRow label="中国身份证" value={p.chinaId} />
+            </div>
+            {/* Visa Status */}
+            <div style={{ background:'#f8fafc', border:'1.5px solid #e2e8f0', borderRadius:11, padding:'13px 14px' }}>
+              <SectionTitle icon="📋" label="签证状态 Visa" />
+              <InfoRow label="目标签证" value={p.visaTarget} highlight />
+              <InfoRow label="当前状态" value={p.currentStatus} />
+              {(p.visaHistory||[]).length > 0 ? (
+                <div style={{ marginTop:6 }}>
+                  <div style={{ fontSize:10, color:'#9ca3af', marginBottom:4 }}>签证历史</div>
+                  {(p.visaHistory||[]).slice(-3).reverse().map((v,i) => (
+                    <div key={i} style={{ fontSize:11, color:'#374151', background:'#fff', border:'1px solid #e5e7eb', borderRadius:6, padding:'3px 7px', marginBottom:3 }}>
+                      <span style={{ fontWeight:600 }}>{v.subclass||v.type||v.visaType||'—'}</span>
+                      {v.expiryDate && <span style={{ color: daysUntil(v.expiryDate) !== null && daysUntil(v.expiryDate) < 90 ? '#dc2626':'#6b7280', marginLeft:6 }}>到期: {v.expiryDate}</span>}
+                      {(v.current||v.isCurrent) && <span style={{ marginLeft:6, fontSize:10, color:'#16a34a', fontWeight:700 }}>● 当前</span>}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <InfoRow label="签证历史" value={null} />
+              )}
+            </div>
+            {/* Cases Summary */}
+            <div style={{ background:'#f8fafc', border:'1.5px solid #e2e8f0', borderRadius:11, padding:'13px 14px' }}>
+              <SectionTitle icon="📊" label="案件摘要 Cases" />
+              <InfoRow label="总案件" value={String(clientJobs.length)} />
+              <InfoRow label="进行中" value={String(activeJobs.length)} highlight={activeJobs.length > 0} />
+              {latestJob && (
+                <div style={{ marginTop:6 }}>
+                  <div style={{ fontSize:10, color:'#9ca3af', marginBottom:4 }}>最新案件</div>
+                  <div style={{ fontSize:11, color:'#374151', background:'#fff', border:'1px solid #e5e7eb', borderRadius:6, padding:'5px 8px' }}>
+                    <div style={{ fontWeight:600, marginBottom:3 }}>{latestJob.title||latestJob.type}</div>
+                    <StatusBadge status={latestJob.status} small />
+                    {latestJob.dueDate && <div style={{ fontSize:10, color:'#6b7280', marginTop:3 }}>截止: {latestJob.dueDate}</div>}
+                  </div>
+                </div>
+              )}
+              <div style={{ marginTop:8 }}>
+                <button onClick={() => setTab('jobs')} style={{ width:'100%', padding:'5px 0', background:'#eef2ff', border:'1px solid #c7d2fe', borderRadius:7, fontSize:11, color:'#4f46e5', fontWeight:600, cursor:'pointer' }}>查看所有案件 →</button>
+              </div>
+            </div>
           </div>
 
-          {/* ── Saved snapshot ── */}
+          {/* ── ROW 2: Contact | English | Skills Assessment ── */}
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:12, marginBottom:12 }}>
+            {/* Contact */}
+            <div style={{ background:'#f8fafc', border:'1.5px solid #e2e8f0', borderRadius:11, padding:'13px 14px' }}>
+              <SectionTitle icon="📞" label="联系方式 Contact" />
+              <InfoRow label="手机" value={client.phone} />
+              <InfoRow label="邮箱" value={client.email} />
+              <InfoRow label="澳洲地址" value={p.auAddress} />
+              <InfoRow label="出生地" value={p.birthplace} />
+              <InfoRow label="顾问" value={p.consultant} />
+            </div>
+            {/* English Scores */}
+            <div style={{ background:'#f8fafc', border:'1.5px solid #e2e8f0', borderRadius:11, padding:'13px 14px' }}>
+              <SectionTitle icon="🎓" label="英语成绩 English" />
+              {(p.englishTests||[]).length > 0 ? (
+                (p.englishTests||[]).map((et,i) => (
+                  <div key={i} style={{ background:'#fff', border:'1px solid #e5e7eb', borderRadius:7, padding:'6px 9px', marginBottom:6 }}>
+                    <div style={{ fontSize:11, fontWeight:700, color:'#374151' }}>{et.type||'IELTS'} — Overall: <span style={{ color:'#4f46e5' }}>{et.overall||'—'}</span></div>
+                    {(et.listening||et.reading||et.writing||et.speaking) && (
+                      <div style={{ fontSize:10, color:'#6b7280', marginTop:2 }}>L:{et.listening} R:{et.reading} W:{et.writing} S:{et.speaking}</div>
+                    )}
+                    {et.testDate && <div style={{ fontSize:10, color:'#9ca3af', marginTop:1 }}>考试日期: {et.testDate}</div>}
+                    {et.expiryDate && <div style={{ fontSize:10, color: daysUntil(et.expiryDate) !== null && daysUntil(et.expiryDate) < 90 ? '#dc2626':'#9ca3af', marginTop:1 }}>有效期: {et.expiryDate}</div>}
+                  </div>
+                ))
+              ) : (
+                <div style={{ fontSize:12, color:'#9ca3af', textAlign:'center', padding:'12px 0' }}>暂无英语成绩记录<br/><span style={{ fontSize:11 }}>可通过 AI 快照自动提取</span></div>
+              )}
+            </div>
+            {/* Skills Assessment */}
+            <div style={{ background:'#f8fafc', border:'1.5px solid #e2e8f0', borderRadius:11, padding:'13px 14px' }}>
+              <SectionTitle icon="💼" label="职业评估 Skills" />
+              {(p.skillsAssessments||[]).length > 0 ? (
+                (p.skillsAssessments||[]).map((sa,i) => (
+                  <div key={i} style={{ background:'#fff', border:'1px solid #e5e7eb', borderRadius:7, padding:'6px 9px', marginBottom:6 }}>
+                    <div style={{ fontSize:11, fontWeight:700, color:'#374151' }}>{sa.body||sa.assessingBody||'—'}</div>
+                    <div style={{ fontSize:11, color:'#6b7280' }}>{sa.occupation||sa.anzsco||'—'}</div>
+                    {sa.result && <div style={{ fontSize:11, fontWeight:600, color: (sa.result||'').toLowerCase().includes('positive')||sa.result==='Suitable' ? '#16a34a':'#d97706', marginTop:2 }}>结果: {sa.result}</div>}
+                    {sa.expiryDate && <div style={{ fontSize:10, color: assessDays !== null && assessDays < 90 ? '#dc2626':'#9ca3af', marginTop:2 }}>有效期: {sa.expiryDate}</div>}
+                    {sa.appId && <div style={{ fontSize:10, color:'#9ca3af' }}>Ref: {sa.appId}</div>}
+                  </div>
+                ))
+              ) : (
+                <div style={{ fontSize:12, color:'#9ca3af', textAlign:'center', padding:'12px 0' }}>暂无职业评估记录<br/><span style={{ fontSize:11 }}>可通过 AI 快照自动提取</span></div>
+              )}
+            </div>
+          </div>
+
+          {/* ── KEY DATES TIMELINE ── */}
+          {(() => {
+            const dates = [];
+            if (p.passportExpiry)   dates.push({ label:'护照到期', date:p.passportExpiry,   icon:'🛂', days:passportDays });
+            if (visaExpiry)         dates.push({ label:'签证到期', date:visaExpiry,           icon:'📋', days:visaDays });
+            if (assessExpiry)       dates.push({ label:'评估到期', date:assessExpiry,         icon:'💼', days:assessDays });
+            if (latestJob?.dueDate) dates.push({ label:'案件截止', date:latestJob.dueDate,    icon:'📅', days:daysUntil(latestJob.dueDate) });
+            if (dates.length === 0) return null;
+            dates.sort((a,b) => (a.date||'').localeCompare(b.date||''));
+            return (
+              <div style={{ background:'#f8fafc', border:'1.5px solid #e2e8f0', borderRadius:11, padding:'13px 14px', marginBottom:12 }}>
+                <SectionTitle icon="🗓" label="关键日期 Key Dates" />
+                <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+                  {dates.map((d,i) => {
+                    const urgent = d.days !== null && d.days < 30;
+                    const warn   = d.days !== null && d.days < 90;
+                    return (
+                      <div key={i} style={{ flex:'1 1 110px', background: urgent?'#fef2f2':warn?'#fffbeb':'#fff', border:`1px solid ${urgent?'#fecaca':warn?'#fde68a':'#e5e7eb'}`, borderRadius:8, padding:'8px 10px', textAlign:'center' }}>
+                        <div style={{ fontSize:18, marginBottom:3 }}>{d.icon}</div>
+                        <div style={{ fontSize:10, color:'#6b7280', marginBottom:2 }}>{d.label}</div>
+                        <div style={{ fontSize:12, fontWeight:700, color: urgent?'#dc2626':warn?'#d97706':'#111827' }}>{d.date}</div>
+                        {d.days !== null && <div style={{ fontSize:10, color: urgent?'#dc2626':warn?'#d97706':'#9ca3af', marginTop:2 }}>{d.days > 0 ? `${d.days} 天后` : `已过期 ${Math.abs(d.days)} 天`}</div>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* ── SNAPSHOT ── */}
           {p.snapshot && (
-            <div style={{ marginTop:20, borderTop:'1.5px solid #e2e8f0', paddingTop:16 }}>
+            <div style={{ marginTop:4, borderTop:'1.5px solid #e2e8f0', paddingTop:14 }}>
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8, flexWrap:'wrap', gap:6 }}>
                 <div style={{ display:'flex', alignItems:'center', gap:10 }}>
                   <span style={{ fontSize:11, fontWeight:700, color:'#6366f1', textTransform:'uppercase', letterSpacing:'0.07em' }}>客户快照</span>
                   {p.snapshotDate && <span style={{ fontSize:11, color:'#9ca3af' }}>更新于 {p.snapshotDate}</span>}
                 </div>
                 <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
-                  <button
-                    onClick={() => navigator.clipboard.writeText(p.snapshot).catch(()=>{})}
-                    style={{ background:'#f1f5f9', border:'1px solid #e2e8f0', borderRadius:6, padding:'4px 10px', fontSize:11, color:'#374151', cursor:'pointer', fontWeight:500 }}
-                  >📋 复制</button>
-                  <button
-                    onClick={() => {
-                      const blob = new Blob([p.snapshot], { type:'text/plain;charset=utf-8' });
-                      const url = URL.createObjectURL(blob);
-                      const a = document.createElement('a');
-                      a.href = url;
-                      a.download = `${(client.name||'client').replace(/[^a-zA-Z0-9\u4e00-\u9fa5_\- ]/g,'').trim()}_Snapshot_${p.snapshotDate||new Date().toISOString().slice(0,10)}.txt`;
-                      a.click(); URL.revokeObjectURL(url);
-                    }}
-                    style={{ background:'#f1f5f9', border:'1px solid #e2e8f0', borderRadius:6, padding:'4px 10px', fontSize:11, color:'#374151', cursor:'pointer', fontWeight:500 }}
-                  >⬇️ 下载</button>
-                  <button
-                    onClick={() => setTab('ai')}
-                    style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:6, padding:'4px 12px', fontSize:11, color:'#fff', cursor:'pointer', fontWeight:600 }}
-                  >✨ 增强快照 →</button>
+                  <button onClick={() => navigator.clipboard.writeText(p.snapshot).catch(()=>{})} style={{ background:'#f1f5f9', border:'1px solid #e2e8f0', borderRadius:6, padding:'4px 10px', fontSize:11, color:'#374151', cursor:'pointer', fontWeight:500 }}>📋 复制</button>
+                  <button onClick={() => { const blob=new Blob([p.snapshot],{type:'text/plain;charset=utf-8'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=`${(client.name||'client').replace(/[^a-zA-Z0-9\u4e00-\u9fa5_\- ]/g,'').trim()}_Snapshot_${p.snapshotDate||new Date().toISOString().slice(0,10)}.txt`; a.click(); URL.revokeObjectURL(url); }} style={{ background:'#f1f5f9', border:'1px solid #e2e8f0', borderRadius:6, padding:'4px 10px', fontSize:11, color:'#374151', cursor:'pointer', fontWeight:500 }}>⬇️ 下载</button>
+                  <button onClick={() => setTab('ai')} style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', borderRadius:6, padding:'4px 12px', fontSize:11, color:'#fff', cursor:'pointer', fontWeight:600 }}>✨ 增强快照 →</button>
                 </div>
               </div>
               <BriefRenderer text={p.snapshot} />
             </div>
           )}
         </div>
-      )}
-
-          {/* ── LINKED CLIENTS ── */}
+        );
+      })()}
+      {/* ── LINKED CLIENTS ── */}
           <LinkedClientsSection
             client={client}
             allClients={allClients || []}
