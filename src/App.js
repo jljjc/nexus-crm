@@ -569,7 +569,8 @@ const GLOBAL_CSS = `
     .oz-mob-overlay.open { display: block; }
     .oz-hamburger { display: block; }
     .oz-mob-nav { display: flex; }
-    .oz-topbar { padding: 0 16px; }
+    /* On mobile, sticky topbar causes blank page when keyboard opens — use relative instead */
+    .oz-topbar { padding: 0 16px; position: relative; }
     .oz-grid-2 { grid-template-columns: 1fr; }
     .oz-grid-3 { grid-template-columns: 1fr 1fr; }
     .oz-kpi-grid { grid-template-columns: 1fr 1fr; }
@@ -589,7 +590,7 @@ const GLOBAL_CSS = `
     .oz-modal-body { padding: 14px 14px 22px; }
     .oz-modal-hd { padding: 14px 14px 12px; }
     .oz-modal-title { font-size: 15px; }
-    .oz-topbar { height: 52px; padding: 0 12px; }
+    .oz-topbar { height: 52px; padding: 0 12px; position: relative; }
     .oz-main-content { padding: 12px 10px 80px !important; }
   }
   @media (max-width: 400px) {
@@ -2690,7 +2691,7 @@ function Clients({ clients, jobs, setClients, setJobs, team }) {
       </div>
 
       <div style={{ display:'flex', gap:12, marginBottom:20, flexWrap:'wrap' }}>
-        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍  Search clients..." style={{ ...inputStyle, width:260, padding:'9px 14px' }} />
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍  Search clients..." style={{ ...inputStyle, width:260, padding:'9px 14px', maxWidth:'100%' }} />
         <select value={filterType} onChange={e=>setFilterType(e.target.value)} style={{ ...selectStyle, width:140 }}>
           <option value="All">All Types</option>
           {CLIENT_TYPES.map(t=><option key={t}>{t}</option>)}
@@ -2707,8 +2708,8 @@ function Clients({ clients, jobs, setClients, setJobs, team }) {
         </select>
       </div>
 
-      <Card style={{ padding:0, overflow:'hidden' }}>
-        <table style={{ width:'100%', borderCollapse:'collapse' }}>
+      <Card style={{ padding:0, overflowX:'auto', WebkitOverflowScrolling:'touch' }}>
+        <table style={{ width:'100%', borderCollapse:'collapse', minWidth:600 }}>
           <thead>
             <tr style={{ borderBottom:'2px solid #e2e8f0' }}>
               {['Client','Type','Status','Cases','Nationality','Notes','Created',''].map(h=>(
