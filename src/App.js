@@ -1984,7 +1984,12 @@ ${noteImportText.slice(0,4000)}`
               <InfoRow label="邮箱" value={client.email} />
               <InfoRow label="澳洲地址" value={p.auAddress} />
               <InfoRow label="出生地" value={p.birthplace} />
-              <InfoRow label="顾问" value={p.consultant} />
+              {(() => {
+                // Show assigned team members from active cases, not the static consultant field
+                const assignedIds = [...new Set(clientJobs.filter(j=>j.assignedTo).map(j=>j.assignedTo))];
+                const assignedNames = assignedIds.map(id => (team||[]).find(m=>m.id===id)?.name).filter(Boolean);
+                return <InfoRow label="顾问" value={assignedNames.length > 0 ? assignedNames.join(', ') : null} />;
+              })()}
             </div>
             {/* English Scores */}
             <div style={{ background:'#f8fafc', border:'1.5px solid #e2e8f0', borderRadius:11, padding:'13px 14px' }}>
