@@ -2259,14 +2259,38 @@ ${rawText.slice(0,5000)}` }]
             )}
             {(viewJob.keyIssues||[]).length > 0 && (
             <div style={{ borderTop:'1.5px solid #e2e8f0', paddingTop:14, marginBottom:14 }}>
-              <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:8 }}>关键问题 <span style={{ color:'#9ca3af', fontWeight:400, textTransform:'none', fontSize:11 }}>Key Issues</span></div>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8 }}>
+                <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em' }}>
+                  关键问题 <span style={{ color:'#9ca3af', fontWeight:400, textTransform:'none', fontSize:11 }}>Key Issues</span>
+                  {viewJob.humanOverrides?.keyIssues && <span style={{ fontSize:10, background:'#FEF3C7', color:'#92400E', padding:'1px 6px', borderRadius:8, fontWeight:600, marginLeft:6 }}>🔒 手工修改</span>}
+                </div>
+                <button onClick={async()=>{
+                  const item = window.prompt('新增关键问题 (格式: High|问题描述 或 Medium|... 或 Low|...):');
+                  if (!item?.trim()) return;
+                  const parts = item.split('|');
+                  const priority = parts.length > 1 ? parts[0].trim() : 'Medium';
+                  const text = parts.length > 1 ? parts.slice(1).join('|').trim() : parts[0].trim();
+                  const newItems = [...(viewJob.keyIssues||[]), { priority, item: text }];
+                  const overrides = { ...(viewJob.humanOverrides||{}), keyIssues: { value: newItems, editedAt: new Date().toISOString().slice(0,10), editedBy: 'Agent' } };
+                  const updated = { ...viewJob, keyIssues: newItems, humanOverrides: overrides };
+                  setViewJob(updated); setJobs(prev=>prev.map(j=>j.id===viewJob.id?updated:j));
+                  try { await sbUpdate('jobs',updated.id,{data:updated}); } catch(er){ console.warn(er); }
+                }} style={{ fontSize:11, color:'#4f46e5', background:'#eef2ff', border:'1px solid #c7d2fe', borderRadius:6, padding:'2px 8px', cursor:'pointer' }}>+ 添加</button>
+              </div>
               <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
               {(viewJob.keyIssues||[]).map((issue,i) => {
                 const col2=issue.priority==='High'?'#dc2626':issue.priority==='Low'?'#16a34a':'#d97706';
                 const bg2=issue.priority==='High'?'#fef2f2':issue.priority==='Low'?'#f0fdf4':'#fffbeb';
                 return (<div key={i} style={{ display:'flex', alignItems:'flex-start', gap:8, background:'#f8fafc', borderRadius:7, padding:'7px 11px', border:'1.5px solid #e2e8f0' }}>
                   <span style={{ fontSize:10, fontWeight:700, color:col2, background:bg2, padding:'2px 6px', borderRadius:8, flexShrink:0, marginTop:1 }}>{issue.priority||'Med'}</span>
-                  <span style={{ fontSize:12, color:'#111827' }}>{issue.item}</span>
+                  <span style={{ fontSize:12, color:'#111827', flex:1 }}>{issue.item}</span>
+                  <button onClick={async()=>{
+                    const newItems = (viewJob.keyIssues||[]).filter((_,idx)=>idx!==i);
+                    const overrides = { ...(viewJob.humanOverrides||{}), keyIssues: { value: newItems, editedAt: new Date().toISOString().slice(0,10), editedBy: 'Agent' } };
+                    const updated = { ...viewJob, keyIssues: newItems, humanOverrides: overrides };
+                    setViewJob(updated); setJobs(prev=>prev.map(j=>j.id===viewJob.id?updated:j));
+                    try { await sbUpdate('jobs',updated.id,{data:updated}); } catch(er){ console.warn(er); }
+                  }} style={{ fontSize:11, color:'#9ca3af', background:'none', border:'none', cursor:'pointer', padding:'0 2px', flexShrink:0 }} title='删除此项'>✕</button>
                 </div>);
               })}
               </div>
@@ -2274,12 +2298,33 @@ ${rawText.slice(0,5000)}` }]
             )}
             {(viewJob.nextSteps||[]).length > 0 && (
             <div style={{ borderTop:'1.5px solid #e2e8f0', paddingTop:14, marginBottom:14 }}>
-              <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:8 }}>下步行动 <span style={{ color:'#9ca3af', fontWeight:400, textTransform:'none', fontSize:11 }}>Next Steps</span></div>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8 }}>
+                <div style={{ fontSize:11, color:'#374151', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em' }}>
+                  下步行动 <span style={{ color:'#9ca3af', fontWeight:400, textTransform:'none', fontSize:11 }}>Next Steps</span>
+                  {viewJob.humanOverrides?.nextSteps && <span style={{ fontSize:10, background:'#FEF3C7', color:'#92400E', padding:'1px 6px', borderRadius:8, fontWeight:600, marginLeft:6 }}>🔒 手工修改</span>}
+                </div>
+                <button onClick={async()=>{
+                  const step = window.prompt('新增下步行动:');
+                  if (!step?.trim()) return;
+                  const newSteps = [...(viewJob.nextSteps||[]), step.trim()];
+                  const overrides = { ...(viewJob.humanOverrides||{}), nextSteps: { value: newSteps, editedAt: new Date().toISOString().slice(0,10), editedBy: 'Agent' } };
+                  const updated = { ...viewJob, nextSteps: newSteps, humanOverrides: overrides };
+                  setViewJob(updated); setJobs(prev=>prev.map(j=>j.id===viewJob.id?updated:j));
+                  try { await sbUpdate('jobs',updated.id,{data:updated}); } catch(er){ console.warn(er); }
+                }} style={{ fontSize:11, color:'#4f46e5', background:'#eef2ff', border:'1px solid #c7d2fe', borderRadius:6, padding:'2px 8px', cursor:'pointer' }}>+ 添加</button>
+              </div>
               <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
               {(viewJob.nextSteps||[]).map((ns,i) => (
                 <div key={i} style={{ display:'flex', alignItems:'flex-start', gap:10, padding:'5px 0' }}>
                   <span style={{ fontSize:11, fontWeight:700, color:'#6366f1', background:'#ede9fe', borderRadius:6, padding:'1px 7px', flexShrink:0, marginTop:1 }}>{i+1}</span>
-                  <span style={{ fontSize:12, color:'#374151' }}>{ns}</span>
+                  <span style={{ fontSize:12, color:'#374151', flex:1 }}>{ns}</span>
+                  <button onClick={async()=>{
+                    const newSteps = (viewJob.nextSteps||[]).filter((_,idx)=>idx!==i);
+                    const overrides = { ...(viewJob.humanOverrides||{}), nextSteps: { value: newSteps, editedAt: new Date().toISOString().slice(0,10), editedBy: 'Agent' } };
+                    const updated = { ...viewJob, nextSteps: newSteps, humanOverrides: overrides };
+                    setViewJob(updated); setJobs(prev=>prev.map(j=>j.id===viewJob.id?updated:j));
+                    try { await sbUpdate('jobs',updated.id,{data:updated}); } catch(er){ console.warn(er); }
+                  }} style={{ fontSize:11, color:'#9ca3af', background:'none', border:'none', cursor:'pointer', padding:'0 2px', flexShrink:0 }} title='删除此项'>✕</button>
                 </div>
               ))}
               </div>
