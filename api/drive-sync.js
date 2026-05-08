@@ -184,6 +184,8 @@ export default async function handler(req, res) {
       // Tier 2 (89-75): English & skills
       if (/ielts|pte\b|toefl|oet\b|cambridge.?english|english.?(test|result|score|certificate)/.test(n)) return 88;
       if (/skills?.?assessment/.test(n))                                return 87;
+      // Outcome/decision letters from assessment bodies are skills assessment results
+      if (/outcome.?letter|outcome.?report|decision.?letter|assessment.?result|assessment.?outcome/.test(n)) return 87;
       if (/\b(acs|vetassess|engineers?.?australia|aitsl|ahpra|anmac|naati)\b/.test(n)) return 86;
       if (/\btra\b|trades.?recognition|cpa.?australia|caanz|cfa\b|icaa/.test(n)) return 85;
       // Tier 3 (74-60): Qualifications & employment
@@ -199,7 +201,7 @@ export default async function handler(req, res) {
       if (/marriage.?cert|wedding.?cert/.test(n))                      return 58;
       if (/de.?facto|defacto|relationship.?(statement|evidence|declaration)/.test(n)) return 56;
       if (/sponsor(ship)?|nomination|labour.?market|lmt\b/.test(n))    return 54;
-      if (/state.?nomination|regional.?cert|skillselect|\beoi\b|invitation.?to.?apply/.test(n)) return 52;
+      if (/state.?nomination|regional.?cert|skillselect|\beoi\b|invitation.?to.?apply|eoi.?submission/.test(n)) return 55;
       if (/family.?evidence|partner.?evidence|joint.?asset/.test(n))   return 50;
       if (/police.?clear|character.?clear|criminal.?record/.test(n))   return 48;
       if (/health.?assess|medical.?exam|\bhap\b|chest.?x.?ray/.test(n)) return 47;

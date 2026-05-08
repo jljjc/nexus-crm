@@ -247,18 +247,25 @@ VISA CONTEXT: ${visaSubclass}
 - 请以中文为主要语言输出，英文作为辅助标注（括号内）
 - Use Australian English spelling for any English content
 
+⚠️  CRITICAL DATA ACCURACY RULES — READ CAREFULLY BEFORE GENERATING:
+1. GOOGLE DRIVE FILES ARE THE GROUND TRUTH. If a file in the Drive section confirms a fact (e.g., skills assessment outcome, visa grant, EOI submission), state it as confirmed fact. Do NOT say it is "pending" or "awaited" if the document is present.
+2. "Case Summary" in CRM CASE DATA is an OLD SNAPSHOT — it may be outdated. It is provided for context ONLY. If Drive files or emails contradict the old snapshot, trust Drive files and emails, NOT the snapshot.
+3. NEVER fabricate or infer facts not supported by the provided data. If information is not present in any source, mark it as 待确认 (unconfirmed).
+4. For skills assessments: look for outcome letters, decision letters, or letters from VETASSESS/ACS/Engineers Australia/AHPRA/ANMAC/NAATI/AITSL/TRA. If such a letter is present in Drive files, the assessment is COMPLETED — report the result from the letter.
+5. For EOI: if EOI submission emails or files are present, report the EOI as submitted with the actual points score mentioned.
+
 ${driveContext ? `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-PRIMARY DATA SOURCE — Google Drive Client Folder
+PRIMARY DATA SOURCE — Google Drive Client Folder (HIGHEST PRIORITY)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ${driveContext}
 
 ` : ''}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-CRM CASE DATA (supplementary)
+CRM CASE DATA (supplementary — "Case Summary" field is an OLD snapshot, may be outdated)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ${crmData || '(No CRM data available)'}
 
 ${emailContext ? `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-RELATED EMAIL CORRESPONDENCE
+RELATED EMAIL CORRESPONDENCE (HIGH PRIORITY — check for skills assessment results, EOI submissions, visa updates)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ${emailContext}` : ''}
 
@@ -577,13 +584,18 @@ export default function CaseAI({ selectedClient, selectedCase, onSaveCase }) {
           }
           if (driveData.folderFound && driveData.processed?.length) {
             const textParts = [], binaryNames = [];
-            const CHARS_PER_FILE = 2000, TOTAL_DRIVE_CHARS = 6000;
+            // Higher budget: skills assessment outcome letters can be long
+            // Tier-1 files (score ≥80) get 5000 chars each; others get 2000
+            const CHARS_HIGH_PRIORITY = 5000;
+            const CHARS_PER_FILE = 2000;
+            const TOTAL_DRIVE_CHARS = 16000;
             let driveCharsUsed = 0;
             for (const f of driveData.processed) {
               if (f.textContent) {
-                const snippet = f.textContent.slice(0, CHARS_PER_FILE);
+                const limit = (f.relevanceScore || 0) >= 80 ? CHARS_HIGH_PRIORITY : CHARS_PER_FILE;
+                const snippet = f.textContent.slice(0, limit);
                 if (driveCharsUsed + snippet.length <= TOTAL_DRIVE_CHARS) {
-                  textParts.push(`[File: ${f.name}]\n${snippet}`);
+                  textParts.push(`[File: ${f.name}${f.relevanceScore ? ' (score:' + f.relevanceScore + ')' : ''}]\n${snippet}`);
                   driveCharsUsed += snippet.length;
                 } else { binaryNames.push(`  [✓] ${f.name} (content over budget)`); }
               } else { binaryNames.push(`  [✓] ${f.name}`); }
@@ -638,7 +650,7 @@ export default function CaseAI({ selectedClient, selectedCase, onSaveCase }) {
     try {
       const prompt = buildCaseBriefPrompt(selectedClient, selectedCase, emailContext, driveContext);
       const data = await callManus({
-        model: 'claude-haiku-4-5-20251001', max_tokens: 2000,
+        model: 'claude-sonnet-4-5', max_tokens: 3000,
         messages: [{ role: 'user', content: prompt }],
       }, pid);
       const briefText = data.content?.[0]?.text || '';
