@@ -594,24 +594,29 @@ export default function CaseAI({ selectedClient, selectedCase, onSaveCase }) {
               setDriveStatus({ found: true, folderName: driveData.folderName, fileCount: driveData.totalFiles, readCount: cache.readCount || 0, cached: true });
             } else {
               // Cache miss — build driveContext from fresh file content
-              const textParts = [], binaryNames = [];
-              // Tier-1 files (score ≥80) get 5000 chars each; others get 2000
-              const CHARS_HIGH_PRIORITY = 5000;
+              const textParts = [], binaryNames = [], lowScoreNames = [];
+              // Tier-1 files (score ≥80) get 4000 chars each; score 45-79 get 2000 chars; below 45 = filename only
+              const CHARS_HIGH_PRIORITY = 4000;
               const CHARS_PER_FILE = 2000;
-              const TOTAL_DRIVE_CHARS = 16000;
+              const TOTAL_DRIVE_CHARS = 14000;
               let driveCharsUsed = 0;
               for (const f of driveData.processed) {
-                if (f.textContent) {
-                  const limit = (f.relevanceScore || 0) >= 80 ? CHARS_HIGH_PRIORITY : CHARS_PER_FILE;
+                const score = f.relevanceScore || 0;
+                if (score < 45) {
+                  // Low relevance: payslips, bills, design files — list name only, don't waste tokens
+                  lowScoreNames.push(`  [low-relevance] ${f.name}`);
+                } else if (f.textContent) {
+                  const limit = score >= 80 ? CHARS_HIGH_PRIORITY : CHARS_PER_FILE;
                   const snippet = f.textContent.slice(0, limit);
                   if (driveCharsUsed + snippet.length <= TOTAL_DRIVE_CHARS) {
-                    textParts.push(`[File: ${f.name}${f.relevanceScore ? ' (score:' + f.relevanceScore + ')' : ''}]\n${snippet}`);
+                    textParts.push(`[File: ${f.name}${score ? ' (score:' + score + ')' : ''}]\n${snippet}`);
                     driveCharsUsed += snippet.length;
                   } else { binaryNames.push(`  [✓] ${f.name} (content over budget)`); }
                 } else { binaryNames.push(`  [✓] ${f.name}`); }
               }
               const parts = [...textParts];
-              if (binaryNames.length) parts.push(`Archived files (filename only):\n${binaryNames.join('\n')}`);
+              if (binaryNames.length) parts.push(`Other files (filename only):\n${binaryNames.join('\n')}`);
+              if (lowScoreNames.length) parts.push(`Low-relevance files skipped (payslips/bills/design — not read):\n${lowScoreNames.join('\n')}`);
               if (parts.length) {
                 driveContext = `Google Drive Folder: ${driveData.folderName} (${driveData.totalFiles} files)\n\n` + parts.join('\n\n---\n\n');
               }

@@ -232,37 +232,43 @@ export default async function handler(req, res) {
     // filename-only: no content read, just list the name
     //   For: images, unknown binary formats
     //
-    const READ_LIMIT = 15;       // Max files to extract text from
-    const CHARS_PER_FILE = 3000; // Max chars per file (keeps total ~45k chars)
+    const READ_LIMIT = 20;       // Max files to extract text from (only high-relevance files)
+    const MIN_SCORE_TO_READ = 45; // Only read content from files scoring ≥45 (identity, visa, skills, employment)
+    const CHARS_PER_FILE = 2000; // Max chars per file
     const CONCURRENCY = 5;       // Parallel requests per batch
 
     const classified = allFiles.map(file => {
       const mime = file.mimeType || '';
       const name = (file.name || '').toLowerCase();
+      // Skip content read for low-relevance files (payslips, bills, design files, generic docs)
       let method = 'filename-only';
 
-      if (
-        mime === 'application/vnd.google-apps.document' ||
-        mime === 'application/vnd.google-apps.spreadsheet' ||
-        mime === 'application/vnd.google-apps.presentation'
-      ) {
-        method = 'gdrive-export';
-      } else if (mime === 'application/pdf') {
-        method = 'gdrive-export'; // Drive OCR for PDFs
-      } else if (
-        mime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
-        mime === 'application/msword'
-      ) {
-        method = 'gdrive-export';
-      } else if (
-        mime === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
-        mime === 'application/vnd.ms-excel'
-      ) {
-        method = 'gdrive-export';
-      } else if (mime === 'text/plain' || name.endsWith('.txt') || name.endsWith('.csv')) {
-        method = 'direct-download';
+      // For files with sufficient score, determine read method by mime type
+      if (file._score >= MIN_SCORE_TO_READ) {
+        if (
+          mime === 'application/vnd.google-apps.document' ||
+          mime === 'application/vnd.google-apps.spreadsheet' ||
+          mime === 'application/vnd.google-apps.presentation'
+        ) {
+          method = 'gdrive-export';
+        } else if (mime === 'application/pdf') {
+          method = 'gdrive-export'; // Drive OCR for PDFs
+        } else if (
+          mime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+          mime === 'application/msword'
+        ) {
+          method = 'gdrive-export';
+        } else if (
+          mime === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+          mime === 'application/vnd.ms-excel'
+        ) {
+          method = 'gdrive-export';
+        } else if (mime === 'text/plain' || name.endsWith('.txt') || name.endsWith('.csv')) {
+          method = 'direct-download';
+        } else {
+          method = 'filename-only'; // images and other binary
+        }
       }
-      // Images and other binary → filename-only
 
       return { ...file, _method: method };
     });
