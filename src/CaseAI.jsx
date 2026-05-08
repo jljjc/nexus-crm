@@ -236,23 +236,16 @@ function buildCaseBriefPrompt(client, caseObj, emailContext, driveContext) {
     docChecklistText,
   ].filter(Boolean).join('\n');
 
-  return `You are an expert Australian migration AI assistant for Ozsky International, Perth WA.
+  return `You are an expert Australian migration AI for Ozsky International, Perth WA. Generate a concise internal case brief.
 
-Your task: Generate a comprehensive, accurate case progress brief for internal use by migration agents.
+VISA: ${visaSubclass}. Output primarily in Chinese with English in brackets. Use Australian English.
 
-VISA CONTEXT: ${visaSubclass}
-- Apply relevant DHA policy, Migration Act 1958, and PAM3 guidelines for this visa subclass
-- Reference specific criteria (e.g., Schedule 2 criteria, TSS stream requirements, skills assessment bodies)
-- Flag any compliance risks, character/health issues, or procedural deadlines proactively
-- 请以中文为主要语言输出，英文作为辅助标注（括号内）
-- Use Australian English spelling for any English content
-
-⚠️  CRITICAL DATA ACCURACY RULES — READ CAREFULLY BEFORE GENERATING:
-1. GOOGLE DRIVE FILES ARE THE GROUND TRUTH. If a file in the Drive section confirms a fact (e.g., skills assessment outcome, visa grant, EOI submission), state it as confirmed fact. Do NOT say it is "pending" or "awaited" if the document is present.
-2. "Case Summary" in CRM CASE DATA is an OLD SNAPSHOT — it may be outdated. It is provided for context ONLY. If Drive files or emails contradict the old snapshot, trust Drive files and emails, NOT the snapshot.
-3. NEVER fabricate or infer facts not supported by the provided data. If information is not present in any source, mark it as 待确认 (unconfirmed).
-4. For skills assessments: look for outcome letters, decision letters, or letters from VETASSESS/ACS/Engineers Australia/AHPRA/ANMAC/NAATI/AITSL/TRA. If such a letter is present in Drive files, the assessment is COMPLETED — report the result from the letter.
-5. For EOI: if EOI submission emails or files are present, report the EOI as submitted with the actual points score mentioned.
+DATA RULES:
+1. Drive files = ground truth. If a document exists, the step is DONE — not "pending".
+2. CRM "Case Summary" = OLD snapshot, may be outdated. Trust Drive/email over snapshot.
+3. Never fabricate. Missing info = 待确认 (unconfirmed).
+4. Skills assessment letters from VETASSESS/ACS/EA/AHPRA/ANMAC/NAATI = COMPLETED assessment.
+5. EOI submission email/file present = EOI submitted (report actual points).
 
 ${driveContext ? `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 PRIMARY DATA SOURCE — Google Drive Client Folder (HIGHEST PRIORITY)
@@ -269,7 +262,7 @@ RELATED EMAIL CORRESPONDENCE (HIGH PRIORITY — check for skills assessment resu
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ${emailContext}` : ''}
 
-OUTPUT FORMAT — produce a bilingual (English/Chinese) case brief using EXACTLY this structure:
+OUTPUT FORMAT — use EXACTLY this structure (concise, 600-900 words total):
 
 ================================================================================
   CASE PROGRESS BRIEF  |  案件进度简报
@@ -278,47 +271,32 @@ OUTPUT FORMAT — produce a bilingual (English/Chinese) case brief using EXACTLY
 ================================================================================
 
 ━━━ 1. CASE OVERVIEW  案件概况 ━━━
-Visa subclass, current status, priority, key dates, assigned agent.
-Include relevant visa stream/pathway (e.g., ENS Direct Entry, TSS Short-term).
+Visa subclass, status, priority, key dates, assigned agent. (3-4 lines)
 
 ━━━ 2. DOCUMENT STATUS  文件进度 ━━━
-Use the Document Checklist provided in CRM CASE DATA above as the definitive list.
-[✓] = already received in CRM | [✗] = still missing — do NOT mark as received unless CRM shows ✓
-If a field shows 待确认 (unconfirmed), mark it as [?] Unverified — do NOT fabricate a value.
-Group by: Identity / Qualification / Employment / Health & Character / Sponsor
+[✓] = CRM shows received | [✗] = missing | [?] = unconfirmed
+Group: Identity / Qualification / Employment / Health & Character
 
 ━━━ 3. CURRENT PROGRESS  当前进展 ━━━
-Completed milestones, in-progress items, blocked items.
-Reference specific DHA processing stages where applicable.
+Completed milestones, in-progress, blocked. (3-4 lines)
 
 ━━━ 4. KEY ISSUES & RISKS  关键问题与风险 ━━━
-🔴 HIGH — Blocking issues requiring immediate action
-🟡 MEDIUM — Issues to monitor or address soon
-🟢 LOW — Minor items or improvements
-Include relevant visa criteria references (e.g., cl.186.223, s.65 Migration Act).
+🔴 HIGH | 🟡 MEDIUM | 🟢 LOW (max 4 items)
 
 ━━━ 5. NEXT STEPS  下步行动 ━━━
-Numbered action items with owner (Agent/Client/Sponsor) and suggested timeframe.
-Prioritise by urgency.
+Numbered, with owner (Agent/Client) and timeframe. (max 4 steps)
 
 ━━━ 6. TIMELINE  时间线 ━━━
-YYYY-MM-DD | Event — Status (Completed / In Progress / Pending / Urgent)
-Include all key milestones from Drive files and CRM data.
+YYYY-MM-DD | Event — Status (max 6 entries)
 
 ━━━ 7. COMPLIANCE NOTES  合规备注 ━━━
-Any legislative, policy, or procedural compliance items to flag.
-Mention relevant ANZSCO codes, skills assessment bodies, or state nomination requirements if applicable.
+Key legislative/policy items. (2-3 lines)
 
 ================================================================================
   AI-assisted brief for internal use only. Not legal advice. Ozsky International.
-  本简报由 AI 辅助整理，仅供内部参考，不构成法律意见。
 ================================================================================
 
-CRITICAL RULES:
-1. NEVER fabricate client details. If a field shows 待确认 (unconfirmed), write 待确认 or "unconfirmed" — do not guess.
-2. The Chinese name MUST come from the CRM data field 'Client Name (ZH)'. Do not transliterate or invent a Chinese name.
-3. Document checklist MUST reflect the CRM checklist exactly — [✓] only if CRM shows ✓, [✗] if missing.
-4. Keep each section concise (3-6 lines). Total length: 800-1200 words.`;
+RULES: Never fabricate. Chinese name MUST come from CRM 'Client Name (ZH)' only. [✓] only if CRM shows ✓.`;`;
 }
 
 /* ── Human Override helpers ──────────────────────────────────────────────── */
@@ -556,7 +534,7 @@ export default function CaseAI({ selectedClient, selectedCase, onSaveCase }) {
   }, [selectedClient]);
 
   /* ── Generate brief ──────────────────────────────────────────────────── */
-  const generate = useCallback(async (confirmedFolderId = null, confirmedFolderName = null) => {
+  const generate = useCallback(async (confirmedFolderId = null, confirmedFolderName = null, forceRefresh = false) => {
     if (!selectedCase) return;
     setLoading(true); setError(''); setBrief(''); setDriveStatus(null); setFolderCandidates(null);
 
@@ -586,6 +564,7 @@ export default function CaseAI({ selectedClient, selectedCase, onSaveCase }) {
             // ── Cache check: if fingerprint matches last brief, reuse cached driveContext ──
             const cache = selectedCase?.driveCache;
             if (
+              !forceRefresh &&
               cache?.fingerprint &&
               cache.fingerprint === driveData.fingerprint &&
               cache.driveContext
@@ -678,7 +657,7 @@ export default function CaseAI({ selectedClient, selectedCase, onSaveCase }) {
     try {
       const prompt = buildCaseBriefPrompt(selectedClient, selectedCase, emailContext, driveContext);
       const data = await callManus({
-        model: 'claude-sonnet-4-5', max_tokens: 3000,
+        model: 'claude-haiku-4-5-20251001', max_tokens: 2000,
         messages: [{ role: 'user', content: prompt }],
       }, pid);
       const briefText = data.content?.[0]?.text || '';
@@ -1024,6 +1003,16 @@ Question: ${q}`,
                 style={btnStyle(C.blue, loading || applyBusy || !selectedCase)}>
                 {loading ? `⏳ ${step}` : applyBusy ? '⏳ 应用中...' : '✨ 生成并应用简报'}
               </button>
+              {/* Force refresh — clears Drive cache and re-reads all files */}
+              {selectedCase?.driveCache && !loading && !applyBusy && (
+                <button
+                  onClick={() => generate(null, null, true)}
+                  title="清除 Drive 文件缓存，重新读取（解决504超时）"
+                  style={{ padding: '9px 12px', fontSize: 12, fontWeight: 600, background: '#fff', color: '#6b7280', border: '1.5px solid #d1d5db', borderRadius: 8, cursor: 'pointer' }}
+                >
+                  🔄 刷新缓存
+                </button>
+              )}
               {previousCase && (
                 <button onClick={handleRevert} disabled={loading || applyBusy}
                   style={btnStyle('#6b7280', loading || applyBusy)}>
