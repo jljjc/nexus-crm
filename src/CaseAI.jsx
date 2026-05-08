@@ -588,14 +588,31 @@ Return ONLY a JSON array (no markdown fences, no explanation):
 For files that are already well-named or should not be renamed, set "newName" to the same as "oldName".`;
 
       const data = await callManus({
-        model: 'claude-haiku-4-5-20251001', max_tokens: 2000,
+        model: 'claude-haiku-4-5-20251001', max_tokens: 4000,
         messages: [{ role: 'user', content: prompt }],
       });
 
       const text = data.content?.[0]?.text || '';
-      const jsonMatch = text.match(/\[[\s\S]*\]/);
-      if (!jsonMatch) throw new Error('AI 未返回有效的 JSON 数组');
-      const suggestions = JSON.parse(jsonMatch[0]);
+      // Try to extract JSON array — handle markdown fences, truncated JSON, plain JSON
+      let suggestions;
+      try {
+        // Strip markdown fences if present
+        const stripped = text.replace(/```(?:json)?\s*/gi, '').replace(/```/g, '').trim();
+        // Try direct parse first
+        if (stripped.startsWith('[')) {
+          try { suggestions = JSON.parse(stripped); }
+          catch { suggestions = repairJson(stripped); } // handle truncated output
+        } else {
+          // Find first [ ... ] block
+          const m = stripped.match(/\[[\s\S]*/);
+          if (!m) throw new Error('no array found');
+          try { suggestions = JSON.parse(m[0]); }
+          catch { suggestions = repairJson(m[0]); }
+        }
+      } catch (parseErr) {
+        console.error('[rename] AI raw response:', text);
+        throw new Error(`AI 未返回有效的 JSON 数组（${parseErr.message}）。请重试。`);
+      }
 
       // Merge with file IDs
       const withIds = suggestions.map(s => {
