@@ -296,7 +296,7 @@ Key legislative/policy items. (2-3 lines)
   AI-assisted brief for internal use only. Not legal advice. Ozsky International.
 ================================================================================
 
-RULES: Never fabricate. Chinese name MUST come from CRM 'Client Name (ZH)' only. [✓] only if CRM shows ✓.`;`;
+RULES: Never fabricate. Chinese name MUST come from CRM 'Client Name (ZH)' only. [✓] only if CRM shows ✓.`;
 }
 
 /* ── Human Override helpers ──────────────────────────────────────────────── */
