@@ -655,18 +655,24 @@ For files that are already well-named or should not be renamed, set "newName" to
         }),
       });
       const result = await r.json();
-      setRenameMsg(`✅ 成功重命名 ${result.succeeded} 个文件${result.failed ? `，${result.failed} 个失败` : ''}。下次生成简报时评分将正确识别。`);
-      // Clear drive cache so next brief re-reads with new names
+      setRenameMsg(`✅ 成功重命名 ${result.succeeded} 个文件${result.failed ? `，${result.failed} 个失败` : ''}。正在重新生成简报...`);
+      // Clear drive cache then immediately regenerate brief with fresh file names
       if (result.succeeded > 0 && selectedCase) {
-        onSaveCase({ ...selectedCase, driveCache: null });
+        await onSaveCase({ ...selectedCase, driveCache: null });
+        setRenameOpen(false);
+        setRenameSuggestions(null);
+        setRenameMsg('');
+        // Small delay so state settles, then re-generate with forceRefresh
+        setTimeout(() => generate(null, null, true), 300);
+      } else {
+        setRenameSuggestions(null);
       }
-      setRenameSuggestions(null);
     } catch (e) {
       setRenameMsg(`❌ ${e.message}`);
     } finally {
       setRenameApplying(false);
     }
-  }, [renameSuggestions, selectedCase, onSaveCase]);
+  }, [renameSuggestions, selectedCase, onSaveCase, generate]);
 
   /* ── Generate brief ──────────────────────────────────────────────────── */
   const generate = useCallback(async (confirmedFolderId = null, confirmedFolderName = null, forceRefresh = false, ignoreScore = false) => {
@@ -1149,7 +1155,7 @@ Question: ${q}`,
                 </button>
               )}
               {/* Force refresh — clears Drive cache and re-reads all files */}
-              {selectedCase?.driveCache && !loading && !applyBusy && (
+              {!loading && !applyBusy && selectedCase && (
                 <button
                   onClick={() => generate(null, null, true)}
                   title="清除 Drive 文件缓存，重新读取（解决504超时）"
