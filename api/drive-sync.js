@@ -340,11 +340,19 @@ export default async function handler(req, res) {
     // Sort final list by relevance score (highest first)
     processed.sort((a, b) => (b.relevanceScore || 0) - (a.relevanceScore || 0));
 
+    // Build a lightweight fingerprint: sorted "id:modifiedTime" pairs for all files
+    // This lets the client detect if anything in the folder has changed since last cache
+    const fingerprint = allFiles
+      .map(f => `${f.id}:${f.modifiedTime || ''}`)
+      .sort()
+      .join('|');
+
     return res.json({
       folderFound: true,
       folderName: clientFolder.name,
       folderId: clientFolder.id,
       totalFiles: allFiles.length,
+      fingerprint,
       processed,
     });
   } catch (err) {

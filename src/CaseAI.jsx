@@ -583,29 +583,52 @@ export default function CaseAI({ selectedClient, selectedCase, onSaveCase }) {
             return;
           }
           if (driveData.folderFound && driveData.processed?.length) {
-            const textParts = [], binaryNames = [];
-            // Higher budget: skills assessment outcome letters can be long
-            // Tier-1 files (score ≥80) get 5000 chars each; others get 2000
-            const CHARS_HIGH_PRIORITY = 5000;
-            const CHARS_PER_FILE = 2000;
-            const TOTAL_DRIVE_CHARS = 16000;
-            let driveCharsUsed = 0;
-            for (const f of driveData.processed) {
-              if (f.textContent) {
-                const limit = (f.relevanceScore || 0) >= 80 ? CHARS_HIGH_PRIORITY : CHARS_PER_FILE;
-                const snippet = f.textContent.slice(0, limit);
-                if (driveCharsUsed + snippet.length <= TOTAL_DRIVE_CHARS) {
-                  textParts.push(`[File: ${f.name}${f.relevanceScore ? ' (score:' + f.relevanceScore + ')' : ''}]\n${snippet}`);
-                  driveCharsUsed += snippet.length;
-                } else { binaryNames.push(`  [✓] ${f.name} (content over budget)`); }
-              } else { binaryNames.push(`  [✓] ${f.name}`); }
+            // ── Cache check: if fingerprint matches last brief, reuse cached driveContext ──
+            const cache = selectedCase?.driveCache;
+            if (
+              cache?.fingerprint &&
+              cache.fingerprint === driveData.fingerprint &&
+              cache.driveContext
+            ) {
+              driveContext = cache.driveContext;
+              setDriveStatus({ found: true, folderName: driveData.folderName, fileCount: driveData.totalFiles, readCount: cache.readCount || 0, cached: true });
+            } else {
+              // Cache miss — build driveContext from fresh file content
+              const textParts = [], binaryNames = [];
+              // Tier-1 files (score ≥80) get 5000 chars each; others get 2000
+              const CHARS_HIGH_PRIORITY = 5000;
+              const CHARS_PER_FILE = 2000;
+              const TOTAL_DRIVE_CHARS = 16000;
+              let driveCharsUsed = 0;
+              for (const f of driveData.processed) {
+                if (f.textContent) {
+                  const limit = (f.relevanceScore || 0) >= 80 ? CHARS_HIGH_PRIORITY : CHARS_PER_FILE;
+                  const snippet = f.textContent.slice(0, limit);
+                  if (driveCharsUsed + snippet.length <= TOTAL_DRIVE_CHARS) {
+                    textParts.push(`[File: ${f.name}${f.relevanceScore ? ' (score:' + f.relevanceScore + ')' : ''}]\n${snippet}`);
+                    driveCharsUsed += snippet.length;
+                  } else { binaryNames.push(`  [✓] ${f.name} (content over budget)`); }
+                } else { binaryNames.push(`  [✓] ${f.name}`); }
+              }
+              const parts = [...textParts];
+              if (binaryNames.length) parts.push(`Archived files (filename only):\n${binaryNames.join('\n')}`);
+              if (parts.length) {
+                driveContext = `Google Drive Folder: ${driveData.folderName} (${driveData.totalFiles} files)\n\n` + parts.join('\n\n---\n\n');
+              }
+              // Store fingerprint + driveContext on the case so next run can skip Drive reads
+              // We write this now (before the AI call) so even if AI fails, the Drive data is cached
+              const updatedWithCache = {
+                ...selectedCase,
+                driveCache: {
+                  fingerprint: driveData.fingerprint,
+                  driveContext,
+                  readCount: textParts.length,
+                  cachedAt: new Date().toISOString(),
+                },
+              };
+              onSaveCase(updatedWithCache);
+              setDriveStatus({ found: true, folderName: driveData.folderName, fileCount: driveData.totalFiles, readCount: textParts.length, cached: false });
             }
-            const parts = [...textParts];
-            if (binaryNames.length) parts.push(`Archived files (filename only):\n${binaryNames.join('\n')}`);
-            if (parts.length) {
-              driveContext = `Google Drive Folder: ${driveData.folderName} (${driveData.totalFiles} files)\n\n` + parts.join('\n\n---\n\n');
-            }
-            setDriveStatus({ found: true, folderName: driveData.folderName, fileCount: driveData.totalFiles, readCount: textParts.length });
           } else {
             setDriveStatus({ found: false, message: driveData.message || 'Client folder not found' });
           }
@@ -926,7 +949,10 @@ Question: ${q}`,
   /* ── Drive status line ───────────────────────────────────────────────── */
   const driveStatusLine = () => {
     if (!driveStatus) return null;
-    if (driveStatus.found) return `📁 ${driveStatus.folderName} — 已读取 ${driveStatus.readCount}/${driveStatus.fileCount} 个文件`;
+    if (driveStatus.found) {
+      const cacheTag = driveStatus.cached ? ' ⚡ 已使用缓存' : '';
+      return `📁 ${driveStatus.folderName} — 已读取 ${driveStatus.readCount}/${driveStatus.fileCount} 个文件${cacheTag}`;
+    }
     return `📁 ${driveStatus.message}`;
   };
 
