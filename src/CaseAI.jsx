@@ -555,7 +555,6 @@ export default function CaseAI({ selectedClient, selectedCase, onSaveCase }) {
       const driveData = await fetchDriveContext(token, null, null, false, true);
       if (!driveData.folderFound) throw new Error(driveData.message || '未找到文件夹');
 
-      const files = (driveData.processed || []).filter(f => !f.name.includes('/')); // skip subfolder paths for rename
       const allFiles = driveData.processed || [];
 
       setRenameStep('🤖 AI 分析文件名...');
