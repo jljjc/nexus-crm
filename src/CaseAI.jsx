@@ -503,6 +503,14 @@ export default function CaseAI({ selectedClient, selectedCase, onSaveCase }) {
   const [chatLoading, setChatLoading] = useState(false);
   const chatEndRef = useRef(null);
 
+  // File rename state
+  const [renameOpen, setRenameOpen]   = useState(false);
+  const [renameLoading, setRenameLoading] = useState(false);
+  const [renameStep, setRenameStep]   = useState('');
+  const [renameSuggestions, setRenameSuggestions] = useState(null); // [{id, oldName, newName, keep}]
+  const [renameApplying, setRenameApplying] = useState(false);
+  const [renameMsg, setRenameMsg]     = useState('');
+
   // Sync projectId when selectedCase changes
   useEffect(() => {
     setProjectId(selectedCase?.manusProjectId || null);
@@ -520,21 +528,132 @@ export default function CaseAI({ selectedClient, selectedCase, onSaveCase }) {
   }, [chatMessages, chatOpen]);
 
   /* ── Drive fetch ─────────────────────────────────────────────────────── */
-  const fetchDriveContext = useCallback(async (token, confirmedFolderId = null, confirmedFolderName = null) => {
+  const fetchDriveContext = useCallback(async (token, confirmedFolderId = null, confirmedFolderName = null, ignoreScore = false, listOnly = false) => {
     const r = await fetch('/api/drive-sync', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         accessToken: token,
         clientName: selectedClient.name,
         ...(confirmedFolderId ? { confirmedFolderId, confirmedFolderName } : {}),
+        ...(ignoreScore ? { ignoreScore: true } : {}),
+        ...(listOnly ? { listOnly: true } : {}),
       }),
     });
     if (!r.ok) throw new Error(`Drive sync failed: ${r.status}`);
     return r.json();
   }, [selectedClient]);
 
+  /* ── AI Organise File Names ──────────────────────────────────────────── */
+  const handleOrganiseNames = useCallback(async () => {
+    if (!selectedClient) return;
+    setRenameLoading(true); setRenameStep('📁 读取文件列表...'); setRenameSuggestions(null); setRenameMsg('');
+    try {
+      const token = await getValidToken();
+      if (!token) throw new Error('请先登录 Google 账号');
+
+      // listOnly: just get file names, no content
+      const driveData = await fetchDriveContext(token, null, null, false, true);
+      if (!driveData.folderFound) throw new Error(driveData.message || '未找到文件夹');
+
+      const files = (driveData.processed || []).filter(f => !f.name.includes('/')); // skip subfolder paths for rename
+      const allFiles = driveData.processed || [];
+
+      setRenameStep('🤖 AI 分析文件名...');
+      const fileList = allFiles.map((f, i) => `${i + 1}. [score:${f.relevanceScore ?? '?'}] ${f.name}`).join('\n');
+
+      const prompt = `You are an Australian migration document organiser for Ozsky International.
+The following files are in a client's Google Drive folder. Many have non-standard names (Chinese names, random strings, unclear labels).
+
+Your task: Suggest a standardised English filename for EACH file, following this naming convention:
+- Use underscore_case (no spaces)
+- Include document type and date if visible in the filename
+- Keep extensions unchanged
+- If a filename is already clear and standard, mark it as "keep"
+- Only suggest renames for files that would improve to a score of 45+ (immigration-relevant docs)
+- Skip design/marketing files
+
+Scoring reference (what score they should ideally get):
+- passport, visa_grant, bridging_visa, birth_cert → 90+
+- ielts_result, pte_score, skills_assessment, outcome_letter → 85+
+- degree_certificate, transcript, employment_letter → 70+
+- resume, cv, marriage_cert, police_clearance → 55+
+
+Current files:
+${fileList}
+
+Return ONLY a JSON array (no markdown fences, no explanation):
+[
+  { "index": 1, "oldName": "原文件名.pdf", "newName": "suggested_name.pdf", "reason": "brief reason in Chinese" },
+  ...
+]
+For files that are already well-named or should not be renamed, set "newName" to the same as "oldName".`;
+
+      const data = await callManus({
+        model: 'claude-haiku-4-5-20251001', max_tokens: 2000,
+        messages: [{ role: 'user', content: prompt }],
+      });
+
+      const text = data.content?.[0]?.text || '';
+      const jsonMatch = text.match(/\[[\s\S]*\]/);
+      if (!jsonMatch) throw new Error('AI 未返回有效的 JSON 数组');
+      const suggestions = JSON.parse(jsonMatch[0]);
+
+      // Merge with file IDs
+      const withIds = suggestions.map(s => {
+        const file = allFiles[s.index - 1];
+        return {
+          id: file?.id,
+          oldName: s.oldName || file?.name,
+          newName: s.newName || s.oldName || file?.name,
+          reason: s.reason || '',
+          keep: s.newName === s.oldName || !s.newName,
+          mimeType: file?.mimeType,
+          score: file?.relevanceScore ?? 0,
+        };
+      }).filter(s => s.id);
+
+      setRenameSuggestions(withIds);
+    } catch (e) {
+      setRenameMsg(`❌ ${e.message}`);
+    } finally {
+      setRenameLoading(false); setRenameStep('');
+    }
+  }, [selectedClient, fetchDriveContext]);
+
+  /* ── Apply rename suggestions ────────────────────────────────────────── */
+  const handleApplyRenames = useCallback(async () => {
+    if (!renameSuggestions) return;
+    const toRename = renameSuggestions.filter(s => !s.keep && s.newName && s.newName !== s.oldName);
+    if (toRename.length === 0) { setRenameMsg('没有需要重命名的文件'); return; }
+
+    setRenameApplying(true); setRenameMsg('');
+    try {
+      const token = await getValidToken();
+      if (!token) throw new Error('请先登录 Google 账号');
+
+      const r = await fetch('/api/drive-rename', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          accessToken: token,
+          renames: toRename.map(s => ({ id: s.id, newName: s.newName })),
+        }),
+      });
+      const result = await r.json();
+      setRenameMsg(`✅ 成功重命名 ${result.succeeded} 个文件${result.failed ? `，${result.failed} 个失败` : ''}。下次生成简报时评分将正确识别。`);
+      // Clear drive cache so next brief re-reads with new names
+      if (result.succeeded > 0 && selectedCase) {
+        onSaveCase({ ...selectedCase, driveCache: null });
+      }
+      setRenameSuggestions(null);
+    } catch (e) {
+      setRenameMsg(`❌ ${e.message}`);
+    } finally {
+      setRenameApplying(false);
+    }
+  }, [renameSuggestions, selectedCase, onSaveCase]);
+
   /* ── Generate brief ──────────────────────────────────────────────────── */
-  const generate = useCallback(async (confirmedFolderId = null, confirmedFolderName = null, forceRefresh = false) => {
+  const generate = useCallback(async (confirmedFolderId = null, confirmedFolderName = null, forceRefresh = false, ignoreScore = false) => {
     if (!selectedCase) return;
     setLoading(true); setError(''); setBrief(''); setDriveStatus(null); setFolderCandidates(null);
 
@@ -553,7 +672,7 @@ export default function CaseAI({ selectedClient, selectedCase, onSaveCase }) {
       try {
         const token = await getValidToken();
         if (token) {
-          const driveData = await fetchDriveContext(token, confirmedFolderId, confirmedFolderName);
+          const driveData = await fetchDriveContext(token, confirmedFolderId, confirmedFolderName, ignoreScore);
           if (driveData.needsConfirmation) {
             setFolderCandidates(driveData.candidates);
             setDriveStatus({ found: false, message: driveData.message });
@@ -1003,6 +1122,16 @@ Question: ${q}`,
                 style={btnStyle(C.blue, loading || applyBusy || !selectedCase)}>
                 {loading ? `⏳ ${step}` : applyBusy ? '⏳ 应用中...' : '✨ 生成并应用简报'}
               </button>
+              {/* Deep read — ignores score filter, reads all files */}
+              {!loading && !applyBusy && selectedCase && (
+                <button
+                  onClick={() => generate(null, null, true, true)}
+                  title="忽略文件名评分，强制读取所有文件（适用于文件名不规范的情况）"
+                  style={{ padding: '9px 12px', fontSize: 12, fontWeight: 600, background: '#fff', color: '#0d9488', border: '1.5px solid #0d9488', borderRadius: 8, cursor: 'pointer' }}
+                >
+                  🔍 深度读取
+                </button>
+              )}
               {/* Force refresh — clears Drive cache and re-reads all files */}
               {selectedCase?.driveCache && !loading && !applyBusy && (
                 <button
@@ -1011,6 +1140,16 @@ Question: ${q}`,
                   style={{ padding: '9px 12px', fontSize: 12, fontWeight: 600, background: '#fff', color: '#6b7280', border: '1.5px solid #d1d5db', borderRadius: 8, cursor: 'pointer' }}
                 >
                   🔄 刷新缓存
+                </button>
+              )}
+              {/* Organise file names */}
+              {!loading && !applyBusy && selectedCase && sessionIsValid(readSession()) && (
+                <button
+                  onClick={() => { setRenameOpen(o => !o); if (!renameOpen) { setRenameSuggestions(null); setRenameMsg(''); } }}
+                  title="让 AI 分析并建议规范化文件名，然后一键批量重命名"
+                  style={{ padding: '9px 12px', fontSize: 12, fontWeight: 600, background: renameOpen ? '#fef3c7' : '#fff', color: '#d97706', border: '1.5px solid #d97706', borderRadius: 8, cursor: 'pointer' }}
+                >
+                  ✏️ 整理文件名
                 </button>
               )}
               {previousCase && (
@@ -1052,6 +1191,71 @@ Question: ${q}`,
                     跳过 Drive，仅使用 CRM 数据生成
                   </button>
                 </div>
+              </div>
+            )}
+
+            {/* ── File Name Organiser Panel ─────────────────────────────── */}
+            {renameOpen && (
+              <div style={{ border: '1.5px solid #fde68a', borderRadius: 10, overflow: 'hidden', background: '#fffbeb' }}>
+                <div style={{ padding: '10px 14px', borderBottom: '1px solid #fde68a', display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: '#92400e' }}>✏️ AI 文件名整理</span>
+                  <span style={{ fontSize: 11, color: '#b45309' }}>AI 会分析 Drive 里的文件名，建议规范化命名（如 passport.pdf、ielts_result_2024.pdf），提高简报识别率</span>
+                  <button onClick={handleOrganiseNames} disabled={renameLoading || renameApplying}
+                    style={{ marginLeft: 'auto', padding: '6px 12px', fontSize: 12, fontWeight: 600, background: renameLoading ? '#e5e7eb' : '#d97706', color: '#fff', border: 'none', borderRadius: 7, cursor: renameLoading ? 'default' : 'pointer' }}>
+                    {renameLoading ? `⏳ ${renameStep}` : '🔍 分析文件名'}
+                  </button>
+                </div>
+
+                {/* Suggestions list */}
+                {renameSuggestions && (
+                  <div style={{ padding: '10px 14px', maxHeight: 340, overflowY: 'auto' }}>
+                    <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 8 }}>
+                      勾选要重命名的文件（绿色 = 建议重命名，灰色 = 已是规范命名）。确认后点"执行重命名"。
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                      {renameSuggestions.map((s, i) => {
+                        const changed = s.newName !== s.oldName;
+                        return (
+                          <div key={s.id || i} style={{
+                            display: 'flex', alignItems: 'flex-start', gap: 8, padding: '7px 10px',
+                            background: s.keep ? '#f9fafb' : '#f0fdf4',
+                            border: `1px solid ${s.keep ? '#e5e7eb' : '#bbf7d0'}`,
+                            borderRadius: 7, opacity: s.keep && changed ? 0.5 : 1,
+                          }}>
+                            <input type="checkbox" checked={!s.keep} disabled={!changed}
+                              onChange={() => setRenameSuggestions(prev => prev.map((x, j) => j === i ? { ...x, keep: !x.keep } : x))}
+                              style={{ marginTop: 2, cursor: changed ? 'pointer' : 'default' }}
+                            />
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 11, color: '#6b7280', wordBreak: 'break-all' }}>旧：{s.oldName}</div>
+                              {changed && <div style={{ fontSize: 12, fontWeight: 600, color: '#059669', wordBreak: 'break-all' }}>新：{s.newName}</div>}
+                              {s.reason && <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 2 }}>{s.reason}</div>}
+                            </div>
+                            <span style={{ fontSize: 10, fontWeight: 600, color: s.score >= 80 ? '#dc2626' : s.score >= 45 ? '#d97706' : '#9ca3af', flexShrink: 0 }}>
+                              {s.score}分
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div style={{ marginTop: 10, display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <button onClick={handleApplyRenames} disabled={renameApplying || !renameSuggestions?.some(s => !s.keep && s.newName !== s.oldName)}
+                        style={btnStyle('#059669', renameApplying || !renameSuggestions?.some(s => !s.keep && s.newName !== s.oldName))}>
+                        {renameApplying ? '⏳ 重命名中...' : `✅ 执行重命名 (${renameSuggestions.filter(s => !s.keep && s.newName !== s.oldName).length} 个)`}
+                      </button>
+                      <button onClick={() => setRenameSuggestions(null)}
+                        style={{ padding: '9px 12px', fontSize: 12, background: 'none', color: '#6b7280', border: '1px solid #d1d5db', borderRadius: 7, cursor: 'pointer' }}>
+                        取消
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {renameMsg && (
+                  <div style={{ padding: '8px 14px', fontSize: 12, color: renameMsg.startsWith('✅') ? '#059669' : '#dc2626', fontWeight: 600 }}>
+                    {renameMsg}
+                  </div>
+                )}
               </div>
             )}
 

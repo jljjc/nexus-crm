@@ -21,7 +21,7 @@ export const config = {
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-  const { accessToken, clientName, confirmedFolderId, confirmedFolderName } = req.body || {};
+  const { accessToken, clientName, confirmedFolderId, confirmedFolderName, ignoreScore, listOnly } = req.body || {};
   if (!accessToken) return res.status(400).json({ error: 'Missing accessToken' });
   if (!clientName)  return res.status(400).json({ error: 'Missing clientName' });
 
@@ -232,9 +232,30 @@ export default async function handler(req, res) {
     // filename-only: no content read, just list the name
     //   For: images, unknown binary formats
     //
-    const READ_LIMIT = 20;       // Max files to extract text from (only high-relevance files)
-    const MIN_SCORE_TO_READ = 45; // Only read content from files scoring ≥45 (identity, visa, skills, employment)
-    const CHARS_PER_FILE = 2000; // Max chars per file
+    // listOnly mode: just return file list with scores, no content reading
+    if (listOnly) {
+      return res.json({
+        folderFound: true,
+        folderName: clientFolder.name,
+        folderId: clientFolder.id,
+        totalFiles: allFiles.length,
+        fingerprint: allFiles.map(f => `${f.id}:${f.modifiedTime || ''}`).sort().join('|'),
+        processed: allFiles.map(f => ({
+          id: f.id,
+          name: f.name,
+          mimeType: f.mimeType,
+          modifiedTime: f.modifiedTime,
+          relevanceScore: f._score,
+          textContent: null,
+          skipped: true,
+          extractMethod: 'filename-only',
+        })),
+      });
+    }
+
+    const READ_LIMIT = ignoreScore ? 30 : 20;       // ignoreScore mode reads up to 30 files
+    const MIN_SCORE_TO_READ = ignoreScore ? 0 : 45; // ignoreScore: read everything
+    const CHARS_PER_FILE = ignoreScore ? 1500 : 2000; // smaller per-file budget when reading all
     const CONCURRENCY = 5;       // Parallel requests per batch
 
     const classified = allFiles.map(file => {
@@ -294,7 +315,7 @@ export default async function handler(req, res) {
         if (file._method === 'gdrive-export') {
           const text = await exportAsText(file.id);
           const trimmed = text.replace(/\s+/g, ' ').trim();
-          entry.textContent = trimmed.slice(0, CHARS_PER_FILE);
+          entry.textContent = trimmed.slice(0, CHARS_PER_FILE); // CHARS_PER_FILE is in scope
           if (!entry.textContent) {
             entry.skipped = true;
             entry.error = 'export-empty';
