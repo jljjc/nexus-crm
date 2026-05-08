@@ -601,13 +601,13 @@ For files that are already well-named or should not be renamed, set "newName" to
         // Try direct parse first
         if (stripped.startsWith('[')) {
           try { suggestions = JSON.parse(stripped); }
-          catch { suggestions = repairJson(stripped); } // handle truncated output
+          catch { suggestions = repairAndParseJSON(stripped); } // handle truncated output
         } else {
           // Find first [ ... ] block
           const m = stripped.match(/\[[\s\S]*/);
           if (!m) throw new Error('no array found');
           try { suggestions = JSON.parse(m[0]); }
-          catch { suggestions = repairJson(m[0]); }
+          catch { suggestions = repairAndParseJSON(m[0]); }
         }
       } catch (parseErr) {
         console.error('[rename] AI raw response:', text);
