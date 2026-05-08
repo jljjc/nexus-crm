@@ -502,6 +502,7 @@ export default function CaseAI({ selectedClient, selectedCase, onSaveCase }) {
   const [chatInput, setChatInput]     = useState('');
   const [chatLoading, setChatLoading] = useState(false);
   const chatEndRef = useRef(null);
+  const generateRef = useRef(null); // forward ref so handleApplyRenames can call generate before it's defined
 
   // File rename state
   const [renameOpen, setRenameOpen]   = useState(false);
@@ -663,7 +664,7 @@ For files that are already well-named or should not be renamed, set "newName" to
         setRenameSuggestions(null);
         setRenameMsg('');
         // Small delay so state settles, then re-generate with forceRefresh
-        setTimeout(() => generate(null, null, true), 300);
+        setTimeout(() => generateRef.current?.(null, null, true), 300);
       } else {
         setRenameSuggestions(null);
       }
@@ -672,7 +673,7 @@ For files that are already well-named or should not be renamed, set "newName" to
     } finally {
       setRenameApplying(false);
     }
-  }, [renameSuggestions, selectedCase, onSaveCase, generate]);
+  }, [renameSuggestions, selectedCase, onSaveCase]);
 
   /* ── Generate brief ──────────────────────────────────────────────────── */
   const generate = useCallback(async (confirmedFolderId = null, confirmedFolderName = null, forceRefresh = false, ignoreScore = false) => {
@@ -810,6 +811,9 @@ For files that are already well-named or should not be renamed, set "newName" to
       setLoading(false); setStep('');
     }
   }, [selectedClient, selectedCase, fetchDriveContext, projectId, onSaveCase]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* ── Keep generateRef in sync ───────────────────────────────────────── */
+  generateRef.current = generate;
 
   /* ── Revert ──────────────────────────────────────────────────────────── */
   const handleRevert = async () => {
