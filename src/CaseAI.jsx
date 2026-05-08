@@ -64,9 +64,9 @@ async function callManus(body, projectId = null) {
   let data;
   try { data = JSON.parse(rawText); }
   catch {
-    throw new Error(r.status === 413
-      ? 'PDF 文件太大，请减小文件大小后重试（请求体限制 8MB）'
-      : `服务器返回非 JSON 响应 (${r.status}): ${rawText.slice(0, 120)}`);
+    if (r.status === 413) throw new Error('PDF 文件太大，请减小文件大小后重试（请求体限制 8MB）');
+    if (r.status === 504 || rawText.includes('FUNCTION_INVOCATION_TIMEOUT')) throw new Error('AI 服务响应超时（504）。文件较多时处理时间较长，请稍后重试，或减少文件数量后再试。');
+    throw new Error(`服务器返回非 JSON 响应 (${r.status}): ${rawText.slice(0, 120)}`);
   }
   if (!r.ok) throw new Error(
     typeof data.error === 'object'

@@ -894,6 +894,7 @@ function Modal({ title, onClose, children, wide }) {
     return () => { document.body.style.overflow = prev; };
   }, []);
 
+  const overlayMouseDownTarget = React.useRef(null);
   const overlay = (
     <div
       style={{
@@ -902,7 +903,8 @@ function Modal({ title, onClose, children, wide }) {
         zIndex:9999, display:'flex', alignItems:'flex-start',
         justifyContent:'center', overflowY:'auto', padding:'40px 16px 40px',
       }}
-      onClick={e => e.target===e.currentTarget && onClose()}
+      onMouseDown={e => { overlayMouseDownTarget.current = e.target; }}
+      onClick={e => { if (e.target === e.currentTarget && overlayMouseDownTarget.current === e.currentTarget) onClose(); }}
     >
       <div
         className="animate-fade"
@@ -912,6 +914,7 @@ function Modal({ title, onClose, children, wide }) {
           boxShadow:'0 24px 80px rgba(0,0,0,0.22)',
           flexShrink:0,
         }}
+        onMouseDown={e => e.stopPropagation()}
         onClick={e => e.stopPropagation()}
       >
         {/* Sticky header */}
@@ -1081,7 +1084,7 @@ function NotesPanel({ notes, onAddNote, onDeleteNote }) {
           placeholder="Add a note… (Ctrl+Enter to save)"
           style={{ ...textareaStyle, minHeight:60, flex:1, fontSize:13 }}
         />
-        <button onClick={handleAdd} style={{ background:'linear-gradient(135deg,#ff158a,#ff5fae)', border:'none', borderRadius:8, padding:'0 14px', color:'#fff', fontWeight:700, fontSize:13, alignSelf:'stretch', minWidth:60 }}>Add</button>
+        <button type="button" onClick={handleAdd} style={{ background:'linear-gradient(135deg,#ff158a,#ff5fae)', border:'none', borderRadius:8, padding:'0 14px', color:'#fff', fontWeight:700, fontSize:13, alignSelf:'stretch', minWidth:60 }}>Add</button>
       </div>
       {/* Notes list */}
       <div style={{ display:'flex', flexDirection:'column', gap:8, maxHeight:260, overflowY:'auto' }}>
@@ -1880,12 +1883,40 @@ ${noteImportText.slice(0,4000)}`
             <span>{icon}</span>{label}
           </div>
         );
-        const InfoRow = ({ label, value, highlight, warn }) => (
-          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:6, gap:8 }}>
-            <span style={{ fontSize:11, color:'#9ca3af', flexShrink:0, minWidth:86 }}>{label}</span>
-            <span style={{ fontSize:12, fontWeight:600, color: warn ? '#dc2626' : highlight ? '#4f46e5' : '#111827', textAlign:'right', wordBreak:'break-word' }}>{value || '—'}</span>
-          </div>
-        );
+        const ExpandableText = ({ label, text, maxLines = 3 }) => {
+          const [expanded, setExpanded] = React.useState(false);
+          const isLong = text && text.length > 60;
+          return (
+            <div style={{ marginBottom:7 }}>
+              <div style={{ fontSize:10, color:'#9ca3af', marginBottom:2 }}>{label}</div>
+              <div style={{ fontSize:11, fontWeight:600, color:'#374151', lineHeight:1.5,
+                overflow: expanded ? 'visible' : 'hidden',
+                display: expanded ? 'block' : '-webkit-box',
+                WebkitLineClamp: expanded ? 'unset' : maxLines,
+                WebkitBoxOrient: 'vertical',
+              }}>{text || '—'}</div>
+              {isLong && (
+                <button onClick={() => setExpanded(e => !e)} style={{ marginTop:2, fontSize:10, color:'#6366f1', background:'none', border:'none', padding:0, cursor:'pointer', fontWeight:600 }}>
+                  {expanded ? '收起 ▲' : '展开 ▼'}
+                </button>
+              )}
+            </div>
+          );
+        };
+        const InfoRow = ({ label, value, highlight, warn, long }) => {
+          const isLong = long || (typeof value === 'string' && value.length > 30);
+          return isLong ? (
+            <div style={{ marginBottom:7 }}>
+              <div style={{ fontSize:10, color:'#9ca3af', marginBottom:2 }}>{label}</div>
+              <div style={{ fontSize:11, fontWeight:600, color: warn ? '#dc2626' : highlight ? '#4f46e5' : '#374151', lineHeight:1.4, wordBreak:'break-word' }}>{value || '—'}</div>
+            </div>
+          ) : (
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:6, gap:8 }}>
+              <span style={{ fontSize:11, color:'#9ca3af', flexShrink:0, minWidth:60 }}>{label}</span>
+              <span style={{ fontSize:12, fontWeight:600, color: warn ? '#dc2626' : highlight ? '#4f46e5' : '#111827', textAlign:'right', wordBreak:'break-word', maxWidth:'60%' }}>{value || '—'}</span>
+            </div>
+          );
+        };
         return (
         <div style={{ paddingRight:2 }}>
           {/* ── HEADER BANNER ── */}
@@ -1938,7 +1969,10 @@ ${noteImportText.slice(0,4000)}`
             <div style={{ background:'#f8fafc', border:'1.5px solid #e2e8f0', borderRadius:11, padding:'13px 14px' }}>
               <SectionTitle icon="📋" label="签证状态 Visa" />
               <InfoRow label="目标签证" value={p.visaTarget} highlight />
-              <InfoRow label="当前状态" value={p.currentStatus} />
+              {/* Current Status — truncate long text with expand */}
+              {p.currentStatus
+                ? <ExpandableText label="当前状态" text={p.currentStatus} />
+                : <InfoRow label="当前状态" value={null} />}
               {(p.visaHistory||[]).length > 0 ? (
                 <div style={{ marginTop:6 }}>
                   <div style={{ fontSize:10, color:'#9ca3af', marginBottom:4 }}>签证历史</div>
@@ -3076,7 +3110,7 @@ function Jobs({ jobs, clients, team, setJobs, openJobId, setOpenJobId, jobsMembe
   const [filterStatus, setFilterStatus] = useState('All');
   const [filterAssigned, setFilterAssigned] = useState('All');
   const [filterPriority, setFilterPriority] = useState('All');
-  const [sortBy, setSortBy] = useState('default');
+  const [sortBy, setSortBy] = useState('newest');
   const [view, setView] = useState('list');
   const [modal, setModal] = useState(null);
   const [form, setForm] = useState({});
@@ -3162,11 +3196,16 @@ function Jobs({ jobs, clients, team, setJobs, openJobId, setOpenJobId, jobsMembe
     if (sortBy === 'progress') {
       return (b.progress || 0) - (a.progress || 0);
     }
-    // default: newest first
+    // newest / default: newest first (full ISO timestamp for precision)
     return (b.createdAt||'').localeCompare(a.createdAt||'');
   });
 
-  const openAdd = () => { setForm({ title:'', type:'Subclass 500 – Student Visa', clientId: clients[0]?.id||'', assignedTo: team[0]?.id||'', status:'New', priority:'Medium', dueDate:'', notes:[], progress:0, createdAt:today() }); setModal('add'); };
+  const openAdd = () => {
+    setClientSearch(clients[0]?.name || '');
+    setClientDropOpen(false);
+    setForm({ title:'', type:'Subclass 500 – Student Visa', clientId: clients[0]?.id||'', assignedTo: team[0]?.id||'', status:'New', priority:'Medium', dueDate:'', notes:[], progress:0, createdAt:today() });
+    setModal('add');
+  };
   const openEdit = (j) => {
     setClientSearch(clients.find(c=>c.id===j.clientId)?.name||'');
     const effectiveProgress = j.progress ?? STATUS_PROGRESS[j.status] ?? 0;
@@ -3178,7 +3217,7 @@ function Jobs({ jobs, clients, team, setJobs, openJobId, setOpenJobId, jobsMembe
   const save = async () => {
     if (!form.title.trim()) return;
     if (modal === 'add') {
-      const newJob = { ...form, id: 'j'+uid(), progress: parseInt(form.progress)||0 };
+      const newJob = { ...form, id: 'j'+uid(), progress: parseInt(form.progress)||0, createdAt: new Date().toISOString() };
       setJobs(prev => [...prev, newJob]);
       try { await sbInsert('jobs', { id: newJob.id, data: newJob }); } catch(e) { console.warn('Save error:', e); }
     } else {
@@ -3616,7 +3655,7 @@ ${rawText.slice(0,5000)}` }]
           {PRIORITIES.map(p=><option key={p}>{p}</option>)}
         </select>
         <select value={sortBy} onChange={e=>setSortBy(e.target.value)} style={{ ...selectStyle, width:180 }}>
-          <option value="default">↕ Default (Newest)</option>
+          <option value="newest">↕ Newest First</option>
           <option value="urgency">🔥 By Urgency</option>
           <option value="progress">📊 By Progress ↓</option>
         </select>
