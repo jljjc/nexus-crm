@@ -612,7 +612,7 @@ const GLOBAL_CSS = `
 `;
 
 /* ─── CONSTANTS ─────────────────────────────────────────────────────────────── */
-const JOB_STATUSES = ['New', 'In Progress', 'Awaiting Docs', 'Under Review', 'State Nomination', 'Awaiting Decision', 'S56 Request (Further Information)', 'Completed', 'On Hold'];
+const JOB_STATUSES = ['New', 'In Progress', 'Awaiting Docs', 'Awaiting Client', 'Under Review', 'State Nomination', 'Awaiting Decision', 'S56 Request (Further Information)', 'Completed', 'On Hold'];
 const JOB_TYPES = [
   // Skill Assessments
   'Skills Assessment – ACS (IT)',
@@ -675,8 +675,9 @@ const CLIENT_STATUSES = ['Active', 'Pending', 'Completed', 'Inactive'];
 const STATUS_STYLES = {
   'New':           { bg: '#ffd6ee', text: '#c11569', dot: '#c11569' },
   'In Progress':   { bg: '#ddf0ff', text: '#0073ea', dot: '#0073ea' },
-  'Awaiting Docs': { bg: '#fff3c9', text: '#7a5800', dot: '#7a5800' },
-  'Under Review':  { bg: '#fff3c9', text: '#7a5800', dot: '#7a5800' },
+  'Awaiting Docs':   { bg: '#fff3c9', text: '#7a5800', dot: '#7a5800' },
+  'Awaiting Client': { bg: '#ede9fe', text: '#6d28d9', dot: '#6d28d9' },
+  'Under Review':    { bg: '#fff3c9', text: '#7a5800', dot: '#7a5800' },
   'State Nomination': { bg: '#ddf0ff', text: '#0073ea', dot: '#0073ea' },
   'Completed':     { bg: '#c2f0db', text: '#0a6640', dot: '#0a6640' },
   'Awaiting Decision': { bg: '#f3f4f6', text: '#676879', dot: '#676879' },
@@ -857,7 +858,7 @@ function Avatar({ name, color, size=32 }) {
 }
 
 const STATUS_PROGRESS = {
-  'New': 5, 'In Progress': 40, 'Awaiting Docs': 25,
+  'New': 5, 'In Progress': 40, 'Awaiting Docs': 25, 'Awaiting Client': 20,
   'Under Review': 70, 'State Nomination': 85,
   'Awaiting Decision': 100, 'S56 Request (Further Information)': 90,
   'Completed': 100, 'On Hold': 100,
@@ -1180,7 +1181,7 @@ function Dashboard({ clients, jobs, team, onGoTo, setJobsMemberFilter, setJobsSt
   const awaitingDecision = jobs.filter(j=>j.status==='Awaiting Decision').length;
   const urgent = jobs.filter(j=>j.priority==='Urgent' && j.status!=='Completed').length;
   const completed = jobs.filter(j=>j.status==='Completed').length; // eslint-disable-line no-unused-vars
-  const overdue = jobs.filter(j=> j.status!=='Completed' && j.status!=='Awaiting Decision' && isOverdue(j.dueDate)).length;
+  const overdue = jobs.filter(j=> j.status!=='Completed' && j.status!=='Awaiting Decision' && j.status!=='Awaiting Client' && isOverdue(j.dueDate)).length;
   const recentJobs = [...jobs].sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).slice(0,5);
   const getClient = id => clients.find(c=>c.id===id);
   const getMember = id => team.find(t=>t.id===id);
@@ -1188,7 +1189,7 @@ function Dashboard({ clients, jobs, team, onGoTo, setJobsMemberFilter, setJobsSt
   // Exclude owners Liang (t1) and Mansi (t2) from workload display
   const memberLoad = team
     .filter(m => m.id !== 't1' && m.id !== 't2')
-    .map(m => ({ ...m, count: jobs.filter(j=>j.assignedTo===m.id && j.status!=='Completed' && j.status!=='Awaiting Decision' && j.status!=='On Hold').length }))
+    .map(m => ({ ...m, count: jobs.filter(j=>j.assignedTo===m.id && j.status!=='Completed' && j.status!=='Awaiting Decision' && j.status!=='On Hold' && j.status!=='Awaiting Client').length }))
     .sort((a,b) => b.count - a.count)
     .slice(0, 6);
 
@@ -1876,7 +1877,7 @@ ${noteImportText.slice(0,4000)}`
           risks.push({ level: visaDays < 14 ? 'high':'med', msg: `签证将在 ${visaDays} 天后到期`, icon:'📋' });
         if (assessDays !== null && assessDays < 90)
           risks.push({ level: assessDays < 30 ? 'high':'med', msg: `职业评估将在 ${assessDays} 天后到期`, icon:'💼' });
-        const activeJobs = clientJobs.filter(j => j.status !== 'Completed' && j.status !== 'On Hold');
+        const activeJobs = clientJobs.filter(j => j.status !== 'Completed' && j.status !== 'On Hold' && j.status !== 'Awaiting Client');
         const latestJob  = [...clientJobs].sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''))[0];
         const SectionTitle = ({ icon, label }) => (
           <div style={{ fontSize:10, fontWeight:700, color:'#6b7280', textTransform:'uppercase', letterSpacing:'0.09em', marginBottom:10, display:'flex', alignItems:'center', gap:5 }}>
@@ -3176,7 +3177,7 @@ function Jobs({ jobs, clients, team, setJobs, openJobId, setOpenJobId, jobsMembe
     const statusMatch = filterStatus === 'All'
       ? true
       : filterStatus === 'active_not_awaiting'
-        ? j.status !== 'Completed' && j.status !== 'Awaiting Decision' && j.status !== 'On Hold'
+        ? j.status !== 'Completed' && j.status !== 'Awaiting Decision' && j.status !== 'On Hold' && j.status !== 'Awaiting Client'
         : j.status === filterStatus;
     return (
       (!q || j.title.toLowerCase().includes(q) || client?.name.toLowerCase().includes(q) || j.type.toLowerCase().includes(q)) &&
@@ -3666,7 +3667,7 @@ ${rawText.slice(0,5000)}` }]
         {filtered.map(j => {
           const client = getClient(j.clientId);
           const member = getMember(j.assignedTo);
-          const overdue = isOverdue(j.dueDate) && j.status !== 'Completed' && j.status !== 'Awaiting Decision';
+          const overdue = isOverdue(j.dueDate) && j.status !== 'Completed' && j.status !== 'Awaiting Decision' && j.status !== 'Awaiting Client';
           const jnotes = normalizeNotes(j.notes);
           return (
             <Card key={j.id} onClick={()=>setViewJob(j)} style={{ padding:'14px 18px', cursor:'pointer' }}>
@@ -4040,7 +4041,7 @@ function Team({ team, jobs, clients, setTeam, setJobs: setJobsOuter }) {
   const PRIORITY_ORDER = { 'Urgent': 0, 'High': 1, 'Medium': 2, 'Low': 3 };
 
   const getMemberJobs = id => jobs
-    .filter(j => j.assignedTo === id && j.status !== 'Completed' && j.status !== 'Awaiting Decision' && j.status !== 'On Hold')
+    .filter(j => j.assignedTo === id && j.status !== 'Completed' && j.status !== 'Awaiting Decision' && j.status !== 'On Hold' && j.status !== 'Awaiting Client')
     .sort((a, b) => {
       const pdiff = PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority];
       if (pdiff !== 0) return pdiff;
@@ -4065,7 +4066,7 @@ function Team({ team, jobs, clients, setTeam, setJobs: setJobsOuter }) {
   /* Shared job-row renderer used both in cards and drill-down modal */
   const CaseRow = ({ j, idx, compact }) => {
     const client = getClient(j.clientId);
-    const overdue = isOverdue(j.dueDate) && j.status !== 'Awaiting Decision';
+    const overdue = isOverdue(j.dueDate) && j.status !== 'Awaiting Decision' && j.status !== 'Awaiting Client';
     const pStyle = PRIORITY_STYLES[j.priority] || {};
     const isUrgentTop = idx === 0 && j.priority === 'Urgent';
     return (
