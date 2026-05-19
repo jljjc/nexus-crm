@@ -1188,7 +1188,7 @@ function Dashboard({ clients, jobs, team, onGoTo, setJobsMemberFilter, setJobsSt
   // Exclude owners Liang (t1) and Mansi (t2) from workload display
   const memberLoad = team
     .filter(m => m.id !== 't1' && m.id !== 't2')
-    .map(m => ({ ...m, count: jobs.filter(j=>j.assignedTo===m.id && j.status!=='Completed' && j.status!=='Awaiting Decision').length }))
+    .map(m => ({ ...m, count: jobs.filter(j=>j.assignedTo===m.id && j.status!=='Completed' && j.status!=='Awaiting Decision' && j.status!=='On Hold').length }))
     .sort((a,b) => b.count - a.count)
     .slice(0, 6);
 
@@ -3144,6 +3144,7 @@ function Jobs({ jobs, clients, team, setJobs, openJobId, setOpenJobId, jobsMembe
     if (jobsMemberFilter) {
       setFilterAssigned(jobsMemberFilter);
       setFilterStatus('active_not_awaiting');
+      setSortBy('urgency');
       if (setJobsMemberFilter) setJobsMemberFilter(null);
     }
   }, [jobsMemberFilter]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -3175,7 +3176,7 @@ function Jobs({ jobs, clients, team, setJobs, openJobId, setOpenJobId, jobsMembe
     const statusMatch = filterStatus === 'All'
       ? true
       : filterStatus === 'active_not_awaiting'
-        ? j.status !== 'Completed' && j.status !== 'Awaiting Decision'
+        ? j.status !== 'Completed' && j.status !== 'Awaiting Decision' && j.status !== 'On Hold'
         : j.status === filterStatus;
     return (
       (!q || j.title.toLowerCase().includes(q) || client?.name.toLowerCase().includes(q) || j.type.toLowerCase().includes(q)) &&
@@ -3665,7 +3666,7 @@ ${rawText.slice(0,5000)}` }]
         {filtered.map(j => {
           const client = getClient(j.clientId);
           const member = getMember(j.assignedTo);
-          const overdue = isOverdue(j.dueDate) && j.status !== 'Completed';
+          const overdue = isOverdue(j.dueDate) && j.status !== 'Completed' && j.status !== 'Awaiting Decision';
           const jnotes = normalizeNotes(j.notes);
           return (
             <Card key={j.id} onClick={()=>setViewJob(j)} style={{ padding:'14px 18px', cursor:'pointer' }}>
@@ -4039,7 +4040,7 @@ function Team({ team, jobs, clients, setTeam, setJobs: setJobsOuter }) {
   const PRIORITY_ORDER = { 'Urgent': 0, 'High': 1, 'Medium': 2, 'Low': 3 };
 
   const getMemberJobs = id => jobs
-    .filter(j => j.assignedTo === id && j.status !== 'Completed')
+    .filter(j => j.assignedTo === id && j.status !== 'Completed' && j.status !== 'Awaiting Decision' && j.status !== 'On Hold')
     .sort((a, b) => {
       const pdiff = PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority];
       if (pdiff !== 0) return pdiff;
@@ -4064,7 +4065,7 @@ function Team({ team, jobs, clients, setTeam, setJobs: setJobsOuter }) {
   /* Shared job-row renderer used both in cards and drill-down modal */
   const CaseRow = ({ j, idx, compact }) => {
     const client = getClient(j.clientId);
-    const overdue = isOverdue(j.dueDate);
+    const overdue = isOverdue(j.dueDate) && j.status !== 'Awaiting Decision';
     const pStyle = PRIORITY_STYLES[j.priority] || {};
     const isUrgentTop = idx === 0 && j.priority === 'Urgent';
     return (
