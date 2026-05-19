@@ -154,18 +154,22 @@ export default async function handler(req, res) {
     const subfolders = topLevel.filter(f => f.mimeType === 'application/vnd.google-apps.folder');
     const directFiles = topLevel.filter(f => f.mimeType !== 'application/vnd.google-apps.folder');
 
-    // Recurse one level into each subfolder (limit 6 subfolders)
+    // Recurse one level into each subfolder (limit 6 subfolders) — parallel
     const subFiles = [];
-    for (const folder of subfolders.slice(0, 6)) {
-      try {
+    const subFolderResults = await Promise.allSettled(
+      subfolders.slice(0, 6).map(async (folder) => {
         const sub = await driveApi('files', {
           q: `'${folder.id}' in parents and trashed = false and mimeType != 'application/vnd.google-apps.folder'`,
           fields: 'files(id,name,mimeType,size,modifiedTime)',
           orderBy: 'modifiedTime desc',
           pageSize: '20',
         });
-        (sub.files || []).forEach(f => subFiles.push({ ...f, name: `${folder.name}/${f.name}` }));
-      } catch { /* skip inaccessible subfolder */ }
+        return (sub.files || []).map(f => ({ ...f, name: `${folder.name}/${f.name}` }));
+      })
+    );
+    for (const r of subFolderResults) {
+      if (r.status === 'fulfilled') subFiles.push(...r.value);
+      // silently skip inaccessible subfolders
     }
 
     // ── Immigration document relevance scorer ─────────────────────────────
@@ -256,7 +260,8 @@ export default async function handler(req, res) {
     const READ_LIMIT = ignoreScore ? 30 : 20;       // ignoreScore mode reads up to 30 files
     const MIN_SCORE_TO_READ = ignoreScore ? 0 : 45; // ignoreScore: read everything
     const CHARS_PER_FILE = ignoreScore ? 1500 : 2000; // smaller per-file budget when reading all
-    const CONCURRENCY = 5;       // Parallel requests per batch
+    const CONCURRENCY = 8;       // Parallel requests per batch (increased from 5)
+    const FILE_TIMEOUT_MS = 8000; // Per-file read timeout (8s)
 
     const classified = allFiles.map(file => {
       const mime = file.mimeType || '';
@@ -311,11 +316,12 @@ export default async function handler(req, res) {
         skipped: false,
         extractMethod: file._method,
       };
-      try {
+      // Wrap the actual read in a per-file timeout
+      const doRead = async () => {
         if (file._method === 'gdrive-export') {
           const text = await exportAsText(file.id);
           const trimmed = text.replace(/\s+/g, ' ').trim();
-          entry.textContent = trimmed.slice(0, CHARS_PER_FILE); // CHARS_PER_FILE is in scope
+          entry.textContent = trimmed.slice(0, CHARS_PER_FILE);
           if (!entry.textContent) {
             entry.skipped = true;
             entry.error = 'export-empty';
@@ -325,6 +331,14 @@ export default async function handler(req, res) {
           const text = await r.text();
           entry.textContent = text.slice(0, CHARS_PER_FILE);
         }
+      };
+      try {
+        await Promise.race([
+          doRead(),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error(`读取超时 (${FILE_TIMEOUT_MS / 1000}s)`)), FILE_TIMEOUT_MS)
+          ),
+        ]);
       } catch (e) {
         entry.skipped = true;
         entry.error = e.message.slice(0, 200);
@@ -334,23 +348,44 @@ export default async function handler(req, res) {
 
     const processed = [];
 
-    // Process in batches of CONCURRENCY
-    for (let i = 0; i < toRead.length; i += CONCURRENCY) {
-      const batch = toRead.slice(i, i + CONCURRENCY);
-      const results = await Promise.allSettled(batch.map(readFile));
-      for (let j = 0; j < results.length; j++) {
-        const r = results[j];
-        if (r.status === 'fulfilled') {
-          processed.push(r.value);
-        } else {
-          const file = batch[j];
-          processed.push({
-            id: file.id, name: file.name, mimeType: file.mimeType,
-            modifiedTime: file.modifiedTime, relevanceScore: file._score,
-            textContent: null, base64Content: null, skipped: true,
-            error: r.reason?.message?.slice(0, 200) || 'unknown',
+    // Process all files in parallel with concurrency limit (semaphore pattern)
+    let active = 0;
+    let idx = 0;
+    const results = new Array(toRead.length);
+
+    await new Promise((resolve) => {
+      const next = () => {
+        while (active < CONCURRENCY && idx < toRead.length) {
+          const i = idx++;
+          active++;
+          readFile(toRead[i]).then(r => {
+            results[i] = { status: 'fulfilled', value: r };
+          }).catch(e => {
+            results[i] = { status: 'rejected', reason: e };
+          }).finally(() => {
+            active--;
+            if (idx < toRead.length) next();
+            else if (active === 0) resolve();
           });
         }
+        if (toRead.length === 0) resolve();
+      };
+      next();
+    });
+
+    for (let i = 0; i < results.length; i++) {
+      const r = results[i];
+      if (!r) continue;
+      if (r.status === 'fulfilled') {
+        processed.push(r.value);
+      } else {
+        const file = toRead[i];
+        processed.push({
+          id: file.id, name: file.name, mimeType: file.mimeType,
+          modifiedTime: file.modifiedTime, relevanceScore: file._score,
+          textContent: null, base64Content: null, skipped: true,
+          error: r.reason?.message?.slice(0, 200) || 'unknown',
+        });
       }
     }
 

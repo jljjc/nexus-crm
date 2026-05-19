@@ -679,10 +679,15 @@ function SnapshotSection({
       try {
         const token = await getValidToken();
         if (token) {
+          const driveAbort = new AbortController();
+          const driveTimer = setTimeout(() => driveAbort.abort(), 25000); // 25s timeout
+          try {
           const r = await fetch('/api/drive-sync', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ accessToken: token, clientName: selectedClient.name }),
+            signal: driveAbort.signal,
           });
+          clearTimeout(driveTimer);
           if (r.ok) {
             const driveData = await r.json();
             if (!driveData.folderFound) {
@@ -740,6 +745,11 @@ function SnapshotSection({
             const errData = await r.json().catch(() => ({}));
             setDriveStatus({ found: false, message: `Drive 读取失败: ${errData.error || r.status}` });
           }
+          } catch (innerErr) {
+            clearTimeout(driveTimer);
+            const isTimeout = innerErr.name === 'AbortError' || innerErr.message?.includes('超时');
+            setDriveStatus({ found: false, message: isTimeout ? 'Drive 读取超时，将基于 CRM 数据生成快照' : `Drive 读取失败: ${innerErr.message}` });
+          }
         }
       } catch (driveErr) {
         setDriveStatus({ found: false, message: `Drive 连接失败: ${driveErr.message}` });
@@ -791,7 +801,7 @@ function SnapshotSection({
       // This avoids Vercel 504 timeout — the Edge function pipes tokens in real-time
       // and the browser stays connected until "done" event arrives.
       const _snapshotBody = {
-          model: 'claude-haiku-4-5-20251001', max_tokens: 1500,
+          model: 'claude-haiku-4-5-20251001', max_tokens: 4000,
           messages: [{ role: 'user', content: messageContent }],
           // No PDF blocks — text extracted server-side
         };
