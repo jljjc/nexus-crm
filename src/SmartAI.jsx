@@ -327,7 +327,8 @@ function buildSnapshotPrompt(client, caseObj, emailContext, sessionDocs, driveCo
   const s = caseObj || {};
 
   const crmData = [
-    client?.name         && `姓名：${client.name}`,
+    client?.name         && `英文姓名：${client.name}`,
+    (p.nameZh || p.nameChinese) && `中文姓名：${p.nameZh || p.nameChinese}`,
     client?.email        && `邮箱：${client.email}`,
     client?.phone        && `电话：${client.phone}`,
     client?.nationality  && `国籍：${client.nationality}`,
@@ -370,6 +371,7 @@ ${existingSnapshot.slice(0, 3000)}
 ---` : '【新建模式】：请根据以下所有资料，生成一份详细、专业的客户快照，供顾问接案前阅读。'}
 如某部分信息不足，写"资料待补充"——不要留空，不要虚构信息。
 重要提示：
+• 申请人姓名：**英文姓名必须直接使用 CRM 档案中的"英文姓名"字段**；**中文姓名必须直接使用 CRM 档案中的"中文姓名"字段**，禁止自行翻译或猜测汉字。
 • 如 Google Drive 文件包含 PDF 附件，请仔细阅读其全部内容，提取护照号码、护照有效期、出生日期、国籍、地址等个人信息。
 • 如上传文件中确实没有护照扫描件，请在"四、关键文件清单"中注明"护照扫描件：未在 Drive 文件夹中找到"。
 • 请区分"资料待补充（文件中无相关内容）"与"资料待收集（文件未上传）"。
@@ -399,7 +401,7 @@ ${emailContext}` : ''}
 
 ================================================================================
   客户快照  |  CLIENT SNAPSHOT
-  ${client?.name || '[姓名]'} — [签证类型]
+  ${client?.name || '[姓名]'}${(p.nameZh||p.nameChinese) ? ` （${p.nameZh||p.nameChinese}）` : ''} — [签证类型]
   生成日期：${today} | 经办代理：Liang Jiang | Ozsky Migration
 ================================================================================
 
@@ -904,12 +906,17 @@ function SnapshotSection({
   const autoApply = async (snapshotText) => {
     if (!snapshotText) return;
     setApplyBusy(true);
+    // Pre-fill known-good name fields from CRM to prevent AI mistranslation
+    const p0 = selectedClient?.profile || {};
+    const knownNameZh = p0.nameZh || p0.nameChinese || selectedClient?.nameChinese || '';
+    const knownName   = selectedClient?.name || '';
     try {
       const _applyBody = {
           _stream: false,
-          model: 'claude-haiku-4-5-20251001', max_tokens: 1200,
+          model: 'claude-haiku-4-5-20251001', max_tokens: 2000,
           messages: [{ role: 'user', content: `从以下客户快照提取信息，返回纯JSON（无markdown，无注释）。只填写找到的字段，找不到的字段用空字符串或空数组。数组字段如果没有数据则返回[]。
 所有日期字段必须统一格式为 YYYY-MM-DD（如 2024-03-15），不得使用中文日期、斜杠格式或其他格式。
+重要：name字段必须填"${knownName}"；nameChinese和profile.nameZh字段必须填"${knownNameZh}"，不得自行翻译或修改姓名。
 
 {
   "name": "",
